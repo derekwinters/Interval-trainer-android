@@ -1,0 +1,59 @@
+# This repository's ai-sdlc configuration. Hand-written; the only file under
+# `.ai-sdlc/` that ai-sdlc reads and never rewrites (it appends `skills:` once,
+# on first adoption, and then leaves this file alone).
+#
+# Schema: docs/spec/configuration.md in ai-sdlc, at the commit recorded in
+# `ai-sdlc.pin`.
+
+# The whole pipeline. `substrate` is implied. `pipeline` depends on every
+# capability above it, so all five are listed rather than relying on inference.
+capabilities:
+  - hygiene       # Conventional Commit titles, one closing keyword per PR
+  - consistency   # spec <-> test traceability gate
+  - labels        # label taxonomy applied from labels.core.yml + labels.repo.yml
+  - release       # release-please, driven by the squash-merge titles
+  - pipeline      # issue triage, approval, dashboard
+
+# No profile yet. There is no build in this repository so far; add `kotlin`
+# here once a Gradle build (build.gradle or build.gradle.kts) exists.
+
+# The humans whose approval moves an issue from pending-approval to
+# ready-for-work. A list, even when it is one person.
+owners:
+  - derekwinters
+
+# Dashboard issue #1 already exists in this repository; adopt reuses it rather
+# than creating a second one.
+dashboard_issue: 1
+
+# Milestones are named after versions, so they sort as semver.
+milestone_ordering: semver
+
+# The *names* of the repository secrets holding the analysis routine's endpoint
+# and token — never the values. Triage does not run without both.
+fire:
+  endpoint_secret: ROUTINE_FIRE_URL
+  token_secret: ROUTINE_FIRE_TOKEN
+
+# `commands.test` and `commands.verify` are deliberately unset: there is no
+# Gradle project yet, and a guessed command that runs nothing is worse than
+# none. Set them once the build exists, e.g.
+#
+#   commands:
+#     test: ./gradlew test
+
+# Which ai-sdlc skills this repository installs. `skills-update` opens a
+# pull request when one of them changes upstream, and a name removed here
+# is uninstalled on the next run.
+#
+# Seeded once by `adopt` from the capabilities above, and never touched
+# again: this list is yours. Add to it, prune it, or set it to `[]` to
+# install none — whatever is here is what a later adoption will honour.
+skills:
+  - github-api
+  - release-flow
+  - triage-issue
+  - pipeline-dev
+  - issue-blockers
+  - ci-watch
+  - milestone-ops
