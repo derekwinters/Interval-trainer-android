@@ -1,0 +1,10 @@
+# This repository's own labels — `area:*` and anything local. Hand-written.
+#
+# The shared vocabulary (pipeline states, `skip-docs`, `no-closing-keyword`,
+# `type:epic`) is in labels.core.yml, which is installed and pinned by ai-sdlc;
+# a label defined in both files is an error. Every label here needs a name, a
+# six-hex-digit colour with no `#`, and a description. Nothing is deleted
+# unless it is listed under `delete:`.
+#
+# Empty for now: the app has no code yet, so it has no areas to label.
+labels: []
