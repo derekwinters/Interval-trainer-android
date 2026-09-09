@@ -36,6 +36,12 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
 
+      # The release-signature gate decides whether a release APK may be published, so it is
+      # proven before anything trusts it. Pure Python and standard library only: no Android SDK,
+      # no keystore, no APK, and no action to pin (SIGN-060, SIGN-061).
+      - name: Run the release-signature gate's unit tests
+        run: python3 -m unittest discover -s .github/scripts/tests -v
+
       - name: Run the unit tests
         run: ./gradlew test
 

@@ -83,7 +83,9 @@ proper is not specified yet, and the first feature to need a real duration type 
 - **BUILD-040** A `pr.yml` workflow runs on pull requests targeting the default branch.
   *(manual: a workflow trigger; observable only by opening a pull request.)*
 - **BUILD-041** It runs `./gradlew test` and `./gradlew assembleDebug`, and fails when either
-  fails. *(manual: as BUILD-040.)*
+  fails. It also runs the release-signature gate's unit tests, which are Python and need neither
+  the JDK nor the Android SDK (`SIGN-060` in [`signing.md`](signing.md)). *(manual: as
+  BUILD-040.)*
 - **BUILD-042** It grants `contents: read` and no other permission. *(manual: a workflow
   permission block; reviewed in the diff.)*
 - **BUILD-043** Every `uses:` reference is a full 40-character commit SHA followed by a comment
