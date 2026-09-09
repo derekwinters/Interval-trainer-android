@@ -1,6 +1,12 @@
 # Interval-trainer-android
 Android app for interval exercises
 
+## Building
+
+`./gradlew test` runs the unit tests; `./gradlew assembleDebug` builds the debug APK. Nothing but a
+JDK 17 needs to be installed — the Gradle wrapper and the Android Gradle Plugin fetch the rest. What
+the build guarantees is specified in [`docs/spec/build.md`](docs/spec/build.md).
+
 ## How work is run here
 
 This repository has adopted [ai-sdlc](https://github.com/derekwinters/ai-sdlc), which runs its
