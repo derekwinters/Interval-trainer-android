@@ -1,0 +1,43 @@
+name: pr
+
+# The build gate for a pull request: the unit tests must pass and the app must assemble. This is
+# also where the Android build is verified at all — the Android SDK and the Android Gradle Plugin
+# come from Google's servers, which not every development environment can reach.
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: test and assembleDebug
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the pull request
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      # The JDK and the Android SDK are provisioned here rather than assumed from the runner
+      # image, so what the build compiles against is decided by this file.
+      - name: Set up the JDK
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+        with:
+          packages: 'tools platform-tools platforms;android-35 build-tools;35.0.0'
+
+      # Also validates the checksum of the committed gradle-wrapper.jar.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+
+      - name: Run the unit tests
+        run: ./gradlew test
+
+      - name: Assemble the debug APK
+        run: ./gradlew assembleDebug
