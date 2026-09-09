@@ -1,0 +1,20 @@
+# The Interval Trainer release signing certificate: SHA-256 over the DER-encoded
+# certificate — the same value `keytool -list -v` prints as `SHA256:` (in
+# uppercase, colon-separated) and apksigner prints as
+# "certificate SHA-256 digest" (bare lowercase hex). Pinned here by issue #10
+# so a release APK signed by any other key fails its job before it is published.
+#
+# This is PUBLIC data. It ships inside every APK, so anyone holding a release
+# build already has it; committing it in the clear is what lets a gate check a
+# build without being handed anything that could sign one. The keystore and its
+# passwords are the secrets, and they live only as the repository secrets
+# ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_ALIAS /
+# ANDROID_KEY_ALIAS_PASSWORD. Nothing that unlocks the key belongs in this file
+# or anywhere else in this repository.
+#
+# It must never change. A different fingerprint here means a different signing
+# key, and Android will not install a differently-signed APK over an installed
+# one: every user would have to uninstall first, destroying the app's data.
+# There is no key recovery for a sideloaded app. See
+# docs/adr/0001-release-signing-with-a-stable-keystore.md.
+2f596b227b890f5fcec72c176f0e325623e6261f00ddb102c4f936e9da108e09

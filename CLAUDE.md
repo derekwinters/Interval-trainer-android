@@ -11,6 +11,10 @@ need the Android SDK, which the Gradle plugin fetches from Google's servers — 
 cannot reach them cannot build this project locally, and the `pr` workflow is then the only place
 the Android build is exercised.
 
+`python3 -m unittest discover -s .github/scripts/tests` runs the tests for the checks under
+`.github/scripts/`, standard library only. They need no JDK, no Android SDK and no network, so they
+run anywhere.
+
 ## How work is run here
 
 ai-sdlc governs this repository's issues, labels, milestones, triage, pull-request gates and
