@@ -6,5 +6,28 @@
 # six-hex-digit colour with no `#`, and a description. Nothing is deleted
 # unless it is listed under `delete:`.
 #
-# Empty for now: the app has no code yet, so it has no areas to label.
-labels: []
+# No `area:*` labels yet: the app has no code, so it has no areas to label.
+
+labels:
+  # ------------------------------------------------------------ wayfinder
+  # The planning map and its decision tickets, read by the `wayfinder` skill
+  # (`.claude/skills/wayfinder/SKILL.md`; conventions in
+  # docs/agents/issue-tracker.md). None of these is a pipeline state: a
+  # wayfinder ticket carries no pipeline label and is never admitted to
+  # triage. Created by hand on 2026-09-10 with exactly these colours and
+  # descriptions; declared here so `labels-sync` manages them from now on.
+  - name: wayfinder:map
+    color: "7057FF"
+    description: "The map of a wayfinding effort; its tickets are its sub-issues"
+  - name: wayfinder:research
+    color: "0075CA"
+    description: "Wayfinder ticket, AFK: a fact to surface from primary sources before a decision"
+  - name: wayfinder:prototype
+    color: "E99695"
+    description: "Wayfinder ticket, HITL: a rough artifact to react to"
+  - name: wayfinder:grilling
+    color: "D4C5F9"
+    description: "Wayfinder ticket, HITL: a decision reached in conversation"
+  - name: wayfinder:task
+    color: "BFDADC"
+    description: "Wayfinder ticket: work that must happen before a decision can be made"
