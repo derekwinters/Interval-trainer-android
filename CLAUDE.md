@@ -31,7 +31,8 @@ The planning skills `wayfinder`, `grilling`, `domain-modeling`, `research`, `pro
 [mattpocock/skills](https://github.com/mattpocock/skills). They were installed with
 `gh skill install` at a tagged release and are kept current with `gh skill update`, which reads
 the `metadata` block in each `SKILL.md`; ai-sdlc's `skills-update` workflow does not manage
-them. `/setup-matt-pocock-skills` has not been run.
+them. `/setup-matt-pocock-skills` has been applied for the issue tracker only; see *Agent
+skills* below.
 
 The test and verify commands live in `.ai-sdlc/repo-config.yml` under `commands:`. They are still
 unset — wiring them to the Gradle build is its own issue — so until they are, use the commands
@@ -39,5 +40,25 @@ under *Building* above and do not guess anything else.
 
 No private links — session links, signed URLs, anything carrying a token — ever go into a commit,
 a pull request, an issue or a comment. This repository is public, so each of those is a publication.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in this repository's GitHub Issues and are read and written through the `github-api`
+skill's vocabulary — the MCP tools or the REST API; there is no `gh` CLI here. The conventions the
+planning skills expect are in [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md).
+
+`/setup-matt-pocock-skills` has been applied for the issue tracker only. Its triage-label section
+is not needed because ai-sdlc owns triage, and its domain-doc section is not needed because the
+repository is single-context: `CONTEXT.md` at the root and ADRs under `docs/adr/`.
+
+### Wayfinder closing rule
+
+A wayfinder ticket records its answer as a **resolution comment** on the ticket, and is closed by
+the **pull request that lands the resulting document** — spec, ADR, glossary, research note —
+carrying `Closes #n`. Nobody closes a ticket by hand. The `dev` agent opens that pull request: one
+ticket, one branch, one pull request. Wayfinder tickets carry no pipeline label and are not
+admitted to ai-sdlc triage; the map is the plan.
 
 @.ai-sdlc/house-rules.md
