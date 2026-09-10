@@ -26,6 +26,13 @@ which version, is in `.ai-sdlc/adoption.md`.
 All development is delegated to the `dev` agent at `.claude/agents/dev.md`: one issue, one branch,
 one pull request. It writes the specification first, watches a test fail, then implements.
 
+The planning skills `wayfinder`, `grilling`, `domain-modeling`, `research`, `prototype` and
+`setup-matt-pocock-skills` under `.claude/skills/` come from
+[mattpocock/skills](https://github.com/mattpocock/skills). They were installed with
+`gh skill install` at a tagged release and are kept current with `gh skill update`, which reads
+the `metadata` block in each `SKILL.md`; ai-sdlc's `skills-update` workflow does not manage
+them. `/setup-matt-pocock-skills` has not been run.
+
 The test and verify commands live in `.ai-sdlc/repo-config.yml` under `commands:`. They are still
 unset — wiring them to the Gradle build is its own issue — so until they are, use the commands
 under *Building* above and do not guess anything else.
