@@ -15,12 +15,17 @@ One run of a preset, from start to completion or abandonment.
 _Avoid_: Session
 
 **Interval**:
-One timed segment of a workout, with a kind and a duration. The kinds in v1 are warm-up, work, rest
-and cool-down.
+One timed segment of a workout, with a kind and a duration. The kinds in v1 are warm-up, work,
+recovery and cool-down.
 _Avoid_: Phase, step, period
 
+**Recovery**:
+The low-effort interval of a workout, whatever the person does during it — walking in run-walk
+training, or standing still.
+_Avoid_: Rest
+
 **Round**:
-One work interval followed by its rest interval.
+One work interval followed by its recovery interval.
 _Avoid_: Set, rep, cycle
 
 **Schedule**:
