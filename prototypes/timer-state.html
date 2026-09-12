@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROTOTYPE — interval timer state model</title>
+<style>
+  :root{
+    --ink:#14161a; --dim:#5d6470; --line:#e3e6ec; --bg:#fbfbfd; --panel:#fff;
+    --accent:#3b5bdb; --work:#2f9e44; --recovery:#f0a500; --neutral:#868e96; --lead:#adb5bd;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:1080px;margin:0 auto;padding:28px 20px 64px}
+  h1{font-size:22px;margin:0 0 6px;letter-spacing:-.01em}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin:0 0 10px}
+  .banner{background:#fff4e6;border:1px solid #ffd8a8;border-radius:10px;padding:12px 14px;margin:0 0 18px;font-size:14px}
+  .lede{color:var(--dim);margin:0 0 18px;max-width:70ch}
+  .grid{display:grid;grid-template-columns:1.15fr .85fr;gap:18px;align-items:start}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .panel+.panel{margin-top:18px}
+  .big{font-variant-numeric:tabular-nums;font-size:46px;font-weight:650;letter-spacing:-.02em;line-height:1.05}
+  .kind{display:inline-block;padding:3px 10px;border-radius:999px;color:#fff;font-size:12px;
+    font-weight:650;letter-spacing:.04em;text-transform:uppercase}
+  .k-work{background:var(--work)} .k-recovery{background:var(--recovery);color:#3d2c00}
+  .k-warmup,.k-cooldown{background:var(--neutral)} .k-leadIn{background:var(--lead)}
+  dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:14px 0 0;font-size:14px}
+  dt{color:var(--dim)} dd{margin:0;font-variant-numeric:tabular-nums}
+  button{font:inherit;border:1px solid var(--line);background:#fff;border-radius:8px;
+    padding:7px 12px;cursor:pointer;color:var(--ink)}
+  button:hover:not(:disabled){border-color:#c3c9d4}
+  button:disabled{opacity:.38;cursor:not-allowed}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.on{background:#edf2ff;border-color:#bac8ff}
+  .row{display:flex;flex-wrap:wrap;gap:8px}
+  .row+.row{margin-top:8px}
+  .sub{font-size:12px;color:var(--dim);margin:12px 0 6px;text-transform:uppercase;letter-spacing:.06em}
+  ol.sched{list-style:none;margin:0;padding:0;font-size:14px;max-height:320px;overflow:auto}
+  ol.sched li{display:flex;gap:10px;align-items:center;padding:6px 8px;border-radius:7px}
+  ol.sched li.now{background:#edf2ff;font-weight:600}
+  ol.sched li.done{color:#9aa1ad}
+  ol.sched .dur{margin-left:auto;font-variant-numeric:tabular-nums}
+  .tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+  .tabs button{font-size:13px;padding:6px 10px}
+  .steps{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+  .steps button{text-align:left}
+  .steps button.done{opacity:.45}
+  .cues{font-size:13px;margin:0;padding:0;list-style:none;max-height:190px;overflow:auto;
+    font-variant-numeric:tabular-nums}
+  .cues li{padding:3px 0;border-bottom:1px dashed var(--line)}
+  .muted{color:#9aa1ad;text-decoration:line-through}
+  code{background:#f1f3f5;padding:1px 5px;border-radius:4px;font-size:13px}
+  .q{border-left:3px solid var(--accent);padding:2px 0 2px 12px;margin:14px 0;color:var(--dim);font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="banner"><strong>This is a throwaway prototype.</strong> It is not the app and none of this
+  code ships. It exists to let you feel the timer's state model by clicking, and to catch anything
+  that looks fine written down but feels wrong in use.</div>
+
+  <h1>Interval timer — does this state model feel right?</h1>
+  <p class="lede">
+    A preset is an ordered list of intervals you author. Starting a workout takes a copy of that list,
+    adds a three-second lead-in, and runs it. This page lets you drive that model: start, pause, skip,
+    stop, advance the clock, and watch every cue fire. The question is whether the behaviour matches
+    what you expect at each moment — especially around pausing, skipping, and the last interval.
+  </p>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>Right now</h2>
+        <div id="phaseLine"></div>
+        <div class="big" id="remaining">—</div>
+        <dl id="facts"></dl>
+        <div class="sub">Do something</div>
+        <div class="row" id="controls"></div>
+        <div class="sub">Move the clock</div>
+        <div class="row" id="clock"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Guided walkthroughs</h2>
+        <div class="tabs" id="tabs"></div>
+        <div id="scenarioBody"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2>The schedule being run</h2>
+        <ol class="sched" id="sched"></ol>
+        <div class="sub">Build a different one</div>
+        <div class="row" id="presets"></div>
+        <div class="sub">Generator</div>
+        <div class="row" id="genRow"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Cues fired</h2>
+        <ul class="cues" id="cues"></ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:18px">
+    <h2>Open questions this is meant to settle</h2>
+    <div class="q"><strong>Rounds completed.</strong> With a freely authored list there is no round
+      count to compare against. This counts a round as a work interval, so "3 of 5" means three work
+      intervals finished out of five in the list. Does that read correctly when the list is not
+      uniform?</div>
+    <div class="q"><strong>Skip during a countdown.</strong> Skipping in the last three seconds
+      abandons the remaining ticks and fires the next interval's cue immediately. Does that feel
+      right, or should the countdown finish?</div>
+    <div class="q"><strong>The generator.</strong> "Add rounds" appends to the end of the list and
+      can be told whether to leave a trailing recovery. Should it append, or replace what is there?</div>
+    <div class="q"><strong>An interval exactly three seconds long.</strong> Its first countdown tick
+      would land on the same instant as its own start cue. Here the tick still fires, so you hear a
+      boundary tone and a tick together. The cue specification says the two should be consecutive, a
+      second apart, never simultaneous — so one of them has to give. Which?</div>
+    <div class="q"><strong>Pause and total remaining.</strong> While paused, total remaining freezes.
+      Advancing the clock while paused changes nothing. Confirm that is what you want.</div>
+  </div>
+</div>
+
+<script>
+/* ------------------------------------------------------------------ *
+ * The model. Pure: no DOM, no timers, no globals reached into.
+ * This is the part worth lifting into :core once the question is
+ * answered. Everything below it is a throwaway page.
+ * ------------------------------------------------------------------ */
+const Timer = (() => {
+  const LEAD_IN_MS = 3000;
+  const COUNTDOWN_FROM = 3;
+
+  const dropEmpty = list => list.filter(i => i.ms > 0);
+
+  function scheduleFor(preset){
+    return [{kind:'leadIn', ms:LEAD_IN_MS}, ...dropEmpty(preset.intervals).map(i => ({...i}))];
+  }
+
+  function generate({rounds, workMs, recoveryMs, trailingRecovery}){
+    const out = [];
+    for (let r = 0; r < rounds; r++){
+      out.push({kind:'work', ms:workMs});
+      if (trailingRecovery || r < rounds - 1) out.push({kind:'recovery', ms:recoveryMs});
+    }
+    return out;
+  }
+
+  const init = preset => ({
+    phase:'idle', preset, schedule:[], index:0,
+    nowMs:0, deadlineMs:null, heldRemainingMs:null,
+    muted:false, elapsedMs:0, outcome:null, cues:[], ticked:[]
+  });
+
+  const current = s => s.schedule[s.index] || null;
+
+  function remainingMs(s){
+    if (s.phase === 'running') return Math.max(0, s.deadlineMs - s.nowMs);
+    if (s.phase === 'paused')  return s.heldRemainingMs;
+    return null;
+  }
+
+  function totalRemainingMs(s){
+    if (s.phase === 'idle')  return s.schedule.reduce((n,i) => n + i.ms, 0);
+    if (s.phase === 'ended') return 0;
+    const rest = s.schedule.slice(s.index + 1).reduce((n,i) => n + i.ms, 0);
+    return rest + (remainingMs(s) || 0);
+  }
+
+  const roundsPlanned = s => s.schedule.filter(i => i.kind === 'work').length;
+  const roundsDone = s => s.schedule.slice(0, s.index).filter(i => i.kind === 'work').length;
+  const nextInterval = s => s.schedule[s.index + 1] || null;
+
+  /* Which cue fires when an interval of this kind begins. */
+  function startCueFor(kind){
+    if (kind === 'leadIn') return null;
+    if (kind === 'work') return {tone:'work', vibration:'two pulses', colour:'green'};
+    if (kind === 'recovery') return {tone:'recovery', vibration:'one pulse', colour:'yellow'};
+    return {tone:'recovery', vibration:'one pulse', colour:'neutral'};
+  }
+
+  const emit = (s, label, detail) =>
+    s.cues.push({at:s.nowMs, label, detail, silencedTone:s.muted});
+
+  function beginAt(s, index){
+    s.index = index;
+    const iv = current(s);
+    if (!iv){
+      s.phase = 'ended';
+      s.outcome = s.outcome || 'completed';
+      s.deadlineMs = null;
+      emit(s, 'Finish', 'a tone that cannot be mistaken for a boundary, plus a long vibration');
+      return;
+    }
+    s.deadlineMs = s.nowMs + iv.ms;
+    s.ticked = [];
+    const cue = startCueFor(iv.kind);
+    if (cue) emit(s, labelFor(iv.kind) + ' starts', cue.tone + ' tone, ' + cue.vibration + ', ' + cue.colour);
+    else emit(s, 'Get ready', 'no boundary cue — the lead-in only counts down');
+  }
+
+  const labelFor = k => ({leadIn:'Get ready', warmup:'Warm-up', work:'Work',
+                          recovery:'Recovery', cooldown:'Cool-down'})[k] || k;
+
+  /* Advance the clock, firing countdown ticks and crossing boundaries. */
+  function advance(s, deltaMs){
+    if (s.phase !== 'running') return s;
+    let left = deltaMs;
+    while (left > 0){
+      const iv = current(s);
+      if (!iv) break;
+      const toBoundary = s.deadlineMs - s.nowMs;
+      const step = Math.min(left, toBoundary);
+      const to = s.nowMs + step, startedAt = s.deadlineMs - iv.ms;
+      for (let n = COUNTDOWN_FROM; n >= 1; n--){
+        const at = s.deadlineMs - n * 1000;
+        // A tick fires only if it falls inside this interval — so an interval
+        // shorter than the countdown simply gets fewer ticks — and only once.
+        if (at >= startedAt && at <= to && !s.ticked.includes(n))
+          { s.ticked.push(n); s.nowMs = Math.max(s.nowMs, at);
+            emit(s, 'Countdown ' + n, 'short tick, quieter than a boundary tone'); }
+      }
+      s.nowMs = to; s.elapsedMs += step; left -= step;
+      if (s.nowMs >= s.deadlineMs) beginAt(s, s.index + 1);
+      if (s.phase === 'ended') break;
+    }
+    return s;
+  }
+
+  function reduce(state, action){
+    const s = {...state, schedule:state.schedule.map(i => ({...i})), cues:[...state.cues], ticked:[...(state.ticked||[])]};
+    switch (action.type){
+      case 'LOAD':
+        return {...init(action.preset), schedule:scheduleFor(action.preset)};
+      case 'START':
+        if (s.phase !== 'idle') return state;
+        s.phase = 'running'; s.nowMs = 0; s.elapsedMs = 0;
+        beginAt(s, 0); return s;
+      case 'TICK':
+        return advance(s, action.ms);
+      case 'PAUSE':
+        if (s.phase !== 'running') return state;
+        s.heldRemainingMs = Math.max(0, s.deadlineMs - s.nowMs);
+        s.deadlineMs = null; s.phase = 'paused';
+        emit(s, 'Paused', 'no cue; the app opens up so you can reach the rest of it'); return s;
+      case 'RESUME':
+        if (s.phase !== 'paused') return state;
+        s.deadlineMs = s.nowMs + s.heldRemainingMs; s.heldRemainingMs = null;
+        s.phase = 'running'; emit(s, 'Resumed', 'no cue'); return s;
+      case 'SKIP':
+        if (s.phase !== 'running' && s.phase !== 'paused') return state;
+        emit(s, 'Skipped ' + labelFor(current(s).kind), 'any remaining countdown is abandoned');
+        if (s.phase === 'paused'){ s.phase = 'running'; s.heldRemainingMs = null; }
+        beginAt(s, s.index + 1); return s;
+      case 'STOP':
+        if (s.phase === 'idle' || s.phase === 'ended') return state;
+        s.phase = 'ended'; s.outcome = 'stopped early'; s.deadlineMs = null;
+        emit(s, 'Stopped', 'confirmed first; lands on the summary'); return s;
+      case 'MUTE':
+        s.muted = !s.muted;
+        emit(s, s.muted ? 'Muted' : 'Unmuted', 'tones ' + (s.muted ? 'off' : 'on') + ', vibration unaffected');
+        return s;
+      default: return state;
+    }
+  }
+
+  return {init, reduce, scheduleFor, generate, remainingMs, totalRemainingMs,
+          roundsPlanned, roundsDone, nextInterval, current, labelFor, LEAD_IN_MS};
+})();
+
+/* ------------------------------------------------------------------ *
+ * Throwaway page below this line.
+ * ------------------------------------------------------------------ */
+const mmss = ms => {
+  if (ms === null || ms === undefined) return '—';
+  const t = Math.round(ms / 1000);
+  return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
+};
+
+const PRESETS = {
+  short: {name:'Short taster', intervals:[
+    {kind:'warmup', ms:180000},
+    {kind:'work', ms:60000}, {kind:'recovery', ms:120000},
+    {kind:'work', ms:60000}, {kind:'recovery', ms:120000},
+    {kind:'work', ms:60000}, {kind:'recovery', ms:120000},
+    {kind:'cooldown', ms:180000}]},
+  worked: {name:'The worked example', intervals:[
+    {kind:'warmup', ms:180000},
+    {kind:'work', ms:45000}, {kind:'recovery', ms:90000},
+    {kind:'work', ms:45000}, {kind:'recovery', ms:75000},
+    {kind:'work', ms:60000}, {kind:'recovery', ms:75000},
+    {kind:'work', ms:60000},
+    {kind:'cooldown', ms:300000}]},
+  tiny: {name:'Tiny, for the awkward cases', intervals:[
+    {kind:'warmup', ms:5000},
+    {kind:'work', ms:2000},
+    {kind:'recovery', ms:8000},
+    {kind:'work', ms:6000},
+    {kind:'cooldown', ms:0},
+    {kind:'cooldown', ms:4000}]}
+};
+
+let state = (() => { const p = PRESETS.worked; return {...Timer.init(p), schedule:Timer.scheduleFor(p)}; })();
+let scenario = null, step = 0;
+
+const send = a => { state = Timer.reduce(state, a); render(); };
+
+function render(){
+  const s = state, iv = Timer.current(s);
+  const phase = {idle:'Not started', running:'Running', paused:'Paused', ended:'Finished'}[s.phase];
+  const lock = s.phase === 'running' ? 'locked to the running screen'
+             : s.phase === 'paused' ? 'open — the rest of the app is reachable' : 'not in a workout';
+
+  document.getElementById('phaseLine').innerHTML =
+    (iv && s.phase !== 'ended' ? '<span class="kind k-' + iv.kind + '">' + Timer.labelFor(iv.kind) + '</span> ' : '') +
+    '<span style="color:var(--dim)">' + phase + (s.outcome ? ' — ' + s.outcome : '') + '</span>';
+
+  document.getElementById('remaining').textContent =
+    s.phase === 'ended' ? mmss(0) : mmss(Timer.remainingMs(s) ?? (iv ? iv.ms : null));
+
+  document.getElementById('facts').innerHTML = [
+    ['Round', Timer.roundsDone(s) + ' of ' + Timer.roundsPlanned(s) + ' work intervals'],
+    ['Total remaining', mmss(Timer.totalRemainingMs(s))],
+    ['Total elapsed', mmss(s.elapsedMs)],
+    ['Next up', Timer.nextInterval(s) ? Timer.labelFor(Timer.nextInterval(s).kind) + ' · ' + mmss(Timer.nextInterval(s).ms) : 'nothing — this is the last one'],
+    ['Tones', s.muted ? 'muted (vibration still fires)' : 'on'],
+    ['App navigation', lock]
+  ].map(([k,v]) => '<dt>' + k + '</dt><dd>' + v + '</dd>').join('');
+
+  const btn = (label, action, on) =>
+    '<button ' + (on ? 'disabled' : '') + ' data-a=\'' + JSON.stringify(action) + '\'>' + label + '</button>';
+  document.getElementById('controls').innerHTML =
+    btn('Start', {type:'START'}, s.phase !== 'idle') +
+    btn('Pause', {type:'PAUSE'}, s.phase !== 'running') +
+    btn('Resume', {type:'RESUME'}, s.phase !== 'paused') +
+    btn('Skip', {type:'SKIP'}, s.phase !== 'running' && s.phase !== 'paused') +
+    btn('Stop', {type:'STOP'}, s.phase === 'idle' || s.phase === 'ended') +
+    '<button class="' + (s.muted ? 'on' : '') + '" data-a=\'{"type":"MUTE"}\'>' + (s.muted ? 'Unmute' : 'Mute') + '</button>';
+
+  const running = s.phase !== 'running';
+  document.getElementById('clock').innerHTML =
+    btn('+1 second', {type:'TICK', ms:1000}, running) +
+    btn('+5 seconds', {type:'TICK', ms:5000}, running) +
+    btn('+30 seconds', {type:'TICK', ms:30000}, running) +
+    btn('+2 minutes', {type:'TICK', ms:120000}, running) +
+    '<button ' + (running ? 'disabled' : '') + ' id="toBoundary">To the next boundary</button>';
+
+  document.getElementById('sched').innerHTML = s.schedule.map((i, n) =>
+    '<li class="' + (n === s.index && s.phase !== 'idle' && s.phase !== 'ended' ? 'now' : (n < s.index || s.phase === 'ended' ? 'done' : '')) + '">' +
+    '<span class="kind k-' + i.kind + '">' + Timer.labelFor(i.kind) + '</span>' +
+    '<span class="dur">' + mmss(i.ms) + '</span></li>').join('');
+
+  document.getElementById('cues').innerHTML = s.cues.slice(-14).reverse().map(c =>
+    '<li><strong>' + mmss(c.at) + '</strong> · <span class="' + (c.silencedTone && /tone/.test(c.detail) ? 'muted' : '') + '">' +
+    c.label + '</span> <span style="color:var(--dim)">— ' + c.detail + '</span></li>').join('') ||
+    '<li style="color:var(--dim);border:0">Nothing yet. Press Start.</li>';
+
+  renderScenario();
+}
+
+/* ---- scenarios ---- */
+const SCENARIOS = [
+  {name:'Straight through', preset:'tiny', why:
+   'The happy path on a deliberately tiny workout, so every boundary arrives quickly. Watch the lead-in count down before the first interval, and watch the zero-length cool-down never appear at all — it was dropped when the schedule was built.',
+   steps:[['Start', {type:'START'}], ['+5 seconds', {type:'TICK', ms:5000}], ['+5 seconds', {type:'TICK', ms:5000}],
+          ['+10 seconds', {type:'TICK', ms:10000}], ['+10 seconds', {type:'TICK', ms:10000}], ['+10 seconds', {type:'TICK', ms:10000}]]},
+  {name:'The worked example', preset:'worked', why:
+   'Your nine-row list: runs of 45, 45, 60, 60 against walks of 90, 75, 75, ending on a work interval that runs straight into cool-down with no trailing recovery. This is the shape a fixed template could not express. Skip through it and check the last work interval hands over to cool-down the way you would want.',
+   steps:[['Start', {type:'START'}], ['To the first work interval', {type:'TICK', ms:183000}],
+          ['Skip', {type:'SKIP'}], ['Skip', {type:'SKIP'}], ['Skip', {type:'SKIP'}],
+          ['Skip', {type:'SKIP'}], ['Skip', {type:'SKIP'}], ['Skip to the last work interval', {type:'SKIP'}],
+          ['Skip into cool-down', {type:'SKIP'}]]},
+  {name:'Pause and wander off', preset:'tiny', why:
+   'Pause part-way through an interval, then push the clock forward while paused. Nothing should move: remaining time is held, total remaining freezes, and the app opens up so you could reach settings or the preset list. Resume and the same remaining time continues.',
+   steps:[['Start', {type:'START'}], ['+5 seconds', {type:'TICK', ms:5000}], ['+3 seconds', {type:'TICK', ms:3000}],
+          ['Pause', {type:'PAUSE'}], ['+2 minutes (nothing happens)', {type:'TICK', ms:120000}], ['Resume', {type:'RESUME'}],
+          ['+5 seconds', {type:'TICK', ms:5000}]]},
+  {name:'Skip during the countdown', preset:'tiny', why:
+   'Get into the last three seconds of an interval so the ticks are firing, then skip. The remaining ticks are abandoned and the next interval cue fires immediately. Watch the cue list: is that the behaviour you want, or should a countdown always finish?',
+   steps:[['Start', {type:'START'}], ['+5 seconds', {type:'TICK', ms:5000}], ['+6 seconds', {type:'TICK', ms:6000}],
+          ['+1 second (into the countdown)', {type:'TICK', ms:1000}], ['Skip mid-countdown', {type:'SKIP'}]]},
+  {name:'A two-second interval', preset:'tiny', why:
+   'The second interval is two seconds long, shorter than the three-second countdown. The countdown truncates rather than starting before the interval does, so you get two ticks, not three. Step one second at a time and count them.',
+   steps:[['Start', {type:'START'}], ['+3 seconds', {type:'TICK', ms:3000}], ['+1 second', {type:'TICK', ms:1000}],
+          ['+1 second', {type:'TICK', ms:1000}], ['+1 second', {type:'TICK', ms:1000}], ['+1 second', {type:'TICK', ms:1000}],
+          ['+1 second', {type:'TICK', ms:1000}]]},
+  {name:'Stop early', preset:'worked', why:
+   'Stop part-way through. The summary should say the workout was stopped early rather than completed, and the round count should reflect only the work intervals actually finished. Check that "2 of 4" reads the way you expect on a list that is not uniform.',
+   steps:[['Start', {type:'START'}], ['To the first work interval', {type:'TICK', ms:183000}],
+          ['Skip', {type:'SKIP'}], ['Skip', {type:'SKIP'}], ['Skip', {type:'SKIP'}], ['Stop', {type:'STOP'}]]},
+  {name:'Mute mid-workout', preset:'tiny', why:
+   'Mute while running. Tones stop, vibration keeps going — so a muted workout still tells you what changed, not merely that something did. The cue list strikes through the tone part of each cue while muted.',
+   steps:[['Start', {type:'START'}], ['+5 seconds', {type:'TICK', ms:5000}], ['Mute', {type:'MUTE'}],
+          ['+3 seconds', {type:'TICK', ms:3000}], ['+5 seconds', {type:'TICK', ms:5000}], ['Unmute', {type:'MUTE'}]]}
+];
+
+function renderScenario(){
+  document.getElementById('tabs').innerHTML = SCENARIOS.map((sc, n) =>
+    '<button class="' + (scenario === n ? 'on' : '') + '" data-tab="' + n + '">' + sc.name + '</button>').join('');
+  const body = document.getElementById('scenarioBody');
+  if (scenario === null){
+    body.innerHTML = '<p style="color:var(--dim);margin:0">Pick a walkthrough. Each one resets to a known ' +
+      'starting point and then gives you the buttons to press, in order. Free play above is always available.</p>';
+    return;
+  }
+  const sc = SCENARIOS[scenario];
+  body.innerHTML = '<p style="margin:0 0 4px">' + sc.why + '</p><div class="steps">' +
+    sc.steps.map((st, n) => '<button class="' + (n < step ? 'done' : '') + '" ' +
+      (n === step ? '' : 'disabled') + ' data-step="' + n + '">' +
+      (n + 1) + '. ' + st[0] + '</button>').join('') + '</div>' +
+    (step >= sc.steps.length ? '<p style="color:var(--dim);margin:10px 0 0">Walkthrough finished. Keep poking with the free-play buttons above.</p>' : '');
+}
+
+function startScenario(n){
+  scenario = n; step = 0;
+  const p = PRESETS[SCENARIOS[n].preset];
+  state = Timer.reduce(state, {type:'LOAD', preset:p});
+  render();
+}
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('button');
+  if (!t) return;
+  if (t.dataset.tab !== undefined) return startScenario(+t.dataset.tab);
+  if (t.id === 'toBoundary'){
+    const left = state.deadlineMs - state.nowMs;
+    return send({type:'TICK', ms:Math.max(1, left)});
+  }
+  if (t.dataset.step !== undefined){
+    const st = SCENARIOS[scenario].steps[+t.dataset.step];
+    step = +t.dataset.step + 1;
+    if (st[1].type === 'TICK' && st[0] === 'To the next boundary'){
+      return send({type:'TICK', ms:state.deadlineMs - state.nowMs});
+    }
+    return send(st[1]);
+  }
+  if (t.dataset.preset){ scenario = null; return startScenario0(t.dataset.preset); }
+  if (t.dataset.gen){
+    const base = {...state.preset, intervals:[...state.preset.intervals,
+      ...Timer.generate({rounds:4, workMs:45000, recoveryMs:90000, trailingRecovery:t.dataset.gen === 'with'})]};
+    scenario = null; state = Timer.reduce(state, {type:'LOAD', preset:base}); return render();
+  }
+  if (t.dataset.a) return send(JSON.parse(t.dataset.a));
+});
+
+function startScenario0(key){
+  state = Timer.reduce(state, {type:'LOAD', preset:PRESETS[key]});
+  render();
+}
+
+document.getElementById('presets').innerHTML = Object.entries(PRESETS).map(([k, p]) =>
+  '<button data-preset="' + k + '">' + p.name + '</button>').join('');
+document.getElementById('genRow').innerHTML =
+  '<button data-gen="without">Add 4 rounds (45s / 90s), no trailing recovery</button>' +
+  '<button data-gen="with">Add 4 rounds, with trailing recovery</button>';
+
+render();
+</script>
+</body>
+</html>
