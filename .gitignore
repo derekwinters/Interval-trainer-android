@@ -36,3 +36,6 @@ google-services.json
 # Python bytecode, from the checks under .github/scripts/
 __pycache__/
 *.pyc
+
+# Claude Code agent isolation worktrees, created and removed per subagent run
+.claude/worktrees/
