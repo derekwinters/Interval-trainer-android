@@ -25,7 +25,10 @@ requirement.
 
 Every decision here was taken on
 [#30](https://github.com/derekwinters/Interval-trainer-android/issues/30) between 2026-09-10 and
-2026-09-12; the interval kinds are the glossary's, in [`CONTEXT.md`](../../CONTEXT.md).
+2026-09-12, except in §5, where the minimum interval and the skip countdown were settled on
+[#28](https://github.com/derekwinters/Interval-trainer-android/issues/28) and are specified in
+[`timer.md`](timer.md); the interval kinds are the glossary's, in
+[`CONTEXT.md`](../../CONTEXT.md).
 
 ---
 
@@ -152,7 +155,8 @@ one colour rather than having two of their own.
 The pattern is always the same — three ticks, then a tone that says what changed. A countdown that
 appeared before some boundaries and not others would force the listener to work out which kind of
 interval they were in before they could interpret what they had just heard, which is the opposite of
-what a cue is for.
+what a cue is for. It is the same three ticks at every one of them: before each interval, before the
+first one when the workout starts, and before the next one after a skip.
 
 - **CUE-040** Every interval is counted down over its final three seconds, one tick per second,
   whatever its kind.
@@ -160,12 +164,22 @@ what a cue is for.
   first interval begins. It is the one moment the user is definitely holding the phone, and three
   seconds is the difference between starting a run and fumbling a phone into a pocket while the first
   interval burns.
-- **CUE-042** On an interval shorter than three seconds the countdown **truncates** rather than
-  starting before the interval does: a two-second interval gets two ticks. (Zero-length intervals
-  never reach the schedule, so they never reach this rule.)
+- **CUE-042** A countdown never truncates: **every interval gets all three ticks**. This is not a
+  rule cue selection enforces but a consequence of the **minimum interval**, which is what
+  guarantees a countdown fits inside the interval it counts down — the number is
+  [`timer.md`](timer.md)'s (`TIMER-070`, `TIMER-071`) and is not restated here. No interval short
+  enough to truncate a countdown can be authored, and zero-length intervals are excluded by the same
+  minimum.
 - **CUE-043** The last interval's countdown runs into the **finish cue**, not a boundary cue.
 - **CUE-044** A tick and the cue that follows it are consecutive events one second apart, never
-  simultaneous. The third tick and the boundary tone do not collide.
+  simultaneous. This holds **by construction** rather than by a tie-break: the minimum interval
+  exceeds the countdown by two seconds (`TIMER-070`), so the earliest tick lands two seconds after
+  an interval begins and no tick can ever fall on the same instant as a boundary cue. There is no
+  collision to arbitrate and no rule deciding which of the two wins.
+- **CUE-045** A **skip** is counted down too, because it gives the same three-second lead-in that
+  starting the workout gives (`TIMER-031`, `TIMER-040`): three ticks, then the next interval's
+  boundary cue. A countdown already running when the user skips is abandoned, and the lead-in's own
+  countdown starts again from three.
 
 ## 6. Mute
 
@@ -267,13 +281,13 @@ table's guess at which reads as the more urgent.
 | Tones | CUE-010–016 | `CueSelectionTest.kt` (CUE-010–013, 016); *(manual)* CUE-014–015 |
 | Vibration | CUE-020–024 | `CueSelectionTest.kt` (CUE-020–023); *(manual)* CUE-024 |
 | Colour | CUE-030–035 | `CueSelectionTest.kt` (CUE-030); *(manual)* CUE-031–035 |
-| The countdown | CUE-040–044 | `CueSelectionTest.kt` |
+| The countdown | CUE-040–045 | `CueSelectionTest.kt` |
 | Mute | CUE-050–055 | `CueSelectionTest.kt` (CUE-050–053, 055); *(manual)* CUE-054 |
 | Audio attribution | CUE-060–061 | *(manual)* |
 | Silence the app does not fight | CUE-070–073 | *(manual)* |
 | Starting values | *(none — see §9)* | *(not specified)* |
 
-**38 requirements, 22 `auto` and 16 `manual`.**
+**39 requirements, 23 `auto` and 16 `manual`.**
 
 **The `auto` tests do not exist yet.** There is no implementation of any of this, and no `:core`
 module to hold one — the build today is a single `:app` module (`BUILD-002`). `CueSelectionTest.kt`
