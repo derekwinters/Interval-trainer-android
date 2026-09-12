@@ -67,7 +67,7 @@
     A preset is an ordered list of intervals you author. Starting a workout takes a copy of that list,
     adds a three-second lead-in, and runs it. This page lets you drive that model: start, pause, skip,
     stop, advance the clock, and watch every cue fire. The question is whether the behaviour matches
-    what you expect at each moment — especially around pausing, skipping, and the last interval.
+    what you expect at each moment — especially around pausing, skipping, and the shortest interval the editor will allow.
   </p>
 
   <div class="grid">
@@ -109,21 +109,19 @@
 
   <div class="panel" style="margin-top:18px">
     <h2>Open questions this is meant to settle</h2>
-    <div class="q"><strong>Rounds completed.</strong> With a freely authored list there is no round
-      count to compare against. This counts a round as a work interval, so "3 of 5" means three work
-      intervals finished out of five in the list. Does that read correctly when the list is not
-      uniform?</div>
-    <div class="q"><strong>Skip during a countdown.</strong> Skipping in the last three seconds
-      abandons the remaining ticks and fires the next interval's cue immediately. Does that feel
-      right, or should the countdown finish?</div>
-    <div class="q"><strong>The generator.</strong> "Add rounds" appends to the end of the list and
-      can be told whether to leave a trailing recovery. Should it append, or replace what is there?</div>
-    <div class="q"><strong>An interval exactly three seconds long.</strong> Its first countdown tick
-      would land on the same instant as its own start cue. Here the tick still fires, so you hear a
-      boundary tone and a tick together. The cue specification says the two should be consecutive, a
-      second apart, never simultaneous — so one of them has to give. Which?</div>
-    <div class="q"><strong>Pause and total remaining.</strong> While paused, total remaining freezes.
-      Advancing the clock while paused changes nothing. Confirm that is what you want.</div>
+    <div class="q"><strong>Settled 2026-09-12.</strong> A round is a work interval, so "3 of 5" counts
+      work intervals; better visuals come later. Skipping gives a three-second lead-in rather than
+      dropping you straight in, and whether it does becomes a setting later. No interval shorter than
+      three seconds can be authored.</div>
+    <div class="q"><strong>Still open — an interval exactly three seconds long.</strong> Now that three
+      seconds is the minimum, this is the boundary case rather than a curiosity. Its first tick would
+      land on the same instant as its own start cue, and
+      <code>docs/spec/cues.md</code> says the two must be a second apart and never simultaneous. This
+      demo suppresses that tick, so a three-second interval gets <strong>two</strong> ticks and you
+      hear the boundary tone cleanly. Confirm that, or say the tick should win instead.</div>
+    <div class="q"><strong>Still open — the generator.</strong> "Add rounds" appends to the end of the
+      list and takes a flag for whether to leave a trailing recovery. Should it append, or replace
+      what is already there?</div>
   </div>
 </div>
 
@@ -136,12 +134,11 @@
 const Timer = (() => {
   const LEAD_IN_MS = 3000;
   const COUNTDOWN_FROM = 3;
+  const MIN_INTERVAL_MS = 3000;      // decided 2026-09-12: nothing shorter can be authored
 
+  const tooShort = list => list.filter(i => i.ms > 0 && i.ms < MIN_INTERVAL_MS);
   const dropEmpty = list => list.filter(i => i.ms > 0);
-
-  function scheduleFor(preset){
-    return [{kind:'leadIn', ms:LEAD_IN_MS}, ...dropEmpty(preset.intervals).map(i => ({...i}))];
-  }
+  const scheduleFor = preset => dropEmpty(preset.intervals).map(i => ({...i}));
 
   function generate({rounds, workMs, recoveryMs, trailingRecovery}){
     const out = [];
@@ -153,12 +150,16 @@ const Timer = (() => {
   }
 
   const init = preset => ({
-    phase:'idle', preset, schedule:[], index:0,
+    phase:'idle', preset, schedule:[], index:0, inLeadIn:false,
     nowMs:0, deadlineMs:null, heldRemainingMs:null,
     muted:false, elapsedMs:0, outcome:null, cues:[], ticked:[]
   });
 
   const current = s => s.schedule[s.index] || null;
+  const nextInterval = s => s.schedule[s.index + 1] || null;
+  const roundsPlanned = s => s.schedule.filter(i => i.kind === 'work').length;
+  const roundsDone = s => s.schedule.slice(0, s.index).filter(i => i.kind === 'work').length;
+  const labelFor = k => ({warmup:'Warm-up', work:'Work', recovery:'Recovery', cooldown:'Cool-down'})[k] || k;
 
   function remainingMs(s){
     if (s.phase === 'running') return Math.max(0, s.deadlineMs - s.nowMs);
@@ -170,108 +171,108 @@ const Timer = (() => {
     if (s.phase === 'idle')  return s.schedule.reduce((n,i) => n + i.ms, 0);
     if (s.phase === 'ended') return 0;
     const rest = s.schedule.slice(s.index + 1).reduce((n,i) => n + i.ms, 0);
-    return rest + (remainingMs(s) || 0);
+    // A lead-in is time on top of the schedule, so the current interval still counts in full.
+    return rest + (s.inLeadIn ? (current(s) ? current(s).ms : 0) : (remainingMs(s) || 0));
   }
 
-  const roundsPlanned = s => s.schedule.filter(i => i.kind === 'work').length;
-  const roundsDone = s => s.schedule.slice(0, s.index).filter(i => i.kind === 'work').length;
-  const nextInterval = s => s.schedule[s.index + 1] || null;
-
-  /* Which cue fires when an interval of this kind begins. */
   function startCueFor(kind){
-    if (kind === 'leadIn') return null;
-    if (kind === 'work') return {tone:'work', vibration:'two pulses', colour:'green'};
-    if (kind === 'recovery') return {tone:'recovery', vibration:'one pulse', colour:'yellow'};
-    return {tone:'recovery', vibration:'one pulse', colour:'neutral'};
+    if (kind === 'work') return 'work tone, two pulses, green';
+    if (kind === 'recovery') return 'recovery tone, one pulse, yellow';
+    return 'recovery tone, one pulse, neutral';
   }
 
-  const emit = (s, label, detail) =>
-    s.cues.push({at:s.nowMs, label, detail, silencedTone:s.muted});
+  const emit = (s, label, detail) => s.cues.push({at:s.nowMs, label, detail, muted:s.muted});
 
-  function beginAt(s, index){
-    s.index = index;
+  /* Three ticks, then the interval. Used at the start of a workout and after a skip. */
+  function enterLeadIn(s, why){
+    s.inLeadIn = true; s.ticked = []; s.deadlineMs = s.nowMs + LEAD_IN_MS;
+    emit(s, 'Get ready — ' + why, 'no boundary cue; three ticks, then the interval begins');
+  }
+
+  function beginCurrent(s){
     const iv = current(s);
-    if (!iv){
-      s.phase = 'ended';
-      s.outcome = s.outcome || 'completed';
-      s.deadlineMs = null;
-      emit(s, 'Finish', 'a tone that cannot be mistaken for a boundary, plus a long vibration');
-      return;
-    }
-    s.deadlineMs = s.nowMs + iv.ms;
-    s.ticked = [];
-    const cue = startCueFor(iv.kind);
-    if (cue) emit(s, labelFor(iv.kind) + ' starts', cue.tone + ' tone, ' + cue.vibration + ', ' + cue.colour);
-    else emit(s, 'Get ready', 'no boundary cue — the lead-in only counts down');
+    if (!iv){ finish(s, 'completed'); return; }
+    s.inLeadIn = false; s.ticked = []; s.deadlineMs = s.nowMs + iv.ms;
+    emit(s, labelFor(iv.kind) + ' starts', startCueFor(iv.kind));
   }
 
-  const labelFor = k => ({leadIn:'Get ready', warmup:'Warm-up', work:'Work',
-                          recovery:'Recovery', cooldown:'Cool-down'})[k] || k;
+  function finish(s, outcome){
+    s.phase = 'ended'; s.outcome = outcome; s.deadlineMs = null; s.inLeadIn = false;
+    emit(s, 'Finished — ' + outcome,
+         outcome === 'completed' ? 'a tone that cannot be mistaken for a boundary, plus a long vibration'
+                                 : 'no finish tone; stopping was deliberate');
+  }
 
-  /* Advance the clock, firing countdown ticks and crossing boundaries. */
   function advance(s, deltaMs){
     if (s.phase !== 'running') return s;
     let left = deltaMs;
-    while (left > 0){
-      const iv = current(s);
-      if (!iv) break;
-      const toBoundary = s.deadlineMs - s.nowMs;
-      const step = Math.min(left, toBoundary);
-      const to = s.nowMs + step, startedAt = s.deadlineMs - iv.ms;
+    while (left > 0 && s.phase === 'running'){
+      const span = s.inLeadIn ? LEAD_IN_MS : (current(s) ? current(s).ms : 0);
+      const startedAt = s.deadlineMs - span;
+      const step = Math.min(left, s.deadlineMs - s.nowMs);
+      const to = s.nowMs + step;
       for (let n = COUNTDOWN_FROM; n >= 1; n--){
         const at = s.deadlineMs - n * 1000;
-        // A tick fires only if it falls inside this interval — so an interval
-        // shorter than the countdown simply gets fewer ticks — and only once.
-        if (at >= startedAt && at <= to && !s.ticked.includes(n))
-          { s.ticked.push(n); s.nowMs = Math.max(s.nowMs, at);
-            emit(s, 'Countdown ' + n, 'short tick, quieter than a boundary tone'); }
+        if (at < startedAt || at > to || s.ticked.includes(n)) continue;
+        // A tick landing on the very instant an interval begins would sound at the
+        // same moment as that interval's own start cue. The start cue wins.
+        if (at === startedAt && !s.inLeadIn){ s.ticked.push(n); continue; }
+        s.ticked.push(n); s.nowMs = Math.max(s.nowMs, at);
+        emit(s, 'Countdown ' + n, 'short tick, quieter than a boundary tone');
       }
       s.nowMs = to; s.elapsedMs += step; left -= step;
-      if (s.nowMs >= s.deadlineMs) beginAt(s, s.index + 1);
-      if (s.phase === 'ended') break;
+      if (s.nowMs >= s.deadlineMs){
+        if (s.inLeadIn) beginCurrent(s);
+        else { s.index += 1; beginCurrent(s); }
+      }
     }
     return s;
   }
 
   function reduce(state, action){
-    const s = {...state, schedule:state.schedule.map(i => ({...i})), cues:[...state.cues], ticked:[...(state.ticked||[])]};
+    const s = {...state, schedule:state.schedule.map(i => ({...i})),
+               cues:[...state.cues], ticked:[...(state.ticked || [])]};
     switch (action.type){
       case 'LOAD':
         return {...init(action.preset), schedule:scheduleFor(action.preset)};
       case 'START':
-        if (s.phase !== 'idle') return state;
+        if (s.phase !== 'idle' || s.schedule.length === 0) return state;
         s.phase = 'running'; s.nowMs = 0; s.elapsedMs = 0;
-        beginAt(s, 0); return s;
+        enterLeadIn(s, 'the workout is starting'); return s;
       case 'TICK':
         return advance(s, action.ms);
       case 'PAUSE':
         if (s.phase !== 'running') return state;
         s.heldRemainingMs = Math.max(0, s.deadlineMs - s.nowMs);
         s.deadlineMs = null; s.phase = 'paused';
-        emit(s, 'Paused', 'no cue; the app opens up so you can reach the rest of it'); return s;
+        emit(s, 'Paused', 'no cue; the app opens up so the rest of it is reachable'); return s;
       case 'RESUME':
         if (s.phase !== 'paused') return state;
         s.deadlineMs = s.nowMs + s.heldRemainingMs; s.heldRemainingMs = null;
         s.phase = 'running'; emit(s, 'Resumed', 'no cue'); return s;
-      case 'SKIP':
+      case 'SKIP': {
         if (s.phase !== 'running' && s.phase !== 'paused') return state;
-        emit(s, 'Skipped ' + labelFor(current(s).kind), 'any remaining countdown is abandoned');
+        const iv = current(s);
+        emit(s, 'Skipped ' + (s.inLeadIn ? 'the lead-in' : labelFor(iv.kind)),
+             'any countdown in progress is abandoned');
         if (s.phase === 'paused'){ s.phase = 'running'; s.heldRemainingMs = null; }
-        beginAt(s, s.index + 1); return s;
+        if (!s.inLeadIn) s.index += 1;
+        if (!current(s)) { finish(s, 'completed'); return s; }
+        enterLeadIn(s, 'you skipped'); return s;
+      }
       case 'STOP':
         if (s.phase === 'idle' || s.phase === 'ended') return state;
-        s.phase = 'ended'; s.outcome = 'stopped early'; s.deadlineMs = null;
-        emit(s, 'Stopped', 'confirmed first; lands on the summary'); return s;
+        finish(s, 'stopped early'); return s;
       case 'MUTE':
         s.muted = !s.muted;
-        emit(s, s.muted ? 'Muted' : 'Unmuted', 'tones ' + (s.muted ? 'off' : 'on') + ', vibration unaffected');
-        return s;
+        emit(s, s.muted ? 'Muted' : 'Unmuted',
+             'tones ' + (s.muted ? 'off' : 'on') + ', vibration unaffected'); return s;
       default: return state;
     }
   }
 
-  return {init, reduce, scheduleFor, generate, remainingMs, totalRemainingMs,
-          roundsPlanned, roundsDone, nextInterval, current, labelFor, LEAD_IN_MS};
+  return {init, reduce, scheduleFor, generate, remainingMs, totalRemainingMs, roundsPlanned,
+          roundsDone, nextInterval, current, labelFor, tooShort, LEAD_IN_MS, MIN_INTERVAL_MS};
 })();
 
 /* ------------------------------------------------------------------ *
@@ -299,10 +300,9 @@ const PRESETS = {
     {kind:'cooldown', ms:300000}]},
   tiny: {name:'Tiny, for the awkward cases', intervals:[
     {kind:'warmup', ms:5000},
-    {kind:'work', ms:2000},
+    {kind:'work', ms:3000},      // exactly the minimum — the collision case
     {kind:'recovery', ms:8000},
     {kind:'work', ms:6000},
-    {kind:'cooldown', ms:0},
     {kind:'cooldown', ms:4000}]}
 };
 
@@ -381,15 +381,16 @@ const SCENARIOS = [
    steps:[['Start', {type:'START'}], ['+5 seconds', {type:'TICK', ms:5000}], ['+3 seconds', {type:'TICK', ms:3000}],
           ['Pause', {type:'PAUSE'}], ['+2 minutes (nothing happens)', {type:'TICK', ms:120000}], ['Resume', {type:'RESUME'}],
           ['+5 seconds', {type:'TICK', ms:5000}]]},
-  {name:'Skip during the countdown', preset:'tiny', why:
-   'Get into the last three seconds of an interval so the ticks are firing, then skip. The remaining ticks are abandoned and the next interval cue fires immediately. Watch the cue list: is that the behaviour you want, or should a countdown always finish?',
-   steps:[['Start', {type:'START'}], ['+5 seconds', {type:'TICK', ms:5000}], ['+6 seconds', {type:'TICK', ms:6000}],
-          ['+1 second (into the countdown)', {type:'TICK', ms:1000}], ['Skip mid-countdown', {type:'SKIP'}]]},
-  {name:'A two-second interval', preset:'tiny', why:
-   'The second interval is two seconds long, shorter than the three-second countdown. The countdown truncates rather than starting before the interval does, so you get two ticks, not three. Step one second at a time and count them.',
-   steps:[['Start', {type:'START'}], ['+3 seconds', {type:'TICK', ms:3000}], ['+1 second', {type:'TICK', ms:1000}],
-          ['+1 second', {type:'TICK', ms:1000}], ['+1 second', {type:'TICK', ms:1000}], ['+1 second', {type:'TICK', ms:1000}],
-          ['+1 second', {type:'TICK', ms:1000}]]},
+  {name:'Skip', preset:'tiny', why:
+   'Skipping does not drop you straight into the next interval. It gives you the same three-second lead-in the workout start gives you, so you get a moment to react before the next interval begins. Any countdown that was already running is abandoned. Watch the cue list for "Get ready — you skipped".',
+   steps:[['Start', {type:'START'}], ['+3 seconds', {type:'TICK', ms:3000}], ['+2 seconds (mid warm-up)', {type:'TICK', ms:2000}],
+          ['Skip', {type:'SKIP'}], ['+1 second', {type:'TICK', ms:1000}], ['+1 second', {type:'TICK', ms:1000}],
+          ['+1 second (the interval begins)', {type:'TICK', ms:1000}]]},
+  {name:'A three-second interval', preset:'tiny', why:
+   'The second interval is three seconds, the shortest that can now be authored. Its first countdown tick would land on the very instant the interval begins, at the same moment as its own start cue. The start cue wins and that tick is suppressed, so you hear the work tone, then two ticks, then the next boundary. Step one second at a time and listen for it in the cue list.',
+   steps:[['Start', {type:'START'}], ['+3 seconds (lead-in ends)', {type:'TICK', ms:3000}],
+          ['+5 seconds (warm-up runs out)', {type:'TICK', ms:5000}], ['+1 second', {type:'TICK', ms:1000}],
+          ['+1 second', {type:'TICK', ms:1000}], ['+1 second', {type:'TICK', ms:1000}]]},
   {name:'Stop early', preset:'worked', why:
    'Stop part-way through. The summary should say the workout was stopped early rather than completed, and the round count should reflect only the work intervals actually finished. Check that "2 of 4" reads the way you expect on a list that is not uniform.',
    steps:[['Start', {type:'START'}], ['To the first work interval', {type:'TICK', ms:183000}],
