@@ -1,8 +1,10 @@
 # Interval-trainer-android
 
 An Android app for interval exercises, built with Kotlin and Gradle. The build is specified in
-[`docs/spec/build.md`](docs/spec/build.md); there is no app behaviour yet beyond the skeleton
-that page describes.
+[`docs/spec/build.md`](docs/spec/build.md) and the app's cues in
+[`docs/spec/cues.md`](docs/spec/cues.md). Nothing is implemented yet beyond the skeleton `build.md`
+describes: the cue specification is written ahead of its code, and none of its `auto` requirements
+has a test today.
 
 ## Building
 
