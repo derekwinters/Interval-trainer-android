@@ -109,19 +109,16 @@
 
   <div class="panel" style="margin-top:18px">
     <h2>Open questions this is meant to settle</h2>
-    <div class="q"><strong>Settled 2026-09-12.</strong> A round is a work interval, so "3 of 5" counts
-      work intervals; better visuals come later. Skipping gives a three-second lead-in rather than
-      dropping you straight in, and whether it does becomes a setting later. No interval shorter than
-      three seconds can be authored.</div>
-    <div class="q"><strong>Still open — an interval exactly three seconds long.</strong> Now that three
-      seconds is the minimum, this is the boundary case rather than a curiosity. Its first tick would
-      land on the same instant as its own start cue, and
-      <code>docs/spec/cues.md</code> says the two must be a second apart and never simultaneous. This
-      demo suppresses that tick, so a three-second interval gets <strong>two</strong> ticks and you
-      hear the boundary tone cleanly. Confirm that, or say the tick should win instead.</div>
-    <div class="q"><strong>Still open — the generator.</strong> "Add rounds" appends to the end of the
-      list and takes a flag for whether to leave a trailing recovery. Should it append, or replace
-      what is already there?</div>
+    <div class="q"><strong>All settled, 2026-09-12.</strong> A round is a work interval, so "3 of 5"
+      counts work intervals; better visuals later. Skipping gives a three-second lead-in rather than
+      dropping you straight in, and whether it does becomes a setting later. The generator appends,
+      always, with trailing recovery off by default, and nothing about it is stored.</div>
+    <div class="q"><strong>The minimum interval is five seconds, and that is what makes the rest
+      simple.</strong> Three ticks always fit, with two seconds to spare. A countdown can never
+      truncate, and a tick can never land on the instant an interval begins — which would otherwise
+      have sounded at the same moment as that interval's own start cue, something
+      <code>docs/spec/cues.md</code> forbids. Raising the minimum from three seconds to five removed
+      that case rather than deciding it.</div>
   </div>
 </div>
 
@@ -134,7 +131,8 @@
 const Timer = (() => {
   const LEAD_IN_MS = 3000;
   const COUNTDOWN_FROM = 3;
-  const MIN_INTERVAL_MS = 3000;      // decided 2026-09-12: nothing shorter can be authored
+  const MIN_INTERVAL_MS = 5000;      // decided 2026-09-12: nothing shorter can be authored,
+                                     // which is what makes every countdown fit cleanly
 
   const tooShort = list => list.filter(i => i.ms > 0 && i.ms < MIN_INTERVAL_MS);
   const dropEmpty = list => list.filter(i => i.ms > 0);
@@ -214,8 +212,10 @@ const Timer = (() => {
       for (let n = COUNTDOWN_FROM; n >= 1; n--){
         const at = s.deadlineMs - n * 1000;
         if (at < startedAt || at > to || s.ticked.includes(n)) continue;
-        // A tick landing on the very instant an interval begins would sound at the
-        // same moment as that interval's own start cue. The start cue wins.
+        // Unreachable while the minimum interval is five seconds: the earliest tick
+        // lands two seconds in. Kept as a guard in case that minimum ever drops,
+        // because a tick on the instant an interval begins would sound at the same
+        // moment as its own start cue, which the cue specification forbids.
         if (at === startedAt && !s.inLeadIn){ s.ticked.push(n); continue; }
         s.ticked.push(n); s.nowMs = Math.max(s.nowMs, at);
         emit(s, 'Countdown ' + n, 'short tick, quieter than a boundary tone');
@@ -298,12 +298,12 @@ const PRESETS = {
     {kind:'work', ms:60000}, {kind:'recovery', ms:75000},
     {kind:'work', ms:60000},
     {kind:'cooldown', ms:300000}]},
-  tiny: {name:'Tiny, for the awkward cases', intervals:[
-    {kind:'warmup', ms:5000},
-    {kind:'work', ms:3000},      // exactly the minimum — the collision case
-    {kind:'recovery', ms:8000},
+  tiny: {name:'Short, for the awkward cases', intervals:[
+    {kind:'warmup', ms:8000},
+    {kind:'work', ms:5000},      // exactly the minimum
+    {kind:'recovery', ms:9000},
     {kind:'work', ms:6000},
-    {kind:'cooldown', ms:4000}]}
+    {kind:'cooldown', ms:5000}]}
 };
 
 let state = (() => { const p = PRESETS.worked; return {...Timer.init(p), schedule:Timer.scheduleFor(p)}; })();
@@ -386,10 +386,11 @@ const SCENARIOS = [
    steps:[['Start', {type:'START'}], ['+3 seconds', {type:'TICK', ms:3000}], ['+2 seconds (mid warm-up)', {type:'TICK', ms:2000}],
           ['Skip', {type:'SKIP'}], ['+1 second', {type:'TICK', ms:1000}], ['+1 second', {type:'TICK', ms:1000}],
           ['+1 second (the interval begins)', {type:'TICK', ms:1000}]]},
-  {name:'A three-second interval', preset:'tiny', why:
-   'The second interval is three seconds, the shortest that can now be authored. Its first countdown tick would land on the very instant the interval begins, at the same moment as its own start cue. The start cue wins and that tick is suppressed, so you hear the work tone, then two ticks, then the next boundary. Step one second at a time and listen for it in the cue list.',
+  {name:'The shortest interval', preset:'tiny', why:
+   'The second interval is five seconds, the shortest that can be authored. Its three countdown ticks fit inside it with two seconds to spare, so the pattern is identical to every other interval: start cue, then three ticks, then the next start cue. This is what the five-second minimum buys — there is no short-interval special case at all.',
    steps:[['Start', {type:'START'}], ['+3 seconds (lead-in ends)', {type:'TICK', ms:3000}],
-          ['+5 seconds (warm-up runs out)', {type:'TICK', ms:5000}], ['+1 second', {type:'TICK', ms:1000}],
+          ['+8 seconds (warm-up runs out)', {type:'TICK', ms:8000}], ['+1 second', {type:'TICK', ms:1000}],
+          ['+1 second', {type:'TICK', ms:1000}], ['+1 second', {type:'TICK', ms:1000}],
           ['+1 second', {type:'TICK', ms:1000}], ['+1 second', {type:'TICK', ms:1000}]]},
   {name:'Stop early', preset:'worked', why:
    'Stop part-way through. The summary should say the workout was stopped early rather than completed, and the round count should reflect only the work intervals actually finished. Check that "2 of 4" reads the way you expect on a list that is not uniform.',
