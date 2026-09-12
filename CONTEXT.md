@@ -7,7 +7,7 @@ class name can all say the same thing and mean it.
 ## Language
 
 **Preset**:
-A saved, named workout definition.
+A saved, named workout definition: an ordered list of intervals, authored one by one.
 _Avoid_: Routine, program, template
 
 **Workout**:
@@ -25,12 +25,14 @@ training, or standing still.
 _Avoid_: Rest
 
 **Round**:
-One work interval followed by its recovery interval.
+One work interval followed by its recovery interval. A way of describing and counting what a
+preset contains, not a field of one.
 _Avoid_: Set, rep, cycle
 
 **Schedule**:
-The flat, ordered list of intervals a preset expands into. The timer runs a schedule, never a
-preset.
+A workout's own copy of the intervals it will run, taken from its preset when the workout starts.
+The timer runs a schedule, never a preset, so editing or deleting the preset leaves a workout
+already under way untouched.
 
 **Cue**:
 A signal at an interval boundary or during a countdown: a tone, a vibration, a colour.

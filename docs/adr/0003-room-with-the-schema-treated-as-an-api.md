@@ -1,6 +1,6 @@
 # 3. Room from v1, with the schema treated as an API
 
-- **Status:** accepted
+- **Status:** accepted; amended 2026-09-12, see [Amendment, 2026-09-12](#amendment-2026-09-12)
 - **Date:** 2026-09-11
 - **Decided by:** @derekwinters
 - **Issue:** [#32](https://github.com/derekwinters/Interval-trainer-android/issues/32)
@@ -8,6 +8,45 @@
   (issue [#27](https://github.com/derekwinters/Interval-trainer-android/issues/27))
 - **Specification:** the `presets` columns and the rest of the storage behaviour land with the v1
   specification, [#33](https://github.com/derekwinters/Interval-trainer-android/issues/33)
+
+## Amendment, 2026-09-12
+
+Two corrections, made under
+[#52](https://github.com/derekwinters/Interval-trainer-android/issues/52). **Every decision this ADR
+records still stands** — Room from v1, the Kotlin Multiplatform module, migration tests on the JVM
+with no Android runtime, the schema treated as an API, and the contract-test policy with its three
+invariants. What is corrected is a name and an assumption. The body below is edited in place only
+where it would otherwise contradict this section, and each of those edits points back here.
+
+**1. Tabata is not seeded.** This ADR was written from #32's comments, which predated
+[#30](https://github.com/derekwinters/Interval-trainer-android/issues/30)'s ruling that the app
+seeds **two endurance presets**, one short and one full. Tabata was rejected there explicitly, as a
+high-intensity anaerobic protocol that misrepresents what this app is for. Only the name was wrong.
+The decision that sentence carries — a seeded preset is an ordinary row with no marker, renameable
+and deletable like any other, accepting that "restore defaults" would later need a marker added by
+migration — is correct and unchanged.
+
+**2. A preset owns an ordered list of intervals; it is not one row.** @derekwinters decided on
+[the map](https://github.com/derekwinters/Interval-trainer-android/issues/22) that a preset is an
+**ordered list of intervals**, each with a kind and a duration, rather than a fixed template of
+warm-up, work, recovery, a round count and cool-down. The editor offers a generator that inserts
+rows, and what is stored is always the flat list. This ADR assumed a preset was a single row, and
+that assumption is withdrawn: **a preset owns an ordered collection of intervals, and that order is
+explicit**. An interval's place in its preset is data the user authored, so the storage has to keep
+it and give it back unchanged.
+
+**The two orderings are different things, and are easy to confuse.** *Interval order within a
+preset* is the one just described — authored, explicit, and preserved. *The order of presets in the
+list* is what the "no `position` column" decision below is about, and that decision is unchanged:
+preset list order is insertion order, reordering the list is out of scope for v1, and no column
+exists for it. Stating the first is not an argument for the second, and nothing here reopens it.
+
+**What that means for the schema is still not decided here.** The column list was already deferred
+to the v1 specification on
+[#33](https://github.com/derekwinters/Interval-trainer-android/issues/33), explicitly including
+what is stored about intervals, and that deferral stands. How interval order is represented is
+specification work; whatever it turns out to be, it is an ordinary schema change under the
+contract-test policy below, with the same migration and upgrade-path test required of any other.
 
 ## Context
 
@@ -98,20 +137,27 @@ remembered at review time.
 
 The `presets` table is decided as far as this decision depends on it, and no further.
 
+- **A preset owns an ordered collection of intervals**, each with a kind and a duration, and that
+  order is explicit. A preset is not a single row: whatever shape the storage takes, a preset's
+  intervals are stored with it and come back in the order the user authored. Added by
+  [Amendment, 2026-09-12](#amendment-2026-09-12).
 - **Identity is a generated UUID string**, assigned at creation — not an auto-incrementing
   integer. The integer is Room's default and marginally simpler, but a UUID costs nothing now and
   leaves export, sharing and sync possible later without renumbering rows. An identifier is then
   meaningful outside the one device that minted it.
 - **Ordering is insertion order, with no `position` column.** Reordering the preset list is out of
   scope for v1, and an unused column is schema that has to be migrated later for no benefit. When
-  reordering arrives, it arrives as a migration — which is what the harness above is for.
-- **The seeded Tabata preset is an ordinary row, with no marker** distinguishing it from one the
-  user made. The user may rename or delete it like any other, and no "is this the built-in one"
-  branch exists anywhere in the code. The counter-argument was accepted with open eyes and is
-  recorded here so it is not rediscovered as a surprise: **without a marker there is no way to
-  offer "restore defaults" later without guessing which row was the seeded one.** Restoring
-  defaults is not a v1 feature, and a marker column is an additive change — cheap to add by
-  migration under the policy above.
+  reordering arrives, it arrives as a migration — which is what the harness above is for. **This is
+  the order of presets in the list, not the order of intervals within a preset**, which is authored
+  data and is stored — see [Amendment, 2026-09-12](#amendment-2026-09-12).
+- **A seeded preset is an ordinary row, with no marker** distinguishing it from one the user made.
+  (The app seeds two endurance presets, not Tabata — see
+  [Amendment, 2026-09-12](#amendment-2026-09-12).) The user may rename or delete it like any
+  other, and no "is this the built-in one" branch exists anywhere in the code. The
+  counter-argument was accepted with open eyes and is recorded here so it is not rediscovered as
+  a surprise: **without a marker there is no way to offer "restore defaults" later without
+  guessing which row was the seeded one.** Restoring defaults is not a v1 feature, and a marker
+  column is an additive change — cheap to add by migration under the policy above.
 
 **The full column list is specification content and lands with the v1 specification on
 [#33](https://github.com/derekwinters/Interval-trainer-android/issues/33)**, together with what is
