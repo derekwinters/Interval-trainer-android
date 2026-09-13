@@ -1,0 +1,31 @@
+{
+  "pages": [
+    { "id": "page-1", "name": "Running screen" },
+    { "id": "page-2", "name": "Earlier directions (archive)" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 90, "w": 390, "h": 844, "page": "page-1" },
+
+    { "file": "RolodexPerspective.dc.html", "x": 0, "y": 110, "w": 390, "h": 844, "page": "page-2" },
+    { "file": "RolodexTicks.dc.html", "x": 480, "y": 110, "w": 390, "h": 844, "page": "page-2" },
+    { "file": "RolodexFaded.dc.html", "x": 960, "y": 110, "w": 390, "h": 844, "page": "page-2" },
+    { "file": "RingOnly.dc.html", "x": 1440, "y": 110, "w": 390, "h": 844, "page": "page-2" },
+    { "file": "FullBleed.dc.html", "x": 0, "y": 1104, "w": 390, "h": 844, "page": "page-2" },
+    { "file": "Card.dc.html", "x": 480, "y": 1104, "w": 390, "h": 844, "page": "page-2" },
+    { "file": "Minimal.dc.html", "x": 960, "y": 1104, "w": 390, "h": 844, "page": "page-2" },
+    { "file": "States.dc.html", "x": 1440, "y": 1104, "w": 900, "h": 844, "page": "page-2" }
+  ],
+  "annotations": [
+    { "id": "cap-main", "x": 0, "y": 20, "w": 390, "text": "Running screen — settled\nRing timer with a narrow schedule rail: past and future intervals shrink and fade on a thin spindle. Play/Pause/Resume merged into one toggle; next-up carried by the rail, not a separate line.", "page": "page-1" },
+
+    { "id": "cap-perspective", "x": 0, "y": 20, "w": 390, "text": "B — Tilted wheel\nRows curve away like a physical Rolodex drum. The most literal reading of \"rolodex\"; not picked.", "page": "page-2" },
+    { "id": "cap-ticks", "x": 480, "y": 20, "w": 390, "text": "C — Proportional map\nA spatial map of the whole workout, tick length matching real duration, with a playhead at now; not picked.", "page": "page-2" },
+    { "id": "cap-faded", "x": 960, "y": 20, "w": 390, "text": "D — Elevated cards, edge fade\nThe card idea again, more polished: shadows, round-number badges, edge fade; not picked.", "page": "page-2" },
+    { "id": "cap-ringonly", "x": 1440, "y": 20, "w": 390, "text": "1 — Ring timer (no rail)\nThe original pick, before the schedule rail was added.", "page": "page-2" },
+    { "id": "cap-fullbleed", "x": 0, "y": 1000, "w": 390, "text": "2 — Full-bleed colour\nThe interval colour floods the whole screen — readable at a glance, even through a pocket check or bright sun.", "page": "page-2" },
+    { "id": "cap-card", "x": 480, "y": 1000, "w": 390, "text": "3 — Card layout\nOne elevated card holds the current activity; a smaller, flatter card underneath previews what's next.", "page": "page-2" },
+    { "id": "cap-minimal", "x": 960, "y": 1000, "w": 390, "text": "4 — Minimal typographic\nAlmost no chrome — a colour dot and type do the work. Next-up is one small caption line, controls are icon-only.", "page": "page-2" },
+    { "id": "cap-states", "x": 1440, "y": 1000, "w": 900, "text": "5 — One layout across states\nThe ring layout through Get ready, Running, Paused and Muted, to check the idea still reads as the workout changes.", "page": "page-2" }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}

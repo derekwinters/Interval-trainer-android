@@ -1,0 +1,85 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  a { color: #57c98a; }
+  a:hover { color: #7edda6; }
+  .screen {
+    --bg: #08090b;
+    --fg: #f5f7f9;
+    --dim: rgba(245,247,249,.55);
+    --faint: rgba(245,247,249,.30);
+    --work: #57c98a;
+    width: 390px; height: 844px; position: relative; overflow: hidden;
+    background: var(--bg); color: var(--fg);
+    font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+    display: flex; flex-direction: column;
+    padding: 30px 26px 30px;
+  }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .row { display: flex; align-items: center; }
+  .top { justify-content: space-between; }
+  .stat { font-size: 12px; color: var(--faint); font-weight: 600; }
+  .mute-ghost { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; color: var(--faint); }
+  .center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+  .kind-row { display: flex; align-items: center; gap: 8px; }
+  .kind-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--work); }
+  .kind-label { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; color: var(--dim); }
+  .time { font-size: 92px; font-weight: 700; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; margin-top: 4px; }
+  .of-total { font-size: 13px; color: var(--faint); font-weight: 500; }
+  .next-line { font-size: 13px; color: var(--faint); margin-top: 10px; }
+  .next-line b { color: var(--dim); font-weight: 600; }
+  .foot { text-align: center; font-size: 11px; color: var(--faint); margin-bottom: 22px; }
+  .controls { display: flex; align-items: center; justify-content: center; gap: 34px; }
+  .ctrl-btn { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: var(--dim); }
+  .ctrl-btn.primary {
+    width: 70px; height: 70px; border-radius: 50%;
+    background: var(--work); color: #06170f;
+    box-shadow: 0 8px 20px rgba(87,201,138,.28);
+  }
+</style>
+</helmet>
+<div class="screen">
+  <div class="row top">
+    <div class="stat">Round 2 of 4</div>
+    <div class="mute-ghost" aria-label="Unmuted">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 9.5v5h3.2L12 18.3V5.7L7.2 9.5H4Z" fill="currentColor" stroke="none"/>
+        <path d="M15.8 8.7a4.6 4.6 0 0 1 0 6.6"/>
+        <path d="M18.3 6.2a8.2 8.2 0 0 1 0 11.6"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="center">
+    <div class="kind-row"><span class="kind-dot"></span><span class="kind-label">Work</span></div>
+    <div class="time mono">0:32</div>
+    <div class="of-total">of 0:45</div>
+    <div class="next-line">Next — <b>Recovery, 1:30</b></div>
+  </div>
+
+  <div class="foot">12:40 total left</div>
+  <div class="controls">
+    <div class="ctrl-btn" aria-label="Skip">
+      <svg width="22" height="22" viewBox="0 0 24 24"><path d="M5 5.6v12.8a.9.9 0 0 0 1.38.76L16 13.2a.9.9 0 0 0 0-1.52L6.38 4.84A.9.9 0 0 0 5 5.6Z" fill="currentColor"/><rect x="17" y="5" width="2.4" height="14" rx="1" fill="currentColor"/></svg>
+    </div>
+    <div class="ctrl-btn primary" aria-label="Pause">
+      <svg width="26" height="26" viewBox="0 0 24 24"><rect x="6" y="5" width="4.6" height="14" rx="1.2" fill="currentColor"/><rect x="13.4" y="5" width="4.6" height="14" rx="1.2" fill="currentColor"/></svg>
+    </div>
+    <div class="ctrl-btn" aria-label="Stop">
+      <svg width="20" height="20" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3" fill="currentColor"/></svg>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
