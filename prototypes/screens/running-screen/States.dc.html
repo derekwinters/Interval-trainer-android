@@ -1,0 +1,161 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .board {
+    width: 900px; height: 844px; background: #0d1013;
+    display: flex; align-items: center; justify-content: center; gap: 26px;
+    font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .col { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .mini {
+    width: 194px; height: 420px; border-radius: 22px; position: relative; overflow: hidden;
+    background: #0a0d10; border: 1px solid rgba(255,255,255,.08);
+    display: flex; flex-direction: column; padding: 16px 14px 18px; color: #f5f7f9;
+  }
+  .mini.dim { filter: saturate(.55) brightness(.86); }
+  .row { display: flex; align-items: center; justify-content: space-between; }
+  .badge { font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: rgba(245,247,249,.42); font-weight: 700; }
+  .mute-mini { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; color: rgba(245,247,249,.42); }
+  .mute-mini.active { color: #f0c65a; background: rgba(240,198,90,.14); border-radius: 50%; }
+  .mid { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+  .kind { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; font-weight: 800; }
+  .kind.work { color: #57c98a; }
+  .kind.neutral { color: #8fa8c4; }
+  .time { font-size: 42px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+  .of { font-size: 10px; color: rgba(245,247,249,.36); }
+  .tag {
+    position: absolute; top: 44px; left: 50%; transform: translateX(-50%);
+    font-size: 9px; letter-spacing: .08em; text-transform: uppercase; font-weight: 800;
+    color: rgba(245,247,249,.7); background: rgba(255,255,255,.08);
+    padding: 3px 10px; border-radius: 999px;
+  }
+  .next-mini {
+    font-size: 10px; color: rgba(245,247,249,.4); text-align: center; margin-top: 4px;
+  }
+  .next-mini b { color: rgba(245,247,249,.62); font-weight: 700; }
+  .ctrls { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 10px; }
+  .c-sec { width: 30px; height: 30px; border-radius: 50%; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.09); display: flex; align-items: center; justify-content: center; color: rgba(245,247,249,.55); }
+  .c-pri { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #06170f; }
+  .c-pri.work { background: #57c98a; }
+  .c-pri.neutral { background: #8fa8c4; }
+  .state-label { font-size: 12px; font-weight: 700; letter-spacing: .04em; color: #cdd3d8; }
+</style>
+</helmet>
+<div class="board">
+
+  <div class="col">
+    <div class="mini">
+      <div class="row"><span class="badge">Round 2 of 4</span>
+        <div class="mute-mini">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 9.5v5h3.2L12 18.3V5.7L7.2 9.5H4Z" fill="currentColor" stroke="none"/>
+            <path d="M15.8 8.7a4.6 4.6 0 0 1 0 6.6"/><path d="M18.3 6.2a8.2 8.2 0 0 1 0 11.6"/>
+          </svg>
+        </div>
+      </div>
+      <div class="mid">
+        <div class="kind neutral">Get ready</div>
+        <div class="time mono">2</div>
+        <div class="of">seconds</div>
+        <div class="next-mini">Starting — <b>Work, 0:45</b></div>
+      </div>
+      <div class="ctrls">
+        <div class="c-sec"><svg width="13" height="13" viewBox="0 0 24 24"><path d="M5 5.6v12.8a.9.9 0 0 0 1.38.76L16 13.2a.9.9 0 0 0 0-1.52L6.38 4.84A.9.9 0 0 0 5 5.6Z" fill="currentColor"/><rect x="17" y="5" width="2.4" height="14" rx="1" fill="currentColor"/></svg></div>
+        <div class="c-pri neutral"><svg width="16" height="16" viewBox="0 0 24 24"><rect x="6" y="5" width="4.6" height="14" rx="1.2" fill="currentColor"/><rect x="13.4" y="5" width="4.6" height="14" rx="1.2" fill="currentColor"/></svg></div>
+        <div class="c-sec"><svg width="12" height="12" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3" fill="currentColor"/></svg></div>
+      </div>
+    </div>
+    <div class="state-label">Get ready (lead-in)</div>
+  </div>
+
+  <div class="col">
+    <div class="mini">
+      <div class="row"><span class="badge">Round 2 of 4</span>
+        <div class="mute-mini">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 9.5v5h3.2L12 18.3V5.7L7.2 9.5H4Z" fill="currentColor" stroke="none"/>
+            <path d="M15.8 8.7a4.6 4.6 0 0 1 0 6.6"/><path d="M18.3 6.2a8.2 8.2 0 0 1 0 11.6"/>
+          </svg>
+        </div>
+      </div>
+      <div class="mid">
+        <div class="kind work">Work</div>
+        <div class="time mono">0:32</div>
+        <div class="of">of 0:45</div>
+        <div class="next-mini">Next — <b>Recovery, 1:30</b></div>
+      </div>
+      <div class="ctrls">
+        <div class="c-sec"><svg width="13" height="13" viewBox="0 0 24 24"><path d="M5 5.6v12.8a.9.9 0 0 0 1.38.76L16 13.2a.9.9 0 0 0 0-1.52L6.38 4.84A.9.9 0 0 0 5 5.6Z" fill="currentColor"/><rect x="17" y="5" width="2.4" height="14" rx="1" fill="currentColor"/></svg></div>
+        <div class="c-pri work"><svg width="16" height="16" viewBox="0 0 24 24"><rect x="6" y="5" width="4.6" height="14" rx="1.2" fill="currentColor"/><rect x="13.4" y="5" width="4.6" height="14" rx="1.2" fill="currentColor"/></svg></div>
+        <div class="c-sec"><svg width="12" height="12" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3" fill="currentColor"/></svg></div>
+      </div>
+    </div>
+    <div class="state-label">Running</div>
+  </div>
+
+  <div class="col">
+    <div class="mini dim">
+      <div class="tag">Paused</div>
+      <div class="row"><span class="badge">Round 2 of 4</span>
+        <div class="mute-mini">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 9.5v5h3.2L12 18.3V5.7L7.2 9.5H4Z" fill="currentColor" stroke="none"/>
+            <path d="M15.8 8.7a4.6 4.6 0 0 1 0 6.6"/><path d="M18.3 6.2a8.2 8.2 0 0 1 0 11.6"/>
+          </svg>
+        </div>
+      </div>
+      <div class="mid">
+        <div class="kind work">Work</div>
+        <div class="time mono">0:32</div>
+        <div class="of">of 0:45</div>
+        <div class="next-mini">Next — <b>Recovery, 1:30</b></div>
+      </div>
+      <div class="ctrls">
+        <div class="c-sec"><svg width="13" height="13" viewBox="0 0 24 24"><path d="M5 5.6v12.8a.9.9 0 0 0 1.38.76L16 13.2a.9.9 0 0 0 0-1.52L6.38 4.84A.9.9 0 0 0 5 5.6Z" fill="currentColor"/><rect x="17" y="5" width="2.4" height="14" rx="1" fill="currentColor"/></svg></div>
+        <div class="c-pri work"><svg width="14" height="14" viewBox="0 0 24 24"><path d="M7 5.5v13a1 1 0 0 0 1.53.85l10.5-6.5a1 1 0 0 0 0-1.7l-10.5-6.5A1 1 0 0 0 7 5.5Z" fill="currentColor"/></svg></div>
+        <div class="c-sec"><svg width="12" height="12" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3" fill="currentColor"/></svg></div>
+      </div>
+    </div>
+    <div class="state-label">Paused</div>
+  </div>
+
+  <div class="col">
+    <div class="mini">
+      <div class="row"><span class="badge">Round 2 of 4</span>
+        <div class="mute-mini active">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 9.5v5h3.2L12 18.3V5.7L7.2 9.5H4Z" fill="currentColor" stroke="none"/>
+            <path d="M15 8.2l6 7.6"/><path d="M21 8.2l-6 7.6"/>
+          </svg>
+        </div>
+      </div>
+      <div class="mid">
+        <div class="kind work">Work</div>
+        <div class="time mono">0:32</div>
+        <div class="of">of 0:45</div>
+        <div class="next-mini">Next — <b>Recovery, 1:30</b></div>
+      </div>
+      <div class="ctrls">
+        <div class="c-sec"><svg width="13" height="13" viewBox="0 0 24 24"><path d="M5 5.6v12.8a.9.9 0 0 0 1.38.76L16 13.2a.9.9 0 0 0 0-1.52L6.38 4.84A.9.9 0 0 0 5 5.6Z" fill="currentColor"/><rect x="17" y="5" width="2.4" height="14" rx="1" fill="currentColor"/></svg></div>
+        <div class="c-pri work"><svg width="16" height="16" viewBox="0 0 24 24"><rect x="6" y="5" width="4.6" height="14" rx="1.2" fill="currentColor"/><rect x="13.4" y="5" width="4.6" height="14" rx="1.2" fill="currentColor"/></svg></div>
+        <div class="c-sec"><svg width="12" height="12" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3" fill="currentColor"/></svg></div>
+      </div>
+    </div>
+    <div class="state-label">Muted (tones off)</div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

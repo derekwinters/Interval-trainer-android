@@ -1,0 +1,136 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  a { color: #57c98a; }
+  a:hover { color: #7edda6; }
+  .screen {
+    --bg: #0a0d10;
+    --fg: #f5f7f9;
+    --dim: rgba(245,247,249,.62);
+    --faint: rgba(245,247,249,.36);
+    --work: #57c98a;
+    --recovery: #f0c65a;
+    --neutral: #7c93ab;
+    --line: rgba(255,255,255,.09);
+    --chip: rgba(255,255,255,.05);
+    width: 390px; height: 844px; position: relative; overflow: hidden;
+    background: var(--bg); color: var(--fg);
+    font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+    display: flex; flex-direction: column;
+    padding: 28px 22px 30px;
+  }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .row { display: flex; align-items: center; }
+  .top { justify-content: space-between; margin-bottom: 6px; }
+  .stat-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); font-weight: 700; }
+  .stat-value { font-size: 13px; color: var(--dim); font-weight: 600; margin-top: 2px; }
+  .icon-btn { width: 38px; height: 38px; border-radius: 50%; background: var(--chip); border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center; color: var(--dim); }
+  .body { display: flex; gap: 6px; height: 552px; }
+  .ring-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; min-width: 0; }
+  .ring-stack { position: relative; width: 208px; height: 208px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .ring-stack svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+  .ring-center { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .kind-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--work); display: inline-block; margin-right: 5px; }
+  .kind-label { font-size: 12px; letter-spacing: .09em; text-transform: uppercase; font-weight: 800; color: var(--work); display: flex; align-items: center; }
+  .time { font-size: 48px; font-weight: 600; line-height: 1; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+  .of-total { font-size: 11px; color: var(--faint); font-weight: 500; }
+  .total-left { font-size: 11px; color: var(--dim); }
+  .total-left b { color: var(--fg); font-weight: 700; }
+
+  /* --- rolodex rail: option C, a proportional map of the whole workout --- */
+  .rail-col { flex: 0 0 108px; position: relative; height: 552px; }
+  .track { position: absolute; left: 14px; top: 20px; bottom: 20px; width: 3px; border-radius: 2px; background: rgba(255,255,255,.08); }
+  .tick { position: absolute; left: 8px; width: 15px; border-radius: 4px; }
+  .tick.work { background: var(--work); } .tick.recovery { background: var(--recovery); } .tick.neutral { background: var(--neutral); }
+  .tick.past { opacity: .3; } .tick.future { opacity: .48; }
+  .tick.now { opacity: 1; box-shadow: 0 0 0 2px rgba(245,247,249,.55); }
+  .now-line { position: absolute; left: 3px; width: 25px; height: 2px; background: var(--fg); border-radius: 1px; }
+  .callout { position: absolute; left: 34px; width: 68px; display: flex; flex-direction: column; gap: 1px; transform: translateY(-50%); }
+  .callout .nm { font-size: 12px; font-weight: 800; color: var(--fg); }
+  .callout .du { font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .foot-hint { position: absolute; left: 0; bottom: -2px; font-size: 9px; color: var(--faint); width: 108px; }
+
+  .controls { display: flex; align-items: center; justify-content: center; gap: 24px; margin-top: 12px; }
+  .primary-btn { width: 74px; height: 74px; border-radius: 50%; background: var(--work); color: #06170f;
+    display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 24px rgba(87,201,138,.30); border: none; }
+  .secondary-btn { width: 50px; height: 50px; border-radius: 50%; background: var(--chip); border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center; color: var(--dim); }
+</style>
+</helmet>
+<div class="screen">
+  <div class="row top">
+    <div>
+      <div class="stat-label">Round</div>
+      <div class="stat-value">2 of 4</div>
+    </div>
+    <div class="icon-btn" aria-label="Unmuted">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 9.5v5h3.2L12 18.3V5.7L7.2 9.5H4Z" fill="currentColor" stroke="none"/>
+        <path d="M15.8 8.7a4.6 4.6 0 0 1 0 6.6"/>
+        <path d="M18.3 6.2a8.2 8.2 0 0 1 0 11.6"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="ring-col">
+      <div class="ring-stack">
+        <svg viewBox="0 0 210 210">
+          <circle cx="105" cy="105" r="88" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="12"/>
+          <circle cx="105" cy="105" r="88" fill="none" stroke="#57c98a" stroke-width="12" stroke-linecap="round" stroke-dasharray="553" stroke-dashoffset="160"/>
+        </svg>
+        <div class="ring-center">
+          <div class="kind-label"><span class="kind-dot"></span>Work</div>
+          <div class="time mono">0:32</div>
+          <div class="of-total">of 0:45</div>
+        </div>
+      </div>
+      <div class="total-left">Total left&nbsp; <b>10:02</b></div>
+    </div>
+
+    <div class="rail-col">
+      <div class="track"></div>
+      <div class="tick neutral past" style="top:20px; height:93px;"></div>
+      <div class="tick work past" style="top:117px; height:23px;"></div>
+      <div class="tick recovery past" style="top:144px; height:46px;"></div>
+      <div class="now-line" style="top:200px;"></div>
+      <div class="tick work now" style="top:194px; height:23px;"></div>
+      <div class="callout" style="top:200px;">
+        <span class="nm">Work</span>
+        <span class="du">0:32 left</span>
+      </div>
+      <div class="tick recovery future" style="top:221px; height:39px;"></div>
+      <div class="tick work future" style="top:264px; height:31px;"></div>
+      <div class="tick recovery future" style="top:299px; height:39px;"></div>
+      <div class="tick work future" style="top:342px; height:31px;"></div>
+      <div class="tick neutral future" style="top:377px; height:155px;"></div>
+      <div class="foot-hint">Whole workout, top to bottom</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="secondary-btn" aria-label="Skip">
+      <svg width="20" height="20" viewBox="0 0 24 24"><path d="M5 5.6v12.8a.9.9 0 0 0 1.38.76L16 13.2a.9.9 0 0 0 0-1.52L6.38 4.84A.9.9 0 0 0 5 5.6Z" fill="currentColor"/><rect x="17" y="5" width="2.4" height="14" rx="1" fill="currentColor"/></svg>
+    </div>
+    <div class="primary-btn" aria-label="Pause">
+      <svg width="28" height="28" viewBox="0 0 24 24"><rect x="6" y="5" width="4.6" height="14" rx="1.2" fill="currentColor"/><rect x="13.4" y="5" width="4.6" height="14" rx="1.2" fill="currentColor"/></svg>
+    </div>
+    <div class="secondary-btn" aria-label="Stop">
+      <svg width="18" height="18" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3" fill="currentColor"/></svg>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
