@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .card {
+    --bg: #0a0d10; --fg: #f5f7f9; --dim: rgba(245,247,249,.62); --faint: rgba(245,247,249,.36);
+    --work: #57c98a; --line: rgba(255,255,255,.09); --chip: rgba(255,255,255,.05);
+    width: 340px; height: 320px; background: var(--bg); color: var(--fg);
+    font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+    border-radius: 20px; padding: 24px; display: flex; flex-direction: column; align-items: center;
+  }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .lbl { align-self: flex-start; display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; color: var(--dim); margin-bottom: 30px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--work); }
+  .stepper-row { flex: 1; display: flex; align-items: center; justify-content: center; gap: 18px; }
+  .grp { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .step-btn { width: 44px; height: 44px; border-radius: 12px; background: var(--chip); border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center; color: var(--dim); }
+  .val { font-size: 44px; font-weight: 700; font-variant-numeric: tabular-nums; width: 80px; text-align: center; }
+  .unit { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); font-weight: 700; }
+  .colon { font-size: 36px; font-weight: 700; color: var(--faint); margin-top: 4px; }
+  .hint { font-size: 11px; color: var(--faint); margin-top: 22px; }
+</style>
+</helmet>
+<div class="card">
+  <div class="lbl"><span class="dot"></span>Work duration</div>
+  <div class="stepper-row">
+    <div class="grp">
+      <div class="step-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 15l7-7 7 7"/></svg></div>
+      <div class="val mono">01</div>
+      <div class="step-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 9l7 7 7-7"/></svg></div>
+      <div class="unit">min</div>
+    </div>
+    <div class="colon">:</div>
+    <div class="grp">
+      <div class="step-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 15l7-7 7 7"/></svg></div>
+      <div class="val mono">30</div>
+      <div class="step-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 9l7 7 7-7"/></svg></div>
+      <div class="unit">sec</div>
+    </div>
+  </div>
+  <div class="hint">Tap to step by 5s · hold to fast-forward</div>
+</div>
+</x-dc>
+</body>
+</html>

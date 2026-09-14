@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .card {
+    --bg: #0a0d10; --fg: #f5f7f9; --dim: rgba(245,247,249,.62); --faint: rgba(245,247,249,.36);
+    --work: #57c98a; --line: rgba(255,255,255,.09); --chip: rgba(255,255,255,.05);
+    width: 340px; height: 320px; background: var(--bg); color: var(--fg);
+    font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+    border-radius: 20px; padding: 20px 22px 18px; display: flex; flex-direction: column; align-items: center;
+  }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .lbl { align-self: flex-start; display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; color: var(--dim); margin-bottom: 10px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--work); }
+  .field { width: 100%; height: 50px; border-radius: 12px; background: rgba(87,201,138,.08); border: 1.5px solid var(--work);
+    display: flex; align-items: center; justify-content: center; gap: 3px; margin-bottom: 12px; }
+  .field .val { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .caret { width: 2px; height: 22px; background: var(--work); }
+  .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; width: 100%; flex: 1; }
+  .key { background: var(--chip); border: 1px solid var(--line); border-radius: 10px;
+    display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; color: var(--fg); }
+  .key.ghost { color: var(--dim); background: transparent; border: none; }
+  .hint { font-size: 11px; color: var(--faint); margin-top: 10px; }
+</style>
+</helmet>
+<div class="card">
+  <div class="lbl"><span class="dot"></span>Work duration</div>
+  <div class="field"><span class="val mono">1:30</span><span class="caret"></span></div>
+  <div class="pad">
+    <div class="key">1</div><div class="key">2</div><div class="key">3</div>
+    <div class="key">4</div><div class="key">5</div><div class="key">6</div>
+    <div class="key">7</div><div class="key">8</div><div class="key">9</div>
+    <div class="key ghost">Done</div><div class="key">0</div>
+    <div class="key ghost"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z"/><path d="M18 9l-6 6"/><path d="M12 9l6 6"/></svg></div>
+  </div>
+  <div class="hint">Type digits right-to-left, seconds then minutes — 130 → 1:30</div>
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,135 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  a { color: #57c98a; }
+  a:hover { color: #7edda6; }
+  .screen {
+    --bg: #0a0d10;
+    --fg: #f5f7f9;
+    --dim: rgba(245,247,249,.62);
+    --faint: rgba(245,247,249,.36);
+    --work: #57c98a;
+    --recovery: #f0c65a;
+    --neutral: #7c93ab;
+    --line: rgba(255,255,255,.08);
+    --chip: rgba(255,255,255,.05);
+    --card: rgba(255,255,255,.035);
+    width: 390px; height: 844px; position: relative; overflow: hidden;
+    background: var(--bg); color: var(--fg);
+    font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+    display: flex; flex-direction: column;
+    padding: 30px 20px 0;
+  }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+  .h1 { font-size: 21px; font-weight: 800; }
+  .icon-btn { width: 38px; height: 38px; border-radius: 50%; background: var(--chip); border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center; color: var(--dim); }
+  .list { display: flex; flex-direction: column; gap: 10px; flex: 1; overflow: hidden; }
+  .row { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 13px 14px; }
+  .row.sel { border-color: rgba(87,201,138,.4); background: rgba(87,201,138,.08); }
+  .dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; }
+  .row.sel .dot { border-color: var(--work); background: var(--work); }
+  .mid { flex: 1; min-width: 0; }
+  .strip { height: 4px; border-radius: 2px; overflow: hidden; display: flex; margin-bottom: 7px; }
+  .strip span { height: 100%; }
+  .nm { font-size: 15px; font-weight: 700; }
+  .meta { font-size: 12px; color: var(--faint); margin-top: 2px; }
+  .actionbar { position: absolute; left: 0; right: 0; bottom: 0; padding: 16px 20px 26px;
+    background: linear-gradient(to top, var(--bg) 60%, transparent); }
+  .actionbar-inner { background: rgba(20,24,28,.92); border: 1px solid rgba(255,255,255,.1); border-radius: 18px;
+    padding: 13px 14px; display: flex; align-items: center; gap: 12px; backdrop-filter: blur(6px); }
+  .picked { flex: 1; min-width: 0; }
+  .picked .lbl { font-size: 10px; letter-spacing: .07em; text-transform: uppercase; color: var(--faint); font-weight: 700; }
+  .picked .nm2 { font-size: 14px; font-weight: 700; margin-top: 1px; }
+  .edit-btn { width: 42px; height: 42px; border-radius: 11px; background: var(--chip); border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center; color: var(--dim); flex-shrink: 0; }
+  .start-btn { display: flex; align-items: center; gap: 6px; background: var(--work); color: #06170f;
+    border-radius: 11px; padding: 12px 18px; font-size: 13px; font-weight: 800; flex-shrink: 0; }
+</style>
+</helmet>
+<div class="screen">
+  <div class="top">
+    <div class="h1">Presets</div>
+    <div class="icon-btn" aria-label="Settings">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.5-2-3.4-2.3.9a7.6 7.6 0 0 0-1.7-1L15 3.6h-4l-.4 2.4a7.6 7.6 0 0 0-1.7 1l-2.3-.9-2 3.4L6.6 11a7.6 7.6 0 0 0 0 2l-2 1.5 2 3.4 2.3-.9a7.6 7.6 0 0 0 1.7 1l.4 2.4h4l.4-2.4a7.6 7.6 0 0 0 1.7-1l2.3.9 2-3.4-2-1.5Z"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="list">
+    <div class="row sel">
+      <div class="dot"></div>
+      <div class="mid">
+        <div class="strip">
+          <span style="width:19%; background:var(--neutral)"></span><span style="width:5%; background:var(--work)"></span>
+          <span style="width:10%; background:var(--recovery)"></span><span style="width:5%; background:var(--work)"></span>
+          <span style="width:8%; background:var(--recovery)"></span><span style="width:6%; background:var(--work)"></span>
+          <span style="width:8%; background:var(--recovery)"></span><span style="width:6%; background:var(--work)"></span>
+          <span style="width:33%; background:var(--neutral)"></span>
+        </div>
+        <div class="nm">Easy run/walk</div>
+        <div class="meta">4 rounds · 15:30</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="dot"></div>
+      <div class="mid">
+        <div class="strip">
+          <span style="width:18%; background:var(--neutral)"></span>
+          <span style="width:5%; background:var(--work)"></span><span style="width:5%; background:var(--recovery)"></span>
+          <span style="width:5%; background:var(--work)"></span><span style="width:5%; background:var(--recovery)"></span>
+          <span style="width:5%; background:var(--work)"></span><span style="width:5%; background:var(--recovery)"></span>
+          <span style="width:5%; background:var(--work)"></span><span style="width:5%; background:var(--recovery)"></span>
+          <span style="width:5%; background:var(--work)"></span><span style="width:5%; background:var(--recovery)"></span>
+          <span style="width:5%; background:var(--work)"></span><span style="width:5%; background:var(--recovery)"></span>
+          <span style="width:27%; background:var(--neutral)"></span>
+        </div>
+        <div class="nm">Tempo repeats</div>
+        <div class="meta">6 rounds · 11:00</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="dot"></div>
+      <div class="mid">
+        <div class="strip">
+          <span style="width:8%; background:var(--neutral)"></span>
+          <span style="width:80%; background:var(--work)"></span>
+          <span style="width:12%; background:var(--neutral)"></span>
+        </div>
+        <div class="nm">Long steady state</div>
+        <div class="meta">Steady effort · 25:00</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="actionbar">
+    <div class="actionbar-inner">
+      <div class="picked">
+        <div class="lbl">Selected</div>
+        <div class="nm2">Easy run/walk</div>
+      </div>
+      <div class="edit-btn" aria-label="Edit"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+      <div class="start-btn"><svg width="13" height="13" viewBox="0 0 24 24"><path d="M7 5.5v13a1 1 0 0 0 1.53.85l10.5-6.5a1 1 0 0 0 0-1.7l-10.5-6.5A1 1 0 0 0 7 5.5Z" fill="currentColor"/></svg>Start</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
