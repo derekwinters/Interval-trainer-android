@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .card {
+    --bg: #0a0d10; --fg: #f5f7f9; --dim: rgba(245,247,249,.62); --faint: rgba(245,247,249,.36);
+    --work: #57c98a; --line: rgba(255,255,255,.09); --chip: rgba(255,255,255,.05);
+    width: 340px; height: 320px; background: var(--bg); color: var(--fg);
+    font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+    border-radius: 20px; padding: 24px; display: flex; flex-direction: column;
+  }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .lbl { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; color: var(--dim); margin-bottom: 20px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--work); }
+  .big { flex: 1; display: flex; align-items: center; justify-content: center; gap: 18px; }
+  .val { font-size: 46px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .fine { display: flex; flex-direction: column; gap: 8px; }
+  .fine-btn { width: 34px; height: 34px; border-radius: 9px; background: var(--chip); border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center; color: var(--dim); font-size: 13px; font-weight: 800; }
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 18px; }
+  .chip-item { padding: 8px 13px; border-radius: 999px; font-size: 12px; font-weight: 700;
+    background: var(--chip); border: 1px solid var(--line); color: var(--dim); }
+  .chip-item.sel { background: rgba(87,201,138,.16); border-color: var(--work); color: var(--fg); }
+  .hint { font-size: 11px; color: var(--faint); margin-top: 14px; }
+</style>
+</helmet>
+<div class="card">
+  <div class="lbl"><span class="dot"></span>Work duration</div>
+  <div class="big">
+    <div class="val mono">1:30</div>
+    <div class="fine">
+      <div class="fine-btn">+5s</div>
+      <div class="fine-btn">−5s</div>
+    </div>
+  </div>
+  <div class="chips">
+    <div class="chip-item">0:15</div>
+    <div class="chip-item">0:30</div>
+    <div class="chip-item">0:45</div>
+    <div class="chip-item">1:00</div>
+    <div class="chip-item sel">1:30</div>
+    <div class="chip-item">2:00</div>
+    <div class="chip-item">3:00</div>
+  </div>
+  <div class="hint">Tap a common value, then fine-tune by 5s if needed</div>
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,130 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  a { color: #57c98a; }
+  a:hover { color: #7edda6; }
+  .screen {
+    --bg: #0a0d10; --fg: #f5f7f9; --dim: rgba(245,247,249,.62); --faint: rgba(245,247,249,.36);
+    --work: #57c98a; --recovery: #f0c65a; --neutral: #7c93ab;
+    --line: rgba(255,255,255,.09); --chip: rgba(255,255,255,.05); --card: rgba(255,255,255,.03);
+    width: 390px; height: 844px; position: relative; overflow: hidden;
+    background: var(--bg); color: var(--fg);
+    font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+    display: flex; flex-direction: column;
+    padding: 26px 20px 22px;
+  }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .top { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+  .back { width: 34px; height: 34px; border-radius: 50%; background: var(--chip); border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center; color: var(--dim); flex-shrink: 0; }
+  .h1 { font-size: 18px; font-weight: 800; flex: 1; }
+  .save { background: var(--work); color: #06170f; border-radius: 999px; padding: 8px 16px; font-size: 13px; font-weight: 800; }
+
+  .field-lbl { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); font-weight: 700; margin-bottom: 7px; }
+  .name-field { height: 46px; border-radius: 11px; background: var(--card); border: 1px solid var(--line);
+    display: flex; align-items: center; padding: 0 14px; font-size: 15px; font-weight: 700; gap: 3px; margin-bottom: 18px; }
+  .caret { width: 1.5px; height: 18px; background: var(--work); }
+
+  .row { display: flex; align-items: center; gap: 10px; padding: 13px 2px; border-bottom: 1px solid var(--line); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .dot.work { background: var(--work); } .dot.recovery { background: var(--recovery); } .dot.neutral { background: var(--neutral); }
+  .rnm { flex: 1; font-size: 14px; font-weight: 700; }
+  .rval { font-size: 13px; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .chev { color: var(--faint); }
+
+  .grp { border: 1px solid var(--line); border-radius: 14px; margin: 14px 0; overflow: hidden; background: var(--card); }
+  .grp .row { border-bottom: 1px solid var(--line); padding-left: 13px; padding-right: 13px; }
+  .grp .row:last-child { border-bottom: none; }
+  .rounds-row { justify-content: space-between; }
+  .rounds-row .rnm { flex: unset; }
+  .mini-stepper { display: flex; align-items: center; gap: 10px; }
+  .mini-btn { width: 26px; height: 26px; border-radius: 7px; background: var(--chip); border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center; color: var(--dim); font-size: 13px; font-weight: 800; }
+  .mini-val { font-size: 15px; font-weight: 800; width: 18px; text-align: center; }
+
+  .active-row { flex-direction: column; align-items: stretch; padding: 13px; gap: 4px; }
+  .active-head { display: flex; align-items: center; gap: 10px; }
+  .stepper-mini { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 10px 0 6px; }
+  .sm-grp { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .sm-btn { width: 32px; height: 32px; border-radius: 9px; background: var(--chip); border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center; color: var(--dim); }
+  .sm-val { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; width: 56px; text-align: center; }
+  .sm-unit { font-size: 9px; letter-spacing: .07em; text-transform: uppercase; color: var(--faint); font-weight: 700; }
+  .sm-colon { font-size: 24px; font-weight: 700; color: var(--faint); margin-top: -14px; }
+  .sm-hint { font-size: 10px; color: var(--faint); text-align: center; margin-top: 4px; }
+
+  .total { text-align: center; font-size: 12px; color: var(--faint); margin-top: auto; padding-top: 14px; }
+  .total b { color: var(--dim); font-weight: 700; }
+</style>
+</helmet>
+<div class="screen">
+  <div class="top">
+    <div class="back"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+    <div class="h1">Edit preset</div>
+    <div class="save">Save</div>
+  </div>
+
+  <div class="field-lbl">Name</div>
+  <div class="name-field">Easy run/walk<span class="caret"></span></div>
+
+  <div class="row">
+    <span class="dot neutral"></span><span class="rnm">Warm-up</span>
+    <span class="rval mono">3:00</span><span class="chev">▸</span>
+  </div>
+
+  <div class="grp">
+    <div class="row rounds-row">
+      <span class="rnm">Rounds</span>
+      <div class="mini-stepper">
+        <div class="mini-btn">−</div><div class="mini-val">4</div><div class="mini-btn">+</div>
+      </div>
+    </div>
+
+    <div class="row active-row">
+      <div class="active-head">
+        <span class="dot work"></span><span class="rnm">Work</span><span class="chev">▾</span>
+      </div>
+      <div class="stepper-mini">
+        <div class="sm-grp">
+          <div class="sm-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 15l7-7 7 7"/></svg></div>
+          <div class="sm-val mono">00</div>
+          <div class="sm-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 9l7 7 7-7"/></svg></div>
+          <div class="sm-unit">min</div>
+        </div>
+        <div class="sm-colon">:</div>
+        <div class="sm-grp">
+          <div class="sm-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 15l7-7 7 7"/></svg></div>
+          <div class="sm-val mono">45</div>
+          <div class="sm-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 9l7 7 7-7"/></svg></div>
+          <div class="sm-unit">sec</div>
+        </div>
+      </div>
+      <div class="sm-hint">Tap to step by 5s · hold to fast-forward</div>
+    </div>
+
+    <div class="row">
+      <span class="dot recovery"></span><span class="rnm">Recovery</span>
+      <span class="rval mono">1:15</span><span class="chev">▸</span>
+    </div>
+  </div>
+
+  <div class="row">
+    <span class="dot neutral"></span><span class="rnm">Cool-down</span>
+    <span class="rval mono">5:00</span><span class="chev">▸</span>
+  </div>
+
+  <div class="total">4 rounds, no trailing recovery &nbsp;·&nbsp; total <b>14:45</b></div>
+</div>
+</x-dc>
+</body>
+</html>

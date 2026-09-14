@@ -1,0 +1,68 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .card {
+    --bg: #0a0d10; --fg: #f5f7f9; --dim: rgba(245,247,249,.62); --faint: rgba(245,247,249,.36);
+    --work: #57c98a; --line: rgba(255,255,255,.09); --chip: rgba(255,255,255,.05);
+    width: 340px; height: 320px; background: var(--bg); color: var(--fg);
+    font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+    border-radius: 20px; padding: 24px; display: flex; flex-direction: column; align-items: center;
+  }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .lbl { align-self: flex-start; display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; color: var(--dim); margin-bottom: 14px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--work); }
+  .picker { flex: 1; position: relative; width: 100%; display: flex; align-items: center; justify-content: center; }
+  .band { position: absolute; left: 8px; right: 8px; top: 50%; transform: translateY(-50%); height: 44px;
+    background: rgba(87,201,138,.10); border-top: 1px solid rgba(87,201,138,.35); border-bottom: 1px solid rgba(87,201,138,.35); }
+  .cols { position: relative; display: flex; align-items: center; gap: 4px; }
+  .col { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 74px; }
+  .row2 { font-variant-numeric: tabular-nums; font-weight: 700; height: 40px; display: flex; align-items: center; justify-content: center; }
+  .p0 { font-size: 26px; color: var(--fg); opacity: 1; }
+  .p1 { font-size: 20px; color: var(--dim); opacity: .55; }
+  .p2 { font-size: 16px; color: var(--faint); opacity: .28; }
+  .colon2 { font-size: 22px; font-weight: 700; color: var(--faint); align-self: center; }
+  .unit2 { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); font-weight: 700; text-align: center; width: 74px; margin-top: 6px; }
+  .hint { font-size: 11px; color: var(--faint); margin-top: 10px; }
+</style>
+</helmet>
+<div class="card">
+  <div class="lbl"><span class="dot"></span>Work duration</div>
+  <div class="picker">
+    <div class="band"></div>
+    <div class="cols">
+      <div class="col">
+        <div class="row2 p2 mono">03</div>
+        <div class="row2 p1 mono">02</div>
+        <div class="row2 p0 mono">01</div>
+        <div class="row2 p1 mono">00</div>
+        <div class="row2 p2 mono">04</div>
+      </div>
+      <div class="colon2">:</div>
+      <div class="col">
+        <div class="row2 p2 mono">20</div>
+        <div class="row2 p1 mono">25</div>
+        <div class="row2 p0 mono">30</div>
+        <div class="row2 p1 mono">35</div>
+        <div class="row2 p2 mono">40</div>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex; gap:78px;">
+    <div class="unit2">min</div>
+    <div class="unit2">sec</div>
+  </div>
+  <div class="hint">Flick to scrub · same fade as the schedule rail</div>
+</div>
+</x-dc>
+</body>
+</html>
