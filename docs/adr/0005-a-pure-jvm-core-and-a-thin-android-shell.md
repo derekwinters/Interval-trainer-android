@@ -142,6 +142,12 @@ resource processing into a module that needs none of them.
   database module decided on [#32](https://github.com/derekwinters/Interval-trainer-android/issues/32)
   is multiplatform with an Android target. `:core` therefore defines the preset store as an
   interface and the database module implements it, which is the same seam the in-memory fake uses.
+- **A fourth module, `:designsystem`, joins the database module in sitting outside `:core`.** Decided
+  on [#40](https://github.com/derekwinters/Interval-trainer-android/issues/40) as
+  [ADR 0007](0007-a-designsystem-module-with-bespoke-colour-tokens.md), it is Compose and therefore
+  Android-only, and `:app` depends on it — the same shape as the database module, which `:app` also
+  depends on rather than `:core` implementing directly. This ADR's Android-free invariant for `:core`
+  is unaffected either way.
 - **Formatting moves.** `formatSeconds` and its tests live in `:app` today, where `BUILD-030`–`033`
   put them. They are `:core` code by this decision, and the move is part of creating the module —
   including the traceability table in [`docs/spec/build.md`](../spec/build.md), which names the test

@@ -79,7 +79,11 @@ hand-rolled stack gets all of that wrong slowly, one edge case at a time.
 - **`:app` gains the Compose dependencies and the Compose compiler.** The Compose compiler plugin,
   the Compose BOM, Material 3, the activity and navigation artefacts, and the test artefacts the
   semantics assertions need. All of them pinned as literals, per the build specification's second
-  invariant, which is untouched by this decision.
+  invariant, which is untouched by this decision. **Narrowed by
+  [ADR 0007](0007-a-designsystem-module-with-bespoke-colour-tokens.md):** Material 3 is declared once,
+  inside the `:designsystem` module that ADR creates, as an `implementation` dependency — `:app`
+  depends on `:designsystem` for it rather than declaring it directly. The Compose BOM, compiler,
+  activity and navigation artefacts are unaffected.
 - **`docs/spec/build.md`'s third invariant needs amending, and this ADR does not amend it.** The
   invariant as written forbids a user-interface framework outright; what it should say is that one
   arrives with the feature that justifies it, which is the amendment this decision earns. That is
@@ -101,8 +105,14 @@ hand-rolled stack gets all of that wrong slowly, one edge case at a time.
   dependency inside `./gradlew test`, and a live question against the build specification's
   clean-checkout invariant. It is named in
   [ADR 0005](0005-a-pure-jvm-core-and-a-thin-android-shell.md) and settled by the specification, not
-  here.
+  here. **Settled:** [`docs/spec/design-system.md`](../spec/design-system.md) (`DS-092`) answers it —
+  the `android-all` jar is pre-fetched and cached in continuous integration with `robolectric.offline`
+  set, never vendored and never fetched live inside `./gradlew test`.
 - **The design system has a substrate but not yet a vocabulary.** Material 3 supplies roles;
   deciding which role each of this app's actions takes, and what the closed layout set is, is
   [#40](https://github.com/derekwinters/Interval-trainer-android/issues/40). Nothing in this ADR
-  decides how anything looks.
+  decides how anything looks. **Resolved:** the module boundary that makes a raw Material component
+  unreachable outside it, and the strategy for mapping the app's own colour tokens onto `ColorScheme`,
+  are [ADR 0007](0007-a-designsystem-module-with-bespoke-colour-tokens.md) — the two answers from #40
+  that were architecture rather than vocabulary. The rest of the vocabulary, including the closed
+  layout set, is [`docs/spec/design-system.md`](../spec/design-system.md).
