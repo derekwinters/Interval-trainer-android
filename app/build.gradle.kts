@@ -3,6 +3,7 @@ import com.android.build.api.variant.impl.VariantOutputImpl
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 // gradle.properties is the single source of truth for the app's version (BUILD-013).
@@ -56,6 +57,7 @@ android {
 
     buildFeatures {
         buildConfig = true
+        compose = true
     }
 
     signingConfigs {
@@ -94,6 +96,21 @@ androidComponents {
 }
 
 dependencies {
+    // The Compose BOM pins every androidx.compose.* artifact declared below to one literal
+    // version (BUILD-017); the BOM's own version is itself a literal, per the build's second
+    // invariant. androidx.compose.material3 is deliberately not declared here — see BUILD-017 and
+    // ADR 0007 — so it is not managed through this platform import either.
+    implementation(platform("androidx.compose:compose-bom:2024.12.01"))
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-graphics")
+    implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    debugImplementation("androidx.compose.ui:ui-tooling")
+
+    // Not managed by the Compose BOM, so each carries its own literal version (BUILD-017).
+    implementation("androidx.activity:activity-compose:1.9.3")
+    implementation("androidx.navigation:navigation-compose:2.8.5")
+
     // The unit tests run on the JVM alone (BUILD-021), so nothing here needs a device.
     testImplementation("junit:junit:4.13.2")
 }
