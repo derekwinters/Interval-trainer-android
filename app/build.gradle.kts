@@ -94,6 +94,9 @@ androidComponents {
 }
 
 dependencies {
+    // formatSeconds lives in :core now (ADR 0005, BUILD-014).
+    implementation(project(":core"))
+
     // The unit tests run on the JVM alone (BUILD-021), so nothing here needs a device.
     testImplementation("junit:junit:4.13.2")
 }
