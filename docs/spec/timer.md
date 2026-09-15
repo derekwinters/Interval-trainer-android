@@ -84,6 +84,10 @@ glossary's, in [`CONTEXT.md`](../../CONTEXT.md).
 - **TIMER-004** A preset stores rows and nothing else — no round count, no generated group, no
   reference to whatever produced a row. *(manual: an absence from the stored model; visible in the
   diff and in the exported schema.)*
+- **TIMER-005** Each interval in the schedule copy records, once the timer moves past it, whether it
+  was **finished** or **skipped**. Rounds completed (`TIMER-061`) reads this per-interval state
+  directly; it is not derived from the schedule's index alone, because the index advances the same
+  way on a skip as it does on a finished interval.
 
 ## 2. The states and the events
 
@@ -121,10 +125,11 @@ A dash is not an error. It is an event arriving at a moment the user cannot have
 resume with nothing paused, a tick after the workout finished — and doing nothing is the correct
 response to all of them.
 
-**Deliberately unspecified:** what **skip** does while the *lead-in itself* is running. Whether it
-abandons the lead-in and starts the upcoming interval immediately, restarts the lead-in, or moves
-past that interval altogether was not decided on #28. It is listed here as a hole rather than
-filled in.
+**Skip while the lead-in itself is running is not a special case.** The table above already covers
+it: the lead-in is part of the running state (`TIMER-018`), so a skip pressed during a lead-in
+follows the same running row as a skip pressed during an interval — it advances to the next
+interval and enters a fresh lead-in before it. `TIMER-045` states this in full, including what
+repeated presses do.
 
 ## 3. The deadline model
 
@@ -180,6 +185,11 @@ interval burns. Skip earns it for the same reason.
 - **TIMER-044** Skip is **not configurable in v1**. Whether it gives a lead-in becomes a setting
   later; no setting is built now, and no indirection is built in anticipation of one. *(manual: a
   scope boundary, verified by an absence in the diff.)*
+- **TIMER-045** **skip** accepted while the **lead-in** itself is running abandons that lead-in and
+  advances to the next interval in the schedule, entering a fresh lead-in before it — exactly as
+  skip does when accepted during an interval. Repeated skip presses during the lead-in **walk
+  forward** through the schedule one interval at a time; the lead-in never restarts for the interval
+  it was counting into.
 
 ## 6. Stop and the summary
 
@@ -206,14 +216,13 @@ can actually support, and it is what "3 of 5" has to mean.
 - **TIMER-060** A **round** is a **work** interval. Rounds planned is the number of work intervals
   in the schedule; every other kind counts towards nothing.
 - **TIMER-061** Rounds completed counts **work intervals finished** against work intervals in the
-  schedule, and is reported as a pair — "3 of 5".
+  schedule, and is reported as a pair — "3 of 5". A work interval that was **skipped** was left
+  behind rather than finished, and does not count towards it, however far skip has since moved the
+  schedule past it — `TIMER-005`'s per-interval state is what lets rounds completed be read
+  directly rather than guessed from the index.
 
 This is accepted as good enough for v1, with a better rendering of a non-uniform workout left to the
 running screen's own issues.
-
-**Deliberately unspecified:** whether a work interval the user **skipped** counts towards rounds
-completed. It was left behind rather than finished, and it was also got past; #28 settled that a
-round is a work interval without settling this, so it is a hole rather than a decision.
 
 ## 8. The minimum interval
 
@@ -261,17 +270,17 @@ repeating a uniform pair, a new function rather than a new model.
 
 | Section | IDs | Tests |
 |---|---|---|
-| Presets and schedules | TIMER-001–004 | `TimerStateTest.kt` (TIMER-001–003); *(manual)* TIMER-004 |
+| Presets and schedules | TIMER-001–005 | `TimerStateTest.kt` (TIMER-001–003, 005); *(manual)* TIMER-004 |
 | The states and the events | TIMER-010–018 | `TimerStateTest.kt` |
 | The deadline model | TIMER-020–025 | `TimerStateTest.kt` |
 | The lead-in | TIMER-030–036 | `TimerStateTest.kt` |
-| Skip | TIMER-040–044 | `TimerStateTest.kt` (TIMER-040–043); *(manual)* TIMER-044 |
+| Skip | TIMER-040–045 | `TimerStateTest.kt` (TIMER-040–043, 045); *(manual)* TIMER-044 |
 | Stop and the summary | TIMER-050–054 | `TimerStateTest.kt` (TIMER-050, 052, 054); *(manual)* TIMER-051, 053 |
 | Rounds completed | TIMER-060–061 | `TimerStateTest.kt` |
 | The minimum interval | TIMER-070–073 | `ScheduleGeneratorTest.kt` (TIMER-070, 072–073); `CueSelectionTest.kt` (TIMER-071) |
 | The generator | TIMER-080–085 | `ScheduleGeneratorTest.kt` (TIMER-080–083, 085); *(manual)* TIMER-084 |
 
-**48 requirements, 43 `auto` and 5 `manual`.**
+**50 requirements, 45 `auto` and 5 `manual`.**
 
 **The `auto` tests do not exist yet.** There is no implementation of any of this, and no `:core`
 module to hold one — the build today is a single `:app` module (`BUILD-002`). `TimerStateTest.kt`
