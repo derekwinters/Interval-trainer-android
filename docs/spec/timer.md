@@ -270,10 +270,10 @@ repeating a uniform pair, a new function rather than a new model.
 
 | Section | IDs | Tests |
 |---|---|---|
-| Presets and schedules | TIMER-001–005 | `ScheduleTest.kt` (TIMER-001–003); *(manual)* TIMER-004; TIMER-005 by `TimerStateTest.kt`, not yet built |
+| Presets and schedules | TIMER-001–005 | `ScheduleTest.kt` (TIMER-001–003); *(manual)* TIMER-004; `TimerStateTest.kt` (TIMER-005) |
 | The states and the events | TIMER-010–018 | `TimerStateTest.kt` |
 | The deadline model | TIMER-020–025 | `TimerStateTest.kt` |
-| The lead-in | TIMER-030–036 | `TimerStateTest.kt` |
+| The lead-in | TIMER-030–036 | `TimerStateTest.kt` (TIMER-030–032, 034–036); TIMER-033 not yet assertable — see below |
 | Skip | TIMER-040–045 | `TimerStateTest.kt` (TIMER-040–043, 045); *(manual)* TIMER-044 |
 | Stop and the summary | TIMER-050–054 | `TimerStateTest.kt` (TIMER-050, 052, 054); *(manual)* TIMER-051, 053 |
 | Rounds completed | TIMER-060–061 | `TimerStateTest.kt` |
@@ -282,15 +282,19 @@ repeating a uniform pair, a new function rather than a new model.
 
 **50 requirements, 45 `auto` and 5 `manual`.**
 
-**Most of the `auto` tests do not exist yet, but the first ones do.** `:core` now holds the preset
-and interval data model and the schedule-copy function
-([#67](https://github.com/derekwinters/Interval-trainer-android/issues/67)), tested by
-`ScheduleTest.kt` at `core/src/test/kotlin/com/derekwinters/intervaltrainer/`, which is what
-asserts TIMER-001–003. That covers presets and schedules, not the state machine: `TimerStateTest.kt`
-and `ScheduleGeneratorTest.kt`, which will assert everything from §2 onward including TIMER-005,
-have no implementation yet and are named here, in the future tense, at the same path, for when the
-timer is built. A requirement marked `auto` is a promise that a JVM test *can* assert it and *will*,
-not a claim that one does.
+**The state machine is built.** `:core` now holds the preset and interval data model and the
+schedule-copy function ([#67](https://github.com/derekwinters/Interval-trainer-android/issues/67)),
+tested by `ScheduleTest.kt`, and the timer state machine
+([#69](https://github.com/derekwinters/Interval-trainer-android/issues/69)) — the four states, the
+deadline model, the lead-in, skip, stop and the summary, and rounds completed — tested by
+`TimerStateTest.kt`, both at `core/src/test/kotlin/com/derekwinters/intervaltrainer/`. Still
+unbuilt: the generator (§9) and `ScheduleGeneratorTest.kt`, and cue selection
+(`docs/spec/cues.md`) and `CueSelectionTest.kt`, both named here in the future tense for when they
+land. A requirement marked `auto` is a promise that a JVM test *can* assert it and *will*, not a
+claim that one does — which is exactly `TIMER-033`'s position today: `CueSink` (`:core`) has no
+member yet, cue selection being a separate, later issue's job, so nothing in `:core` fires a cue at
+all yet for `TimerStateTest.kt` to assert the *absence* of one against. It moves out of this
+paragraph once cue selection gives `TimerStateTest.kt` or its own suite something to assert.
 
 **One assertion is worth naming before it is written.** `TIMER-071` — every interval fires exactly
 three countdown ticks, and so does the lead-in — is not a formality. The prototype's first build
