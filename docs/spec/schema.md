@@ -138,9 +138,10 @@ high-intensity protocol charted and later rejected for this app
 - **SCHEMA-033** Both presets end their last round's recovery before cool-down begins; neither
   preset omits a trailing recovery. *(auto: `PresetDaoTest.kt`, asserting the seeded row counts,
   kinds, durations and totals in `SCHEMA-031`–`032`.)*
-- **SCHEMA-034** The seeded presets' `name` values are **not fixed by this specification** — see
-  the open item recorded in this ticket's report. Whatever names are chosen, they are ordinary
-  `presets.name` values with no special status (`SCHEMA-013`).
+- **SCHEMA-034** The seeded presets' `name` values are **"Short Example"** for the short preset
+  (`SCHEMA-031`) and **"Long Example"** for the full preset (`SCHEMA-032`), decided by the
+  repository owner, asked directly. They are ordinary `presets.name` values with no special status
+  (`SCHEMA-013`).
 
 | | Short | Full |
 |---|---|---|

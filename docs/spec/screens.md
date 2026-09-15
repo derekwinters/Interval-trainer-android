@@ -221,12 +221,20 @@ needs a default to come from, and nothing else has been decided to belong here
   the default; it never affects a workout already running (`CUE-052`).
 - **SCREEN-062** Settings is reachable while a workout is paused, as part of the rest of the app
   being reachable then (`SCREEN-041`); it is not reachable while a workout is running.
+- **SCREEN-063** Settings contains a second item: a `ListItem` row for the notification
+  permission. Its secondary text shows the permission's current state (granted or denied). A
+  `Switch` is not used here — unlike `SCREEN-061`'s default-mute value, this row does not hold a
+  value the app owns and can flip on tap; it reflects a system permission the app cannot itself
+  grant. When the state is denied, tapping the row opens the app's page in the system settings app
+  (`SVC-033`); when it is granted, the row is present but inert, since there is nothing left to do
+  from here.
 
-**Not specified.** Nothing beyond the default-mute switch is decided for v1 settings. Candidates
-raised while deciding cues — a default vibration toggle, the countdown length — are explicitly not
-built, and this specification does not anticipate them with unused structure.
+**Not specified.** Nothing beyond the default-mute switch and the notification-permission row is
+decided for v1 settings. Candidates raised while deciding cues — a default vibration toggle, the
+countdown length — are explicitly not built, and this specification does not anticipate them with
+unused structure.
 
-*(All of §5 is manual: one switch and one navigation fact.)*
+*(All of §5 is manual: two rows and one navigation fact.)*
 
 ## 6. First-run
 
@@ -279,11 +287,11 @@ runner.)*
 | The running screen — controls | SCREEN-030–033 | *(manual)* |
 | The running screen — navigation lock | SCREEN-040–046 | *(manual)* |
 | Summary | SCREEN-050–053 | *(manual)* |
-| Settings | SCREEN-060–062 | *(manual)* |
+| Settings | SCREEN-060–063 | *(manual)* |
 | First-run | SCREEN-070–073 | *(manual)* |
 | Storage for settings and first-run state | SCREEN-080 | *(manual)* |
 
-**46 requirements, 0 `auto` and 46 `manual`.**
+**47 requirements, 0 `auto` and 47 `manual`.**
 
 **Every requirement on this page is `manual`, and that is by design, not by omission.** No
 screen's layout, control set, content or navigation is assertable on a JVM runner without a

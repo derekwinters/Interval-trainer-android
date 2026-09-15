@@ -116,15 +116,18 @@ runner, per [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md).
   trace of the running workout in the shade or on the lock screen while the app is not in front.
 - **SVC-032** The app requests the permission **once**, at first run, and does not prompt again
   automatically at any later point in v1 — not at workout start, and not from settings.
-
-**Not specified, deliberately.** How many times the platform will show its own permission dialog
-before it stops appearing on its own, and what recovery looks like once it has — whether a later
-in-app affordance to re-request it is wanted at all — is not settled by anything decided on
-[#31](https://github.com/derekwinters/Interval-trainer-android/issues/31), which named this
-explicitly as unconfirmed against primary sources. `SVC-032` is deliberately narrow: it says the
-app does not build a repeat prompt in v1, not that one should never exist. Whether v1 needs a way
-back in for someone who declined is a real, open question this specification does not answer —
-see this ticket's report.
+- **SVC-033** v1 does provide a way back in, and it lives in settings
+  ([`docs/spec/screens.md`](screens.md) `SCREEN-063`), not as a second automatic prompt.
+  Android gives an app no way to re-trigger its own system permission dialog once the user has
+  denied it (on modern Android, after a second denial the system stops showing it at all, the
+  same end state as a first denial with "don't ask again"), so the settings row does not call the
+  in-app permission-request API a second time. Instead it reads the permission's current state —
+  granted or denied — and, when it is denied, tapping the row opens the app's page in the system
+  settings app (`Settings.ACTION_APPLICATION_DETAILS_SETTINGS`, or the notification-specific
+  settings intent where the platform version offers one), where the user grants it through the
+  system's own UI. This resolves what [#31](https://github.com/derekwinters/Interval-trainer-android/issues/31)
+  left open; decided by the repository owner, asked directly, since settings is already in v1's
+  scope.
 
 ## 5. Battery optimisation
 
@@ -191,13 +194,13 @@ runner.)*
 | What produces a workout's schedule | SVC-001–002 | Covered by `TimerStateTest.kt` via `TIMER-002`–`003`; the naming itself is *(manual)* |
 | The foreground service | SVC-010–013 | *(manual)* |
 | The notification | SVC-020–024 | *(manual)* |
-| The notification permission | SVC-030–032 | *(manual)* |
+| The notification permission | SVC-030–033 | *(manual)* |
 | Battery optimisation | SVC-040 | *(manual)* |
 | Task removal | SVC-041–042 | *(manual)* |
 | Stop | SVC-050–053 | *(manual)* |
 | Preset edited or deleted mid-workout | SVC-060–062 | *(manual)*, consequence of `TIMER-002`–`003` |
 
-**24 requirements, 0 `auto` and 24 `manual`.**
+**25 requirements, 0 `auto` and 25 `manual`.**
 
 **Why every requirement here is `manual`.** This page is almost entirely the far side of the
 boundary [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md) drew: a foreground
