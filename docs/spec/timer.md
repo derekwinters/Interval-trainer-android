@@ -270,7 +270,7 @@ repeating a uniform pair, a new function rather than a new model.
 
 | Section | IDs | Tests |
 |---|---|---|
-| Presets and schedules | TIMER-001–005 | `TimerStateTest.kt` (TIMER-001–003, 005); *(manual)* TIMER-004 |
+| Presets and schedules | TIMER-001–005 | `ScheduleTest.kt` (TIMER-001–003); *(manual)* TIMER-004; TIMER-005 by `TimerStateTest.kt`, not yet built |
 | The states and the events | TIMER-010–018 | `TimerStateTest.kt` |
 | The deadline model | TIMER-020–025 | `TimerStateTest.kt` |
 | The lead-in | TIMER-030–036 | `TimerStateTest.kt` |
@@ -282,13 +282,15 @@ repeating a uniform pair, a new function rather than a new model.
 
 **50 requirements, 45 `auto` and 5 `manual`.**
 
-**The `auto` tests do not exist yet.** There is no implementation of any of this, and no `:core`
-module to hold one — the build today is a single `:app` module (`BUILD-002`). `TimerStateTest.kt`
-and `ScheduleGeneratorTest.kt` are the files those tests will live in when the timer is built, at
-`core/src/test/kotlin/com/derekwinters/intervaltrainer/core/`, alongside the `CueSelectionTest.kt`
-that [`cues.md`](cues.md) names; all three are named in the future tense on purpose. Nothing in this
-page is covered today. A requirement marked `auto` is a promise that a JVM test *can* assert it and
-*will*, not a claim that one does.
+**Most of the `auto` tests do not exist yet, but the first ones do.** `:core` now holds the preset
+and interval data model and the schedule-copy function
+([#67](https://github.com/derekwinters/Interval-trainer-android/issues/67)), tested by
+`ScheduleTest.kt` at `core/src/test/kotlin/com/derekwinters/intervaltrainer/`, which is what
+asserts TIMER-001–003. That covers presets and schedules, not the state machine: `TimerStateTest.kt`
+and `ScheduleGeneratorTest.kt`, which will assert everything from §2 onward including TIMER-005,
+have no implementation yet and are named here, in the future tense, at the same path, for when the
+timer is built. A requirement marked `auto` is a promise that a JVM test *can* assert it and *will*,
+not a claim that one does.
 
 **One assertion is worth naming before it is written.** `TIMER-071` — every interval fires exactly
 three countdown ticks, and so does the lead-in — is not a formality. The prototype's first build

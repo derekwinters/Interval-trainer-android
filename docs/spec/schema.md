@@ -56,10 +56,10 @@ One new invariant, specific to what this page adds:
   convention — `database/schemas/com.derekwinters.intervaltrainer.database.IntervalTrainerDatabase/1.json`
   for this version. It ships in version control and never in the APK.
   *(manual: a file-location fact; visible in the diff and excluded from `assembleDebug`'s output.)*
-- **SCHEMA-004** `:database` defines the preset store as an interface; `:core` depends on the
-  interface, never on `:database` itself, per
-  [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md). A fake implementation is
-  what `:core`'s own tests substitute.
+- **SCHEMA-004** `:core` defines the preset store as an interface and does not implement it;
+  `:database` implements it, and `:core` depends on the interface only, never on `:database`
+  itself, per [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md). A fake
+  implementation is what `:core`'s own tests substitute.
   *(manual: a module-dependency fact, made a compile error by the module graph.)*
 
 ## 2. The `presets` table
