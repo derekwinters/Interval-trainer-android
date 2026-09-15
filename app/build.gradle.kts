@@ -1,3 +1,5 @@
+import com.android.build.api.variant.impl.VariantOutputImpl
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -78,10 +80,15 @@ android {
 
 // Every variant's APK is named `interval-trainer-<versionName>-<buildType>.apk` (BUILD-051), so a
 // workflow can glob `app/build/outputs/apk/<buildType>/*.apk` without renaming the file itself.
+// The public `VariantOutput` type (com.android.build.api.variant.VariantOutput) exposes only
+// versionCode, versionName and enabled — outputFileName lives solely on the internal
+// VariantOutputImpl that actually implements it, so that concrete type is what this casts to.
 androidComponents {
     onVariants { variant ->
         variant.outputs.forEach { output ->
-            output.outputFileName.set("interval-trainer-$versionNameProperty-${variant.buildType}.apk")
+            if (output is VariantOutputImpl) {
+                output.outputFileName.set("interval-trainer-$versionNameProperty-${variant.buildType}.apk")
+            }
         }
     }
 }
