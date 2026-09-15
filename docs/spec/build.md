@@ -206,6 +206,46 @@ at that tag rather than whatever is on `main` today.
 - **BUILD-058** Every new `uses:` reference in `release-please.yml` is a full 40-character commit
   SHA followed by a comment naming the version it pins, per `BUILD-043`. *(manual: as BUILD-043.)*
 
+## 7. Release candidate
+
+release-please's own pull request is the last point at which a release can be tried before it
+exists: this section builds the same versioned, release-signed APK `build-and-attach` builds
+(`BUILD-050`–`058`), but on that pull request rather than on the tag, so it can be installed and
+checked before the merge that tags it.
+
+- **BUILD-059** `release-candidate.yml` triggers on `workflow_run`, naming the `pr` workflow
+  (`workflows: ["pr"]`, matched by `pr.yml`'s `name:` field, not its filename) and `types:
+  [completed]`, rather than on `pull_request` directly. This is not a workaround for `SIGN-062`
+  (`docs/spec/signing.md`) — a `workflow_run`-triggered job runs in the base repository's trust
+  context, never the incoming pull request's, so it satisfies that invariant's actual intent (a
+  pull request from anywhere must never be able to reach the release key) rather than merely
+  evading its literal `pull_request:`-trigger pattern match. `pull_request`, which SIGN-062
+  forbids from ever referencing the release keystore secrets, cannot build the signed candidate
+  this section needs. *(manual: a workflow trigger; observable only by opening a pull request and
+  watching `pr` complete on it.)*
+- **BUILD-060** The job runs only when `github.event.workflow_run.conclusion == 'success'` and
+  `github.event.workflow_run.head_branch` starts with `release-please--`, so `pr` completing on
+  any other branch — including a fork, since `workflow_run` still fires for those — leaves the job
+  skipped rather than merely non-required. *(manual: as BUILD-059.)*
+- **BUILD-061** The job checks out `github.event.workflow_run.head_sha` — the exact commit `pr`
+  just validated — rather than a ref name. `workflow_run` does not check out the triggering commit
+  the way `pull_request` does, and a ref name can move between `pr` finishing and this job
+  starting. *(manual: as BUILD-059.)*
+- **BUILD-062** The job runs `./gradlew test` and `./gradlew assembleRelease`, then uploads
+  `app/build/outputs/apk/release/*.apk` — named `interval-trainer-<versionName>-release.apk` per
+  `BUILD-051` — as a workflow artifact named `app-release-candidate`. *(manual: as BUILD-059.)*
+- **BUILD-063** The job provisions the JDK, Android SDK and Gradle the same way `pr.yml` does
+  (`BUILD-044`) and signs the build the same way `build-and-attach` does (`BUILD-050`): it decodes
+  `ANDROID_KEYSTORE_BASE64` to a file under `RUNNER_TEMP`, sets the four `ANDROID_KEYSTORE_*`/
+  `ANDROID_KEY_*` values `assembleRelease` needs, and removes the decoded keystore file
+  afterward regardless of outcome. *(manual: as BUILD-059.)*
+- **BUILD-064** `release-candidate.yml` grants `contents: read` and no other permission — the
+  workflow publishes nothing beyond the artifact upload in `BUILD-062`, which needs nothing more.
+  *(manual: a workflow permission block; reviewed in the diff.)*
+- **BUILD-065** Every `uses:` reference, including `actions/upload-artifact` which no other
+  workflow here uses yet, is a full 40-character commit SHA followed by a comment naming the
+  version it pins, per `BUILD-043`. *(manual: as BUILD-043.)*
+
 ---
 
 ## Traceability
@@ -218,8 +258,9 @@ at that tag rather than whatever is on `main` today.
 | Duration formatting | BUILD-030–033 | `app/src/test/java/com/derekwinters/intervaltrainer/FormatSecondsTest.kt` |
 | Continuous integration | BUILD-040–044 | *(manual)* |
 | Release build and attach | BUILD-050–058 | *(manual)* |
+| Release candidate | BUILD-059–065 | *(manual)* |
 
-**32 requirements, 5 `auto` and 27 `manual`.**
+**39 requirements, 5 `auto` and 34 `manual`.**
 
 The proportion is what a build skeleton looks like: almost every requirement here is a fact about
 configuration, verified by the build running at all, and the only executable behaviour in the
@@ -229,6 +270,8 @@ configuration facts of exactly the same kind, ahead of the modules they describe
 and `BUILD-010`'s `minSdk` change already are. `BUILD-015`'s `VERSION_CODE` bump is different: it
 runs as a Python script rather than a Gradle or Kotlin fact, so — like the release-signature gate
 in [`signing.md`](signing.md) — it is `auto` rather than `manual`, tested with no Android SDK at
-all. Release build and attach (`BUILD-050`–`058`) is back to the first kind: a workflow's shape and
-a Gradle wiring decision, checked by the build succeeding and by reading the diff, not by a unit
-test asserting YAML.
+all. Release build and attach (`BUILD-050`–`058`) and release candidate (`BUILD-059`–`065`) are
+back to the first kind: a workflow's shape and a Gradle wiring decision, checked by the build
+succeeding and by reading the diff, not by a unit test asserting YAML. The latter's trigger
+(`workflow_run` rather than `pull_request`, `BUILD-059`) is itself a fact `docs/spec/signing.md`
+`SIGN-062`'s test checks indirectly, by scanning every workflow file rather than naming this one.
