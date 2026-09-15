@@ -65,8 +65,20 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
   about the class-file version. *(manual: a mismatch fails compilation in the workflow.)*
 - **BUILD-012** The module declares one launcher activity, and `./gradlew assembleDebug` produces a
   debug APK. *(manual: verified by the workflow; producing an APK needs the Android SDK.)*
-- **BUILD-013** Version code and version name are **not** set here. Versioning is a separate
-  concern and is specified when it is built. *(manual: absence of configuration.)*
+- **BUILD-013** `gradle.properties` is the single source of truth for the app's version:
+  `VERSION_NAME=0.1.0 # x-release-please-version` and `VERSION_CODE=1`. `:app`'s
+  `build.gradle.kts` reads both with `findProperty`, stripping the trailing marker comment from
+  `VERSION_NAME` before use — Java properties do not treat an inline `#` as a comment — and sets
+  `defaultConfig.versionName` and `defaultConfig.versionCode` from them. `.github/release-please/config.json`
+  declares a `generic` extra-file entry for `gradle.properties` under the `.` package, so
+  release-please's generic updater rewrites the `VERSION_NAME` line (matching on its marker
+  comment) on every release pull request; the manifest is the only other file that holds the
+  version. `buildConfig` is turned on (`buildFeatures.buildConfig = true`), so
+  `BuildConfig.VERSION_NAME` is available to the app. **`VERSION_CODE` is set statically at `1`
+  for now**; how it advances on release is a separate concern
+  ([#12](https://github.com/derekwinters/Interval-trainer-android/issues/12)), not resolved here.
+  *(manual: a build-configuration fact; `assembleDebug` producing an APK with `versionName`
+  `0.1.0` in the workflow is the check.)*
 - **BUILD-014** `:core`, once created, applies the Kotlin JVM plugin, never the Android library
   plugin, per [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md). `android.*` is
   not on `:core`'s compile classpath, so an import of it is a compile error rather than a review
