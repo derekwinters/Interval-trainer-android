@@ -14,8 +14,8 @@ capabilities:
   - release       # release-please, driven by the squash-merge titles
   - pipeline      # issue triage, approval, dashboard
 
-# No profile yet. There is no build in this repository so far; add `kotlin`
-# here once a Gradle build (build.gradle or build.gradle.kts) exists.
+profiles:
+  - kotlin
 
 # The humans whose approval moves an issue from pending-approval to
 # ready-for-work. A list, even when it is one person.
@@ -35,12 +35,8 @@ fire:
   endpoint_secret: ROUTINE_FIRE_URL
   token_secret: ROUTINE_FIRE_TOKEN
 
-# `commands.test` and `commands.verify` are deliberately unset: there is no
-# Gradle project yet, and a guessed command that runs nothing is worse than
-# none. Set them once the build exists, e.g.
-#
-#   commands:
-#     test: ./gradlew test
+commands:
+  test: ./gradlew test
 
 # Which ai-sdlc skills this repository installs. `skills-update` opens a
 # pull request when one of them changes upstream, and a name removed here

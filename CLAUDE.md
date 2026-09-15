@@ -36,9 +36,9 @@ the `metadata` block in each `SKILL.md`; ai-sdlc's `skills-update` workflow does
 them. `/setup-matt-pocock-skills` has been applied for the issue tracker only; see *Agent
 skills* below.
 
-The test and verify commands live in `.ai-sdlc/repo-config.yml` under `commands:`. They are still
-unset — wiring them to the Gradle build is its own issue — so until they are, use the commands
-under *Building* above and do not guess anything else.
+The test and verify commands live in `.ai-sdlc/repo-config.yml` under `commands:`. `commands.test`
+is set to `./gradlew test`; `commands.verify` is still unset, so for anything it would cover, use
+the commands under *Building* above and do not guess anything else.
 
 No private links — session links, signed URLs, anything carrying a token — ever go into a commit,
 a pull request, an issue or a comment. This repository is public, so each of those is a publication.
