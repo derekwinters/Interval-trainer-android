@@ -4,6 +4,10 @@
 
 plugins {
     id("com.android.application") version "8.7.3" apply false
+    // The Android Gradle plugin ships application and library support from the same release
+    // train, so this carries the identical literal version as com.android.application above
+    // rather than being chosen independently.
+    id("com.android.library") version "8.7.3" apply false
     id("org.jetbrains.kotlin.android") version "2.0.21" apply false
     id("org.jetbrains.kotlin.jvm") version "2.0.21" apply false
     // The Compose compiler ships from the Kotlin repository and is version-locked to it (BUILD-016),
