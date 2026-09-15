@@ -43,14 +43,12 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
 - **BUILD-001** The Gradle wrapper — `gradlew`, `gradlew.bat` and both files under
   `gradle/wrapper/` — is committed, and is the only supported way to run the build.
   *(manual: asserted by the pull-request workflow, which invokes `./gradlew` and nothing else.)*
-- **BUILD-002** `settings.gradle.kts` names the root project and includes three modules today,
-  `:app`, `:core` (pure Kotlin, [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md))
-  and `:designsystem` (Compose, [ADR 0007](../adr/0007-a-designsystem-module-with-bespoke-colour-tokens.md),
-  `BUILD-019`). **This grows to four** once `:database` (Kotlin Multiplatform,
+- **BUILD-002** `settings.gradle.kts` names the root project and includes four modules,
+  `:app`, `:core` (pure Kotlin, [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md)),
+  `:designsystem` (Compose, [ADR 0007](../adr/0007-a-designsystem-module-with-bespoke-colour-tokens.md),
+  `BUILD-019`) and `:database` (Kotlin Multiplatform,
   [ADR 0003](../adr/0003-room-with-the-schema-treated-as-an-api.md), [`docs/spec/schema.md`](schema.md)
-  `SCHEMA-001`) is built. `:database` does not exist yet; this requirement describes the module set
-  implementation still grows into, not only the build as it stands. *(manual: a build-configuration
-  fact; the workflow's build is the check.)*
+  `SCHEMA-001`). *(manual: a build-configuration fact; the workflow's build is the check.)*
 - **BUILD-003** The root `build.gradle.kts` declares each plugin's version once for the whole
   build and applies none of them itself. *(manual: as BUILD-002.)*
 - **BUILD-004** Dependency repositories are `google()` and `mavenCentral()`, declared centrally in
@@ -142,9 +140,10 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
 
 ## 3. Tests
 
-- **BUILD-020** `./gradlew test` runs the JVM unit tests in every module — `:app`, `:core` and
-  `:designsystem` today — and a failing test in any of them fails the build. *(manual: a test
-  cannot assert the behaviour of the runner that is running it; the workflow is the check.)*
+- **BUILD-020** `./gradlew test` runs the JVM unit tests in every module — `:app`, `:core`,
+  `:designsystem` and `:database`'s `jvm()` target — and a failing test in any of them fails the
+  build. *(manual: a test cannot assert the behaviour of the runner that is running it; the
+  workflow is the check.)*
 - **BUILD-021** The unit tests run on the JVM alone — no emulator, no connected device, no
   simulated Android runtime — so they need nothing but a JDK and the dependencies on the test
   classpath. *(manual: absence of such a dependency; adding one would show in the diff.)*
@@ -306,8 +305,11 @@ cover. `:core`'s Android-free build (`BUILD-014`) was one of two requirements th
 added ahead of the modules they describe; `:core` now exists, so `BUILD-014` describes the build as
 it stands. `:designsystem` now exists too, so `BUILD-019` describes it as it stands rather than
 ahead of it — but Robolectric's scoped arrival (`BUILD-023`) is still ahead of that same module,
-since nothing in `:designsystem` yet needs a simulated Android runtime, the same way `BUILD-002` is
-still ahead for `:database`. `BUILD-016`–`019` are the same kind again, this time not ahead of
+since nothing in `:designsystem` yet needs a simulated Android runtime. `:database` now exists
+too, so `BUILD-002` and `BUILD-020` describe the build as it stands rather than ahead of it — its
+own contract-test harness (`docs/spec/schema.md` `SCHEMA-040`–`044`) and seeded data
+(`SCHEMA-030`–`034`) are still ahead of it, tracked on that page rather than this one.
+`BUILD-016`–`019` are the same kind again, this time not ahead of
 anything else: the Compose compiler, BOM, navigation artefacts and `:designsystem`'s own module
 boundary they describe are wired up across this pull request and the one before it, and the
 placeholder `NavHost` `BUILD-018` specifies still has no computable behaviour — a screen with

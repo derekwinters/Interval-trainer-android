@@ -99,6 +99,12 @@ dependencies {
     // formatSeconds lives in :core now (ADR 0005, BUILD-014).
     implementation(project(":core"))
 
+    // :database's Android target (SCHEMA-001). This is a structural dependency only, the same
+    // shape ADR 0004/BUILD-016 added Compose to this module before any screen used it: nothing
+    // in :app constructs an `IntervalTrainerDatabase` or a `RoomPresetStore` yet, because nothing
+    // in :app reads or writes a preset yet. The first screen that needs one is what wires this up.
+    implementation(project(":database"))
+
     // The Compose BOM pins every androidx.compose.* artifact declared below to one literal
     // version (BUILD-017); the BOM's own version is itself a literal, per the build's second
     // invariant. androidx.compose.material3 is deliberately not declared here — see BUILD-017 and
