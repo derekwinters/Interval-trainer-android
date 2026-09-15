@@ -1,0 +1,92 @@
+name: release-candidate
+
+# release-please's own pull request is the last point at which a release can be tried before it
+# exists. This builds the same versioned, release-signed APK release-please.yml's build-and-attach
+# job builds, but on that pull request instead of on the tag, so it can be installed and checked
+# before the merge that tags it (BUILD-059-065).
+#
+# Triggered by `pr` completing, not by `pull_request` directly: docs/spec/signing.md SIGN-062
+# forbids any pull_request-triggered workflow from ever referencing the release keystore secrets,
+# since a pull request from anywhere must never be able to reach the release key. A
+# workflow_run-triggered job runs in this repository's own trust context rather than the incoming
+# pull request's, which is what actually satisfies that invariant's intent rather than merely
+# evading its literal pull_request: pattern match — GitHub's documented safe pattern for needing
+# secrets in a job whose timing is driven by PR activity. `workflows:` below matches by the other
+# workflow's `name:` field ("pr"), not its filename (pr.yml).
+
+on:
+  workflow_run:
+    workflows: ["pr"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build and upload the release candidate
+    runs-on: ubuntu-latest
+    # Only a successful `pr` run on release-please's own branch produces a candidate; every other
+    # branch's `pr` completion (including a fork's, since workflow_run still fires for those)
+    # leaves this skipped outright rather than merely non-required (BUILD-060).
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'release-please--')
+    steps:
+      # The exact commit `pr` just validated, not a ref name that can move between that run
+      # finishing and this one starting: workflow_run does not check out the triggering commit the
+      # way pull_request does (BUILD-061).
+      - name: Check out the validated commit
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      # Provisioned the same way pr.yml and release-please.yml's build-and-attach job provision
+      # them (BUILD-044, BUILD-063).
+      - name: Set up the JDK
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+
+      - name: Run the unit tests
+        run: ./gradlew test
+
+      # Gradle needs a keystore file, not the base64 secret itself (BUILD-050, BUILD-063). The
+      # decoded file lives only in the runner's temp directory for this job and is never logged.
+      - name: Decode the release keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          keystore_path="$RUNNER_TEMP/release.keystore"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$keystore_path"
+          echo "ANDROID_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
+
+      - name: Assemble the release APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_ALIAS_PASSWORD: ${{ secrets.ANDROID_KEY_ALIAS_PASSWORD }}
+        run: ./gradlew assembleRelease
+
+      - name: Remove the decoded keystore
+        if: always()
+        run: rm -f "$ANDROID_KEYSTORE_PATH"
+
+      # Named interval-trainer-<versionName>-release.apk by BUILD-051; uploaded as a workflow
+      # artifact rather than attached anywhere, since this workflow publishes nothing else
+      # (BUILD-062, BUILD-064).
+      - name: Upload the release candidate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: app-release-candidate
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error

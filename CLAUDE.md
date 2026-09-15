@@ -13,7 +13,9 @@ need the Android SDK, which the Gradle plugin fetches from Google's servers — 
 cannot reach them cannot build this project locally, and the `pr` workflow is then the only place
 the Android build is exercised for every pull request. `./gradlew assembleRelease` additionally
 needs the release signing secrets (`docs/spec/signing.md` `SIGN-002`), which exist only in the
-`release-please` workflow's `build-and-attach` job — nowhere else can produce a signed release APK.
+`release-please` workflow's `build-and-attach` job and in `release-candidate.yml`, which builds the
+same signed APK on release-please's own pull request so it can be tried before the merge that tags
+it — nowhere else can produce a signed release APK.
 
 `python3 -m unittest discover -s .github/scripts/tests` runs the tests for the checks under
 `.github/scripts/`, standard library only. They need no JDK, no Android SDK and no network, so they
