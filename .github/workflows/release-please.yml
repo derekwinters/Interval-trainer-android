@@ -2,7 +2,11 @@ name: release-please
 
 # Versioning is release-please's, derived from Conventional Commits on main.
 # The VERSION_NAME line in /gradle.properties and the manifest are rewritten by
-# it and by nothing else (docs/spec/build.md BUILD-013).
+# it and by nothing else (docs/spec/build.md BUILD-013). VERSION_CODE has no
+# release-please marker of its own to carry — its generic updater only
+# substitutes pieces of the semver value it computed, never a freestanding
+# counter — so the "Bump VERSION_CODE" step below rewrites it on the release
+# pull request instead (BUILD-015).
 #
 # build-and-attach builds the versioned release APK and attaches it to the release in this same
 # run (BUILD-050-058). A separate tag-triggered workflow would never fire: release-please pushes
@@ -33,6 +37,39 @@ jobs:
         with:
           config-file: .github/release-please/config.json
           manifest-file: .github/release-please/manifest.json
+
+      # `outputs.pr` is set only when the step above opened or updated the release pull
+      # request; a push whose commits don't warrant a release pull request leaves it unset,
+      # and the two steps below are skipped (BUILD-015).
+      - name: Check out the release pull request
+        if: ${{ steps.release.outputs.pr }}
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ fromJSON(steps.release.outputs.pr).headBranchName }}
+          fetch-depth: 0
+
+      # VERSION_CODE always advances from what the base branch last released, not from
+      # whatever this pull request's branch already carries, so a workflow re-run that finds
+      # it already at the right value is a no-op rather than a second bump — see
+      # bump_version_code.py and BUILD-015.
+      - name: Bump VERSION_CODE on the release pull request
+        if: ${{ steps.release.outputs.pr }}
+        env:
+          BASE_REF: ${{ fromJSON(steps.release.outputs.pr).baseBranchName }}
+          HEAD_REF: ${{ fromJSON(steps.release.outputs.pr).headBranchName }}
+        run: |
+          set -euo pipefail
+          git fetch origin "${BASE_REF}"
+          git show "origin/${BASE_REF}:gradle.properties" > /tmp/base-gradle.properties
+          python3 .github/scripts/bump_version_code.py /tmp/base-gradle.properties gradle.properties
+          if git diff --quiet; then
+            echo "No VERSION_CODE change to push."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore(release): bump VERSION_CODE"
+          git push origin "HEAD:${HEAD_REF}"
 
   build-and-attach:
     name: build and attach the release APK
