@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.0](https://github.com/derekwinters/Interval-trainer-android/compare/v0.1.0...v0.2.0) (2026-09-15)
+
+
+### Features
+
+* **build:** create :core module and move formatSeconds into it ([92346ac](https://github.com/derekwinters/Interval-trainer-android/commit/92346ac6f17466380a78e2b54703066025a255d7)), closes [#65](https://github.com/derekwinters/Interval-trainer-android/issues/65)
+* **build:** raise minSdk from 24 to 26 ([db015da](https://github.com/derekwinters/Interval-trainer-android/commit/db015da54919492d0b3c25a3cec456f5ff64f9d5)), closes [#64](https://github.com/derekwinters/Interval-trainer-android/issues/64)
+* **build:** wire up Compose, Material 3's placeholder-free shell, and Navigation in :app ([8620152](https://github.com/derekwinters/Interval-trainer-android/commit/8620152e50eb2200090f0027f6c2fb371b4e5790)), closes [#66](https://github.com/derekwinters/Interval-trainer-android/issues/66)
+* **core:** add preset/interval model and the schedule-copy function ([d9e3743](https://github.com/derekwinters/Interval-trainer-android/commit/d9e37431f1f3b22dd342accc322e5ace74196c4b))
+* **core:** implement cue selection ([c159219](https://github.com/derekwinters/Interval-trainer-android/commit/c159219547c5502a38411232772ae2292f6de961))
+* **core:** implement the round generator ([a549ec3](https://github.com/derekwinters/Interval-trainer-android/commit/a549ec324c2aa4b028d4fb9cf4c04a178d905f17))
+* **core:** implement the timer state machine ([0637a64](https://github.com/derekwinters/Interval-trainer-android/commit/0637a645505763b6758a3d386071ef754cd97ac1))
+* **designsystem:** stand up the :designsystem module and the token layer ([54ee3e8](https://github.com/derekwinters/Interval-trainer-android/commit/54ee3e8dc7c6d8fbe5d4ad7f8b40638894188e8e)), closes [#68](https://github.com/derekwinters/Interval-trainer-android/issues/68)
+
 ## [0.1.0](https://github.com/derekwinters/Interval-trainer-android/compare/v0.0.1...v0.1.0) (2026-09-15)
 
 
