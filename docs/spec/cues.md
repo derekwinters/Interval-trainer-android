@@ -289,13 +289,17 @@ table's guess at which reads as the more urgent.
 
 **39 requirements, 23 `auto` and 16 `manual`.**
 
-**The `auto` tests do not exist yet.** There is no implementation of any of this, and no `:core`
-module to hold one — the build today is a single `:app` module (`BUILD-002`). `CueSelectionTest.kt`
-is the file those tests will live in when the cue selection is built, at
-`core/src/test/kotlin/com/derekwinters/intervaltrainer/core/CueSelectionTest.kt`; it is named here so
-they have one home rather than three, and it is named in the future tense on purpose. Nothing in
-this page is covered today. A requirement marked `auto` is a promise that a JVM test *can* assert it
-and *will*, not a claim that one does.
+**Cue selection is built.** `:core` holds the pure selection functions — a boundary, a tick and the
+finish, each a tone (`null` when muted), a vibration pattern and, for a boundary, a colour role —
+and `reduceAndFireCues`, which drives them off the timer state machine's own transitions
+([#69](https://github.com/derekwinters/Interval-trainer-android/issues/69)) and fires them through
+`CueSink`, now a real interface with one member. Every `auto` requirement above is exercised by
+`CueSelectionTest.kt` at
+`core/src/test/kotlin/com/derekwinters/intervaltrainer/CueSelectionTest.kt` (not the `core`
+sub-package the line above once guessed at — it sits alongside `TimerStateTest.kt`, in the same
+package as the rest of `:core`), against a recording fake `CueSink`. `TIMER-033` — the lead-in
+fires the countdown and no boundary cue of its own — is exercised here too, now that there is
+a `CueSink` member to assert its absence against; see [`timer.md`](timer.md)'s traceability table.
 
 **Why the split falls where it does.** Everything above the line between selection and emission is
 arithmetic: which cue fires at a given boundary, given the schedule, the elapsed time and the current

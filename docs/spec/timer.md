@@ -273,7 +273,7 @@ repeating a uniform pair, a new function rather than a new model.
 | Presets and schedules | TIMER-001–005 | `ScheduleTest.kt` (TIMER-001–003); *(manual)* TIMER-004; `TimerStateTest.kt` (TIMER-005) |
 | The states and the events | TIMER-010–018 | `TimerStateTest.kt` |
 | The deadline model | TIMER-020–025 | `TimerStateTest.kt` |
-| The lead-in | TIMER-030–036 | `TimerStateTest.kt` (TIMER-030–032, 034–036); TIMER-033 not yet assertable — see below |
+| The lead-in | TIMER-030–036 | `TimerStateTest.kt` (TIMER-030–032, 034–036); `CueSelectionTest.kt` (TIMER-033) |
 | Skip | TIMER-040–045 | `TimerStateTest.kt` (TIMER-040–043, 045); *(manual)* TIMER-044 |
 | Stop and the summary | TIMER-050–054 | `TimerStateTest.kt` (TIMER-050, 052, 054); *(manual)* TIMER-051, 053 |
 | Rounds completed | TIMER-060–061 | `TimerStateTest.kt` |
@@ -296,13 +296,16 @@ deadline model, the lead-in, skip, stop and the summary, and rounds completed �
 `:core` test at all: it is the preset editor's own refusal of a short duration
 (`docs/spec/schema.md` `SCHEMA-026`), and the editor is
 [#29](https://github.com/derekwinters/Interval-trainer-android/issues/29)/[#40](https://github.com/derekwinters/Interval-trainer-android/issues/40)'s,
-not built yet. Still unbuilt beyond that: cue selection (`docs/spec/cues.md`) and
-`CueSelectionTest.kt`, named here in the future tense for when it lands. A requirement marked
-`auto` is a promise that a JVM test *can* assert it and *will*, not a claim that one does — which is
-exactly `TIMER-033`'s position today: `CueSink` (`:core`) has no member yet, cue selection being a
-separate, later issue's job, so nothing in `:core` fires a cue at all yet for `TimerStateTest.kt` to
-assert the *absence* of one against. It moves out of this paragraph once cue selection gives
-`TimerStateTest.kt` or its own suite something to assert.
+not built yet. Cue selection
+([#71](https://github.com/derekwinters/Interval-trainer-android/issues/71),
+`docs/spec/cues.md`) is built too, `CueSink` now a real interface with one member, tested by
+`CueSelectionTest.kt` at the same path. That is what lets `TIMER-033` — the lead-in fires the
+countdown and no boundary cue of its own — be asserted at last: there is now a `CueSink` for a
+test to record nothing-but-ticks against while the lead-in runs, and a boundary cue firing only
+once the interval it was counting into actually begins. `TIMER-071` is `CueSelectionTest.kt`'s for
+the same reason: the tick count is a property of cue firing, not of the timer state machine, which
+has no notion of a "tick" at all — only a deadline and a phase — so it could never have been the
+one to assert it.
 
 **One assertion is worth naming before it is written.** `TIMER-071` — every interval fires exactly
 three countdown ticks, and so does the lead-in — is not a formality. The prototype's first build
