@@ -277,24 +277,32 @@ repeating a uniform pair, a new function rather than a new model.
 | Skip | TIMER-040–045 | `TimerStateTest.kt` (TIMER-040–043, 045); *(manual)* TIMER-044 |
 | Stop and the summary | TIMER-050–054 | `TimerStateTest.kt` (TIMER-050, 052, 054); *(manual)* TIMER-051, 053 |
 | Rounds completed | TIMER-060–061 | `TimerStateTest.kt` |
-| The minimum interval | TIMER-070–073 | `ScheduleGeneratorTest.kt` (TIMER-070, 072–073); `CueSelectionTest.kt` (TIMER-071) |
+| The minimum interval | TIMER-070–073 | `ScheduleGeneratorTest.kt` (TIMER-070, 073); `CueSelectionTest.kt` (TIMER-071); *(manual)* TIMER-072 |
 | The generator | TIMER-080–085 | `ScheduleGeneratorTest.kt` (TIMER-080–083, 085); *(manual)* TIMER-084 |
 
-**50 requirements, 45 `auto` and 5 `manual`.**
+**50 requirements, 44 `auto` and 6 `manual`.**
 
-**The state machine is built.** `:core` now holds the preset and interval data model and the
-schedule-copy function ([#67](https://github.com/derekwinters/Interval-trainer-android/issues/67)),
-tested by `ScheduleTest.kt`, and the timer state machine
+**The state machine and the generator are built.** `:core` now holds the preset and interval data
+model and the schedule-copy function
+([#67](https://github.com/derekwinters/Interval-trainer-android/issues/67)), tested by
+`ScheduleTest.kt`; the timer state machine
 ([#69](https://github.com/derekwinters/Interval-trainer-android/issues/69)) — the four states, the
 deadline model, the lead-in, skip, stop and the summary, and rounds completed — tested by
-`TimerStateTest.kt`, both at `core/src/test/kotlin/com/derekwinters/intervaltrainer/`. Still
-unbuilt: the generator (§9) and `ScheduleGeneratorTest.kt`, and cue selection
-(`docs/spec/cues.md`) and `CueSelectionTest.kt`, both named here in the future tense for when they
-land. A requirement marked `auto` is a promise that a JVM test *can* assert it and *will*, not a
-claim that one does — which is exactly `TIMER-033`'s position today: `CueSink` (`:core`) has no
-member yet, cue selection being a separate, later issue's job, so nothing in `:core` fires a cue at
-all yet for `TimerStateTest.kt` to assert the *absence* of one against. It moves out of this
-paragraph once cue selection gives `TimerStateTest.kt` or its own suite something to assert.
+`TimerStateTest.kt`; and the round generator
+([#70](https://github.com/derekwinters/Interval-trainer-android/issues/70)) — §9 in full, plus
+`TIMER-070` and `TIMER-073` of §8 as they bind the generator by name — tested by
+`ScheduleGeneratorTest.kt`, all three at
+`core/src/test/kotlin/com/derekwinters/intervaltrainer/`. `TIMER-072`, the rest of §8, is not a
+`:core` test at all: it is the preset editor's own refusal of a short duration
+(`docs/spec/schema.md` `SCHEMA-026`), and the editor is
+[#29](https://github.com/derekwinters/Interval-trainer-android/issues/29)/[#40](https://github.com/derekwinters/Interval-trainer-android/issues/40)'s,
+not built yet. Still unbuilt beyond that: cue selection (`docs/spec/cues.md`) and
+`CueSelectionTest.kt`, named here in the future tense for when it lands. A requirement marked
+`auto` is a promise that a JVM test *can* assert it and *will*, not a claim that one does — which is
+exactly `TIMER-033`'s position today: `CueSink` (`:core`) has no member yet, cue selection being a
+separate, later issue's job, so nothing in `:core` fires a cue at all yet for `TimerStateTest.kt` to
+assert the *absence* of one against. It moves out of this paragraph once cue selection gives
+`TimerStateTest.kt` or its own suite something to assert.
 
 **One assertion is worth naming before it is written.** `TIMER-071` — every interval fires exactly
 three countdown ticks, and so does the lead-in — is not a formality. The prototype's first build
@@ -308,7 +316,8 @@ than describing them.
 clock reading, which is exactly what [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md)
 puts in `:core`: a fake monotonic clock turns a thirty-four-minute workout into a millisecond of
 test time, so the long cases cost no more than the short ones, and a reducer with no dependency on
-`android.*` can be driven event by event. The five that are not are an absence from a stored model,
-an absence of a setting, an absence of a control, an absence of persistence, and one navigation
-fact that belongs to a screen this page does not specify — four of the five verified by reading a
-diff rather than by running anything.
+`android.*` can be driven event by event. The six that are not are an absence from a stored model,
+an absence of a setting, an absence of a control, an absence of persistence, one navigation fact
+that belongs to a screen this page does not specify, and `TIMER-072` — four of those six verified by
+reading a diff rather than by running anything, and `TIMER-072` verified by the preset editor's own
+test, once the editor exists to write one.
