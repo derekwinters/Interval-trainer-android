@@ -29,6 +29,13 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
 > a user-interface framework, annotation processing, or a test dependency needing a simulated
 > Android runtime by name, because v1 now needs at least one of each.
 
+> **Invariant — `VERSION_CODE` only ever goes up, and nothing but the release workflow changes
+> it.** Google Play refuses any upload whose version code is not strictly greater than the last
+> one accepted, forever — a manual edit that guesses wrong is not recoverable after the fact. The
+> bump step (`BUILD-015`) is the only writer, and it always computes the next value from what the
+> base branch last released rather than from whatever the release pull request's branch already
+> carries, so a workflow re-run that finds it already correct is a no-op, never a second bump.
+
 ---
 
 ## 1. Project layout
@@ -74,16 +81,27 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
   release-please's generic updater rewrites the `VERSION_NAME` line (matching on its marker
   comment) on every release pull request; the manifest is the only other file that holds the
   version. `buildConfig` is turned on (`buildFeatures.buildConfig = true`), so
-  `BuildConfig.VERSION_NAME` is available to the app. **`VERSION_CODE` is set statically at `1`
-  for now**; how it advances on release is a separate concern
-  ([#12](https://github.com/derekwinters/Interval-trainer-android/issues/12)), not resolved here.
-  *(manual: a build-configuration fact; `assembleDebug` producing an APK with `versionName`
-  `0.1.0` in the workflow is the check.)*
+  `BuildConfig.VERSION_NAME` is available to the app. How `VERSION_CODE` advances on release is
+  `BUILD-015`, below. *(manual: a build-configuration fact; `assembleDebug` producing an APK with
+  `versionName` `0.1.0` in the workflow is the check.)*
 - **BUILD-014** `:core`, once created, applies the Kotlin JVM plugin, never the Android library
   plugin, per [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md). `android.*` is
   not on `:core`'s compile classpath, so an import of it is a compile error rather than a review
   comment — the invariant that module choice exists to enforce. *(manual: a build-configuration
   fact; a violation fails compilation.)*
+- **BUILD-015** `VERSION_CODE` advances on every release pull request
+  ([#12](https://github.com/derekwinters/Interval-trainer-android/issues/12)). release-please's
+  generic updater cannot do this itself — its markers (`x-release-please-version`, `-major`,
+  `-minor`, `-patch`) all substitute a piece of the semver value it just computed, and none of them
+  is a freestanding counter it can increment independently of that — so a "Bump `VERSION_CODE`"
+  step in `release-please.yml` runs `bump_version_code.py` after `release-please-action` opens or
+  updates the release pull request. That script reads the `VERSION_CODE` last released on the base
+  branch, sets the pull request's branch to one more than that, and pushes the change only if the
+  value actually differs — recomputing from the base branch rather than incrementing whatever the
+  pull request already carries, so a re-run the workflow makes while the pull request is still open
+  is a no-op instead of a second bump. *(auto:
+  `.github/scripts/tests/test_bump_version_code.py`, standard library only, no Android SDK, no
+  release-please run.)*
 
 ## 3. Tests
 
@@ -145,16 +163,19 @@ proper is not specified yet, and the first feature to need a real duration type 
 | Section | IDs | Tests |
 |---|---|---|
 | Project layout | BUILD-001–004 | *(manual)* |
-| The app module and `:core` | BUILD-010–014 | *(manual)* |
+| The app module and `:core` | BUILD-010–015 | `BUILD-015`: `.github/scripts/tests/test_bump_version_code.py`; the rest *(manual)* |
 | Tests | BUILD-020–023 | *(manual)* |
 | Duration formatting | BUILD-030–033 | `app/src/test/java/com/derekwinters/intervaltrainer/FormatSecondsTest.kt` |
 | Continuous integration | BUILD-040–044 | *(manual)* |
 
-**19 requirements, 4 `auto` and 15 `manual`.**
+**23 requirements, 5 `auto` and 18 `manual`.**
 
 The proportion is what a build skeleton looks like: almost every requirement here is a fact about
 configuration, verified by the build running at all, and the only executable behaviour in the
 module is the function the unit tests cover. The two added by the v1 specification —
 `:core`'s Android-free build (`BUILD-014`) and Robolectric's scoped arrival (`BUILD-023`) — are
 configuration facts of exactly the same kind, ahead of the modules they describe, as `BUILD-002`
-and `BUILD-010`'s `minSdk` change already are.
+and `BUILD-010`'s `minSdk` change already are. `BUILD-015`'s `VERSION_CODE` bump is different: it
+runs as a Python script rather than a Gradle or Kotlin fact, so — like the release-signature gate
+in [`signing.md`](signing.md) — it is `auto` rather than `manual`, tested with no Android SDK at
+all.
