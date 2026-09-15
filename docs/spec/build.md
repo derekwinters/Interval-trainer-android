@@ -43,12 +43,12 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
 - **BUILD-001** The Gradle wrapper — `gradlew`, `gradlew.bat` and both files under
   `gradle/wrapper/` — is committed, and is the only supported way to run the build.
   *(manual: asserted by the pull-request workflow, which invokes `./gradlew` and nothing else.)*
-- **BUILD-002** `settings.gradle.kts` names the root project and includes exactly one module,
-  `:app`, today. **This grows to four** as the v1 specification's modules are built: `:core`
-  (pure Kotlin, [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md)), `:database`
+- **BUILD-002** `settings.gradle.kts` names the root project and includes two modules today, `:app`
+  and `:core` (pure Kotlin, [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md)).
+  **This grows to four** as the rest of the v1 specification's modules are built: `:database`
   (Kotlin Multiplatform, [ADR 0003](../adr/0003-room-with-the-schema-treated-as-an-api.md),
   [`docs/spec/schema.md`](schema.md) `SCHEMA-001`), and `:designsystem` (Compose,
-  [ADR 0007](../adr/0007-a-designsystem-module-with-bespoke-colour-tokens.md)). None of the three
+  [ADR 0007](../adr/0007-a-designsystem-module-with-bespoke-colour-tokens.md)). Neither of those two
   exists yet; this requirement describes the module set implementation grows into, not the build as
   it stands. *(manual: a build-configuration fact; the workflow's build is the check.)*
 - **BUILD-003** The root `build.gradle.kts` declares each plugin's version once for the whole
@@ -83,9 +83,9 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
   `BuildConfig.VERSION_NAME` is available to the app. How `VERSION_CODE` advances on release is
   `BUILD-015`, below. *(manual: a build-configuration fact; `assembleDebug` producing an APK with
   `versionName` `0.1.0` in the workflow is the check.)*
-- **BUILD-014** `:core`, once created, applies the Kotlin JVM plugin, never the Android library
-  plugin, per [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md). `android.*` is
-  not on `:core`'s compile classpath, so an import of it is a compile error rather than a review
+- **BUILD-014** `:core` applies the Kotlin JVM plugin, never the Android library plugin, per
+  [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md). `android.*` is not on
+  `:core`'s compile classpath, so an import of it is a compile error rather than a review
   comment — the invariant that module choice exists to enforce. *(manual: a build-configuration
   fact; a violation fails compilation.)*
 - **BUILD-015** `VERSION_CODE` advances on every release pull request
@@ -130,15 +130,15 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
 
 ## 3. Tests
 
-- **BUILD-020** `./gradlew test` runs `:app`'s JVM unit tests, and a failing test fails the build.
-  *(manual: a test cannot assert the behaviour of the runner that is running it; the workflow is
-  the check.)*
+- **BUILD-020** `./gradlew test` runs the JVM unit tests in every module — `:app` and `:core`
+  today — and a failing test in any of them fails the build. *(manual: a test cannot assert the
+  behaviour of the runner that is running it; the workflow is the check.)*
 - **BUILD-021** The unit tests run on the JVM alone — no emulator, no connected device, no
   simulated Android runtime — so they need nothing but a JDK and the dependencies on the test
   classpath. *(manual: absence of such a dependency; adding one would show in the diff.)*
-- **BUILD-022** At least one unit test exercises production Kotlin code in `:app`, so that a wrong
-  or missing implementation makes it red. A test that only asserts a constant satisfies nothing.
-  *(manual: satisfied by the tests for BUILD-030–033 below, which call production code.)*
+- **BUILD-022** At least one unit test exercises production Kotlin code, so that a wrong or missing
+  implementation makes it red. A test that only asserts a constant satisfies nothing. *(manual:
+  satisfied by the tests for BUILD-030–033 below, which call production code now in `:core`.)*
 - **BUILD-023** Robolectric arrives once `:designsystem`'s Compose screens exist, scoped to their
   semantics-tree tests alone ([`docs/spec/design-system.md`](design-system.md) `DS-091`, `DS-093`) —
   it is not adopted for `:core` or for `:database`, both of which are tested with no simulated
@@ -280,7 +280,7 @@ checked before the merge that tags it.
 | Project layout | BUILD-001–004 | *(manual)* |
 | The app module and `:core` | BUILD-010–018 | `BUILD-015`: `.github/scripts/tests/test_bump_version_code.py`; the rest *(manual)* |
 | Tests | BUILD-020–023 | *(manual)* |
-| Duration formatting | BUILD-030–033 | `app/src/test/java/com/derekwinters/intervaltrainer/FormatSecondsTest.kt` |
+| Duration formatting | BUILD-030–033 | `core/src/test/kotlin/com/derekwinters/intervaltrainer/FormatSecondsTest.kt` |
 | Continuous integration | BUILD-040–044 | *(manual)* |
 | Release build and attach | BUILD-050–058 | *(manual)* |
 | Release candidate | BUILD-059–065 | *(manual)* |
@@ -288,15 +288,16 @@ checked before the merge that tags it.
 **42 requirements, 5 `auto` and 37 `manual`.**
 
 The proportion is what a build skeleton looks like: almost every requirement here is a fact about
-configuration, verified by the build running at all, and the only executable behaviour in the
-module is the function the unit tests cover. The two added by the v1 specification —
-`:core`'s Android-free build (`BUILD-014`) and Robolectric's scoped arrival (`BUILD-023`) — are
-configuration facts of exactly the same kind, ahead of the modules they describe, as `BUILD-002`
-already is. `BUILD-016`–`018` are the same kind again, this time not ahead of anything: the Compose
-compiler, BOM and navigation artefacts they describe are wired up in this same pull request, and
-the placeholder `NavHost` they specify has no computable behaviour — a screen with something to
-compute arrives with the first real destination, and its test arrives with it. `BUILD-015`'s
-`VERSION_CODE` bump is different: it
+configuration, verified by the build running at all, and the only executable behaviour in either
+module is the function the unit tests cover. `:core`'s Android-free build (`BUILD-014`) was one of
+two requirements the v1 specification added ahead of the modules they describe; `:core` now exists,
+so `BUILD-014` describes the build as it stands. Robolectric's scoped arrival (`BUILD-023`) is
+still ahead of the module it describes, the same way `BUILD-002` is still ahead for `:database` and
+`:designsystem`. `BUILD-016`–`018` are the same kind again, this time not ahead of anything: the
+Compose compiler, BOM and navigation artefacts they describe are wired up in this same pull
+request, and the placeholder `NavHost` they specify has no computable behaviour — a screen with
+something to compute arrives with the first real destination, and its test arrives with it.
+`BUILD-015`'s `VERSION_CODE` bump is different: it
 runs as a Python script rather than a Gradle or Kotlin fact, so — like the release-signature gate
 in [`signing.md`](signing.md) — it is `auto` rather than `manual`, tested with no Android SDK at
 all. Release build and attach (`BUILD-050`–`058`) and release candidate (`BUILD-059`–`065`) are

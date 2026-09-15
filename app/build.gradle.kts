@@ -96,6 +96,9 @@ androidComponents {
 }
 
 dependencies {
+    // formatSeconds lives in :core now (ADR 0005, BUILD-014).
+    implementation(project(":core"))
+
     // The Compose BOM pins every androidx.compose.* artifact declared below to one literal
     // version (BUILD-017); the BOM's own version is itself a literal, per the build's second
     // invariant. androidx.compose.material3 is deliberately not declared here — see BUILD-017 and
