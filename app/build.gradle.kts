@@ -37,7 +37,7 @@ android {
 
     defaultConfig {
         applicationId = "com.derekwinters.intervaltrainer"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 35
         versionCode = versionCodeProperty
         versionName = versionNameProperty

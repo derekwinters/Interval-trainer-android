@@ -65,9 +65,8 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
   decided 2026-09-10): API 26 (Android 8.0) is the floor the foreground-service notification needs,
   since notification channels — required to post any notification from API 26 onward — are what the
   service's ongoing notification depends on ([`docs/spec/service.md`](service.md) §3). The build
-  today still sets `minSdk = 24`; this requirement is ahead of that change, the same way this
-  specification is ahead of every module it names. *(manual: a build-configuration fact;
-  `assembleDebug` in the workflow is the check.)*
+  sets `minSdk = 26`. *(manual: a build-configuration fact; `assembleDebug` in the workflow is the
+  check.)*
 - **BUILD-011** Java and Kotlin both compile to JVM bytecode target 17, so the two never disagree
   about the class-file version. *(manual: a mismatch fails compilation in the workflow.)*
 - **BUILD-012** The module declares one launcher activity, and `./gradlew assembleDebug` produces a
@@ -267,7 +266,7 @@ configuration, verified by the build running at all, and the only executable beh
 module is the function the unit tests cover. The two added by the v1 specification —
 `:core`'s Android-free build (`BUILD-014`) and Robolectric's scoped arrival (`BUILD-023`) — are
 configuration facts of exactly the same kind, ahead of the modules they describe, as `BUILD-002`
-and `BUILD-010`'s `minSdk` change already are. `BUILD-015`'s `VERSION_CODE` bump is different: it
+already is. `BUILD-015`'s `VERSION_CODE` bump is different: it
 runs as a Python script rather than a Gradle or Kotlin fact, so — like the release-signature gate
 in [`signing.md`](signing.md) — it is `auto` rather than `manual`, tested with no Android SDK at
 all. Release build and attach (`BUILD-050`–`058`) and release candidate (`BUILD-059`–`065`) are
