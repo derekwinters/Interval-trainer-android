@@ -32,4 +32,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Interval-trainer-android"
 
-include(":app", ":core")
+include(":app", ":core", ":designsystem")

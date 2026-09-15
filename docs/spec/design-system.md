@@ -17,11 +17,16 @@ warm-up and cool-down share a neutral, red is not used for a kind. This page fix
 names the app's components read, and the roles those tokens also satisfy on Material's own
 `ColorScheme`. Neither page restates the other's decision.
 
-Nothing specified here exists in the build yet. `settings.gradle.kts` includes exactly one module,
-`:app` (`BUILD-002`); there is no `:designsystem` module, no Compose dependency, and no Robolectric
-in the build. This page describes what gets built when [#33](https://github.com/derekwinters/Interval-trainer-android/issues/33)
-and later implementation tickets do that work, in the same way `docs/spec/cues.md` specifies cue
-selection with no `:core` module yet to hold it.
+Most of what is specified here does not exist in the build yet. `:designsystem` now exists
+(`BUILD-002`, `BUILD-019`) with `material3` declared `implementation`, and the token layer
+below — the colour tokens, the spacing scale and the three timer typographic roles, assembled into
+a root `AppTheme` — is implemented. `:app` does not yet depend on `:designsystem`, so the
+compile-time enforcement `DS-090` describes does not yet apply to it, and no component vocabulary
+(`PrimaryButton`, `ScreenHeader`, and the rest of §1–3), no screen layout (§8), and no Robolectric
+dependency exist yet. This page describes what the rest of this vocabulary becomes when
+[#33](https://github.com/derekwinters/Interval-trainer-android/issues/33) and later implementation
+tickets do that work, in the same way `docs/spec/cues.md` specifies cue selection with no `:core`
+module yet to hold it.
 
 ---
 
@@ -181,7 +186,9 @@ constraint [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md) b
 
 - **DS-090** The `:designsystem` module boundary, with `material3` declared `implementation`, is the
   structural enforcement mechanism: a raw Material component used outside `:designsystem` is a
-  compile error. *(manual: a module boundary, per [ADR 0007](../adr/0007-a-designsystem-module-with-bespoke-colour-tokens.md);
+  compile error. The module and the dependency declaration exist (`BUILD-019`); the enforcement
+  itself has nothing to bite on yet, since `:app` does not depend on `:designsystem` until a later
+  issue wires that up. *(manual: a module boundary, per [ADR 0007](../adr/0007-a-designsystem-module-with-bespoke-colour-tokens.md);
   not something a test of this page asserts, the same way `CUE-003` treats its own module
   boundary.)*
 - **DS-091** JVM assertions over the Compose semantics tree, run under Robolectric, check every
@@ -255,7 +262,7 @@ this decision:
 | Screen scaffolding | DS-020–021 | *(manual)* |
 | Timer typography | DS-030–033 | *(manual)* |
 | Spacing | DS-040 | *(manual)* |
-| Colour tokens | DS-050–052 | `TokenContrastTest.kt` (DS-050–051, via DS-094); *(manual)* DS-052 |
+| Colour tokens | DS-050–052 | `ColorSchemeMappingTest.kt` (DS-051's `ColorScheme` mapping); `TokenContrastTest.kt` (DS-050–051, via DS-094, not yet written); *(manual)* DS-050, DS-052 |
 | Screen split | DS-060–062 | *(manual)* |
 | Screen layouts | DS-070–078 | `DesignSystemConsistencyTest.kt` (DS-070, via DS-093); *(manual)* DS-071–078 |
 | Enforcement — adopted | DS-090–095 | `DesignSystemConsistencyTest.kt` (DS-091, DS-093); `TokenContrastTest.kt` (DS-094); *(manual)* DS-090, DS-092, DS-095 |
@@ -264,13 +271,21 @@ this decision:
 
 **45 requirements, 3 `auto` and 42 `manual`.**
 
-**The `auto` tests do not exist yet**, the same honesty `docs/spec/cues.md` states about its own
-`CueSelectionTest.kt`. There is no `:designsystem` module, no Compose dependency and no Robolectric in
-the build today — the build is a single `:app` module (`BUILD-002`). `DesignSystemConsistencyTest.kt`
-and `TokenContrastTest.kt` are named here so the tests that will assert `DS-091`, `DS-093` and
-`DS-094` have one home each rather than being invented at implementation time, and they are named in
-the future tense on purpose. A requirement marked `auto` is a promise that a JVM test *can* assert it
-and *will*, not a claim that one does.
+**The three `auto` tests this page promised still do not exist.** `:designsystem` now exists
+(`BUILD-002`, `BUILD-019`), with the colour tokens, spacing scale and timer typography roles
+implemented and assembled into a root `AppTheme`, and a Compose dependency is now in the build —
+but Robolectric is not, so `DesignSystemConsistencyTest.kt` (`DS-091`, `DS-093`) still has no
+Compose test dependency to run against, and `TokenContrastTest.kt` (`DS-094`) — the WCAG contrast
+check this page names for the colour tokens — is not written either: `CUE-033` and this page both
+name "the contrast requirement" without stating the numeric ratio a test would assert, and choosing
+one was judged a design decision for whoever picks up `DS-094` to make deliberately rather than by
+implication here. What the token layer's own implementation does add is `ColorSchemeMappingTest.kt`,
+a fourth, previously-unnamed test asserting `DS-051`'s six-role mapping — not one of the three IDs
+promised `auto` above, but real production code (`designSystemColorScheme()`) a wrong mapping would
+make red. `DesignSystemConsistencyTest.kt` and `TokenContrastTest.kt` are still named here so the
+tests that will assert `DS-091`, `DS-093` and `DS-094` have one home each rather than being invented
+at implementation time, and they are still named in the future tense on purpose. A requirement
+marked `auto` is a promise that a JVM test *can* assert it and *will*, not a claim that one does.
 
 **Why the proportion is almost entirely `manual`.** Most of this page is a design fact — a fill
 colour, a padding value, which slot a title sits in — the same way most of `build.md` is a

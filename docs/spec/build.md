@@ -43,14 +43,14 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
 - **BUILD-001** The Gradle wrapper — `gradlew`, `gradlew.bat` and both files under
   `gradle/wrapper/` — is committed, and is the only supported way to run the build.
   *(manual: asserted by the pull-request workflow, which invokes `./gradlew` and nothing else.)*
-- **BUILD-002** `settings.gradle.kts` names the root project and includes two modules today, `:app`
-  and `:core` (pure Kotlin, [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md)).
-  **This grows to four** as the rest of the v1 specification's modules are built: `:database`
-  (Kotlin Multiplatform, [ADR 0003](../adr/0003-room-with-the-schema-treated-as-an-api.md),
-  [`docs/spec/schema.md`](schema.md) `SCHEMA-001`), and `:designsystem` (Compose,
-  [ADR 0007](../adr/0007-a-designsystem-module-with-bespoke-colour-tokens.md)). Neither of those two
-  exists yet; this requirement describes the module set implementation grows into, not the build as
-  it stands. *(manual: a build-configuration fact; the workflow's build is the check.)*
+- **BUILD-002** `settings.gradle.kts` names the root project and includes three modules today,
+  `:app`, `:core` (pure Kotlin, [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md))
+  and `:designsystem` (Compose, [ADR 0007](../adr/0007-a-designsystem-module-with-bespoke-colour-tokens.md),
+  `BUILD-019`). **This grows to four** once `:database` (Kotlin Multiplatform,
+  [ADR 0003](../adr/0003-room-with-the-schema-treated-as-an-api.md), [`docs/spec/schema.md`](schema.md)
+  `SCHEMA-001`) is built. `:database` does not exist yet; this requirement describes the module set
+  implementation still grows into, not only the build as it stands. *(manual: a build-configuration
+  fact; the workflow's build is the check.)*
 - **BUILD-003** The root `build.gradle.kts` declares each plugin's version once for the whole
   build and applies none of them itself. *(manual: as BUILD-002.)*
 - **BUILD-004** Dependency repositories are `google()` and `mavenCentral()`, declared centrally in
@@ -115,11 +115,12 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
   versions. Every version here is a literal — the BOM's own version included — per the build's
   second invariant. **`androidx.compose.material3` is deliberately not among them:**
   [ADR 0007](../adr/0007-a-designsystem-module-with-bespoke-colour-tokens.md) narrowed ADR 0004's
-  `:app`-level Material 3 dependency to `:designsystem`, declared there once as `implementation`;
-  `:designsystem` does not exist yet (`BUILD-002`), so `:app` carries only the Compose runtime,
-  activity and navigation artefacts this requirement adds, and nothing that reads
-  `androidx.compose.material3`, until that module lands. *(manual: a build-configuration fact; the
-  workflow's build is the check.)*
+  `:app`-level Material 3 dependency to `:designsystem`, declared there once as `implementation`
+  (`BUILD-019`); `:app` still carries only the Compose runtime, activity and navigation artefacts
+  this requirement adds, and nothing that reads `androidx.compose.material3` directly, though it
+  gains `:designsystem`'s own exposed vocabulary — starting with `AppTheme` — once a later issue
+  wires `:app` to depend on that module. *(manual: a build-configuration fact; the workflow's build
+  is the check.)*
 - **BUILD-018** `:app` has exactly one activity, `MainActivity`, a `ComponentActivity` whose
   `onCreate` calls `setContent` with a single Compose `NavHost` holding exactly one destination — a
   placeholder with no behaviour of its own and no `MaterialTheme` wrapper, since nothing here reads
@@ -127,12 +128,23 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
   a screen: none of the six v1 screens ([`docs/spec/screens.md`](screens.md)) exists yet. *(manual:
   a build-configuration/UI-shell fact with no computable behaviour to unit test; `assembleDebug`
   producing an APK that launches it is the check, the same as `BUILD-012`.)*
+- **BUILD-019** `:designsystem` applies the Android library plugin, the Kotlin Android plugin and
+  the Compose compiler plugin (`BUILD-016`) — an Android library rather than pure Kotlin like
+  `:core` (`BUILD-014`), since it hosts Compose UI, per
+  [ADR 0007](../adr/0007-a-designsystem-module-with-bespoke-colour-tokens.md). It imports the same
+  literal Compose BOM version `:app` does (`BUILD-017`) and declares
+  `androidx.compose.material3:material3` through it as `implementation`, never `api`: Gradle does
+  not expose an `implementation` dependency on a consuming module's compile classpath, so a raw
+  Material component reached for outside `:designsystem` is a compile error, not a convention
+  someone has to remember (`DS-090`). *(manual: a build-configuration fact; a raw
+  `androidx.compose.material3` import from `:app` failing to compile, once `:app` depends on this
+  module, is the check.)*
 
 ## 3. Tests
 
-- **BUILD-020** `./gradlew test` runs the JVM unit tests in every module — `:app` and `:core`
-  today — and a failing test in any of them fails the build. *(manual: a test cannot assert the
-  behaviour of the runner that is running it; the workflow is the check.)*
+- **BUILD-020** `./gradlew test` runs the JVM unit tests in every module — `:app`, `:core` and
+  `:designsystem` today — and a failing test in any of them fails the build. *(manual: a test
+  cannot assert the behaviour of the runner that is running it; the workflow is the check.)*
 - **BUILD-021** The unit tests run on the JVM alone — no emulator, no connected device, no
   simulated Android runtime — so they need nothing but a JDK and the dependencies on the test
   classpath. *(manual: absence of such a dependency; adding one would show in the diff.)*
@@ -278,24 +290,27 @@ checked before the merge that tags it.
 | Section | IDs | Tests |
 |---|---|---|
 | Project layout | BUILD-001–004 | *(manual)* |
-| The app module and `:core` | BUILD-010–018 | `BUILD-015`: `.github/scripts/tests/test_bump_version_code.py`; the rest *(manual)* |
+| The app module, `:core` and `:designsystem` | BUILD-010–019 | `BUILD-015`: `.github/scripts/tests/test_bump_version_code.py`; the rest *(manual)* |
 | Tests | BUILD-020–023 | *(manual)* |
 | Duration formatting | BUILD-030–033 | `core/src/test/kotlin/com/derekwinters/intervaltrainer/FormatSecondsTest.kt` |
 | Continuous integration | BUILD-040–044 | *(manual)* |
 | Release build and attach | BUILD-050–058 | *(manual)* |
 | Release candidate | BUILD-059–065 | *(manual)* |
 
-**42 requirements, 5 `auto` and 37 `manual`.**
+**43 requirements, 5 `auto` and 38 `manual`.**
 
 The proportion is what a build skeleton looks like: almost every requirement here is a fact about
-configuration, verified by the build running at all, and the only executable behaviour in either
-module is the function the unit tests cover. `:core`'s Android-free build (`BUILD-014`) was one of
-two requirements the v1 specification added ahead of the modules they describe; `:core` now exists,
-so `BUILD-014` describes the build as it stands. Robolectric's scoped arrival (`BUILD-023`) is
-still ahead of the module it describes, the same way `BUILD-002` is still ahead for `:database` and
-`:designsystem`. `BUILD-016`–`018` are the same kind again, this time not ahead of anything: the
-Compose compiler, BOM and navigation artefacts they describe are wired up in this same pull
-request, and the placeholder `NavHost` they specify has no computable behaviour — a screen with
+configuration, verified by the build running at all, and the only executable behaviour outside
+`:designsystem`'s own token-mapping test is the duration-formatting function `:core`'s unit tests
+cover. `:core`'s Android-free build (`BUILD-014`) was one of two requirements the v1 specification
+added ahead of the modules they describe; `:core` now exists, so `BUILD-014` describes the build as
+it stands. `:designsystem` now exists too, so `BUILD-019` describes it as it stands rather than
+ahead of it — but Robolectric's scoped arrival (`BUILD-023`) is still ahead of that same module,
+since nothing in `:designsystem` yet needs a simulated Android runtime, the same way `BUILD-002` is
+still ahead for `:database`. `BUILD-016`–`019` are the same kind again, this time not ahead of
+anything else: the Compose compiler, BOM, navigation artefacts and `:designsystem`'s own module
+boundary they describe are wired up across this pull request and the one before it, and the
+placeholder `NavHost` `BUILD-018` specifies still has no computable behaviour — a screen with
 something to compute arrives with the first real destination, and its test arrives with it.
 `BUILD-015`'s `VERSION_CODE` bump is different: it
 runs as a Python script rather than a Gradle or Kotlin fact, so — like the release-signature gate
