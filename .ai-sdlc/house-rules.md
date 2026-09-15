@@ -48,7 +48,12 @@ Then a **`**Docs:**` line** saying what documentation changed, or why none was n
 with a requirement identifier per behaviour. Where something could be built in a way that is
 technically correct but wrong, state an **invariant** — a short imperative sentence constraining
 how it may work — so the bad implementation is excluded before it is written rather than argued
-about afterwards. *Enforced: the spec↔test traceability gate.*
+about afterwards. *Not currently enforced by CI here: ai-sdlc's `consistency` capability, declared
+in `.ai-sdlc/repo-config.yml`, has no installable workflow caller as of the pinned version —
+declaring it does nothing. Tracked at
+[derekwinters/Interval-trainer-android#49](https://github.com/derekwinters/Interval-trainer-android/issues/49)
+and upstream at [derekwinters/ai-sdlc#178](https://github.com/derekwinters/ai-sdlc/issues/178).
+Until that lands, treat this as discipline to hold yourself to, not something CI checks.*
 
 **A failing test before the implementation, and you watch it fail.** If it fails for the wrong
 reason, the test is wrong. If you did not see red, you do not know the test tests anything.
