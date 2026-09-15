@@ -11,7 +11,9 @@ has a test today.
 `./gradlew test` runs the JVM unit tests and `./gradlew assembleDebug` builds the debug APK. Both
 need the Android SDK, which the Gradle plugin fetches from Google's servers — an environment that
 cannot reach them cannot build this project locally, and the `pr` workflow is then the only place
-the Android build is exercised.
+the Android build is exercised for every pull request. `./gradlew assembleRelease` additionally
+needs the release signing secrets (`docs/spec/signing.md` `SIGN-002`), which exist only in the
+`release-please` workflow's `build-and-attach` job — nowhere else can produce a signed release APK.
 
 `python3 -m unittest discover -s .github/scripts/tests` runs the tests for the checks under
 `.github/scripts/`, standard library only. They need no JDK, no Android SDK and no network, so they

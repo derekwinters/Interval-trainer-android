@@ -12,6 +12,23 @@ val versionNameProperty = (project.findProperty("VERSION_NAME") as String)
     .trim()
 val versionCodeProperty = (project.findProperty("VERSION_CODE") as String).trim().toInt()
 
+// The release signing config is read from environment variables, never from a committed file
+// or a Gradle property (SIGN-002, BUILD-050). `ANDROID_KEYSTORE_PATH` holds a filesystem path to
+// the keystore the release workflow decodes from the `ANDROID_KEYSTORE_BASE64` secret; the other
+// three are the remaining secrets by name. When any of the four is missing — a local build with
+// no secrets, or a mis-wired workflow — no `release` signing config is created at all, and
+// `release` is left with none, rather than falling back to `signingConfigs.debug`. An unsigned
+// APK and a debug-signed one are both wrong, but only the second looks correct until the next
+// release; leaving `release` unsigned keeps the failure visible instead of quiet.
+val releaseKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+val releaseKeystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+val releaseKeyAlias = System.getenv("ANDROID_KEY_ALIAS")
+val releaseKeyAliasPassword = System.getenv("ANDROID_KEY_ALIAS_PASSWORD")
+val hasReleaseSigningConfig = !releaseKeystorePath.isNullOrBlank() &&
+    !releaseKeystorePassword.isNullOrBlank() &&
+    !releaseKeyAlias.isNullOrBlank() &&
+    !releaseKeyAliasPassword.isNullOrBlank()
+
 android {
     namespace = "com.derekwinters.intervaltrainer"
     compileSdk = 35
@@ -37,6 +54,35 @@ android {
 
     buildFeatures {
         buildConfig = true
+    }
+
+    signingConfigs {
+        if (hasReleaseSigningConfig) {
+            create("release") {
+                storeFile = file(releaseKeystorePath!!)
+                storePassword = releaseKeystorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyAliasPassword
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            if (hasReleaseSigningConfig) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+    }
+}
+
+// Every variant's APK is named `interval-trainer-<versionName>-<buildType>.apk` (BUILD-051), so a
+// workflow can glob `app/build/outputs/apk/<buildType>/*.apk` without renaming the file itself.
+androidComponents {
+    onVariants { variant ->
+        variant.outputs.forEach { output ->
+            output.outputFileName.set("interval-trainer-$versionNameProperty-${variant.buildType}.apk")
+        }
     }
 }
 

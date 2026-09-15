@@ -138,6 +138,56 @@ proper is not specified yet, and the first feature to need a real duration type 
 - **BUILD-044** The workflow provisions its own JDK and Android SDK rather than relying on what a
   runner image happens to carry. *(manual: as BUILD-040.)*
 
+## 6. Release build and attach
+
+`release-please.yml` creates the GitHub Release; this section is the second job in that same
+workflow run that builds the versioned APK and attaches it, so it exists before anyone looks for
+it. A separate workflow triggered by the tag release-please pushes would never run it: that tag is
+pushed with the default `GITHUB_TOKEN`, and GitHub does not start workflow runs from events that
+token itself initiated, and even if it did, a tag-triggered run executes the workflow file frozen
+at that tag rather than whatever is on `main` today.
+
+- **BUILD-050** `:app`'s `release` signing config is created only when all four of
+  `ANDROID_KEYSTORE_PATH`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and
+  `ANDROID_KEY_ALIAS_PASSWORD` are present in the environment — the same secrets `SIGN-002` names,
+  with `ANDROID_KEYSTORE_PATH` holding the filesystem path the workflow decodes
+  `ANDROID_KEYSTORE_BASE64` into. When any is missing, `release` gets no signing config at all,
+  never `signingConfigs.debug`: an unsigned `assembleRelease` output is a visible failure, while a
+  debug-signed one is the quiet failure `SIGN-042` exists to catch. *(manual: a build-configuration
+  fact; SIGN-042/SIGN-043 are what the release gate reports when this is wrong.)*
+- **BUILD-051** `onVariants` in `:app`'s `build.gradle.kts` names every variant's APK output
+  `interval-trainer-<versionName>-<buildType>.apk`, so a workflow globs
+  `app/build/outputs/apk/<buildType>/*.apk` without renaming it. *(manual: `assembleDebug` in
+  `pr.yml` producing `interval-trainer-<versionName>-debug.apk` is the check exercised on every
+  pull request; `assembleRelease` producing `interval-trainer-<versionName>-release.apk` is
+  exercised only in `release-please.yml`.)*
+- **BUILD-052** `release-please.yml`'s `release-please` job exposes `release_created` and
+  `tag_name` as job outputs, taken from the `googleapis/release-please-action` step's own outputs
+  of the same names. *(manual: a workflow output; reviewed in the diff.)*
+- **BUILD-053** A `build-and-attach` job `needs: release-please` and runs only when its
+  `release_created` output is `'true'`. It checks out `tag_name` — not the commit that triggered
+  the run — since that is the exact commit release-please tagged, with the version bump the
+  release names already applied. *(manual: as BUILD-052.)*
+- **BUILD-054** `build-and-attach` provisions the JDK, Android SDK and Gradle the same way `pr.yml`
+  does (`BUILD-044`), runs `./gradlew assembleRelease`, and runs
+  `.github/scripts/verify_release_signature.py` (`SIGN-052`) against the result before attaching
+  anything. A failed verification fails the job; nothing is uploaded. *(manual: as BUILD-052.)*
+- **BUILD-055** On success, `build-and-attach` uploads `app/build/outputs/apk/release/*.apk` to the
+  GitHub Release identified by `tag_name`, using the pre-installed `gh` CLI rather than a new
+  action — there is nothing a dedicated upload action would do here that `gh release upload`
+  does not, and every action adopted is a `uses:` reference `BUILD-043` requires pinning for no
+  gain (the same reasoning `SIGN-061` applies to the signature gate's own CI step). *(manual: as
+  BUILD-052.)*
+- **BUILD-056** `release-please.yml` adds no `on: push: tags` trigger. *(manual: absence of a
+  trigger; reviewed in the diff.)*
+- **BUILD-057** `release-please.yml`'s workflow-level permissions remain exactly
+  `contents: write` and `pull-requests: write`. `build-and-attach` declares no permissions block of
+  its own — it inherits those two from the workflow level, which is already enough to upload a
+  release asset, so nothing new is granted. *(manual: a workflow permission block; reviewed in the
+  diff.)*
+- **BUILD-058** Every new `uses:` reference in `release-please.yml` is a full 40-character commit
+  SHA followed by a comment naming the version it pins, per `BUILD-043`. *(manual: as BUILD-043.)*
+
 ---
 
 ## Traceability
@@ -149,12 +199,15 @@ proper is not specified yet, and the first feature to need a real duration type 
 | Tests | BUILD-020–023 | *(manual)* |
 | Duration formatting | BUILD-030–033 | `app/src/test/java/com/derekwinters/intervaltrainer/FormatSecondsTest.kt` |
 | Continuous integration | BUILD-040–044 | *(manual)* |
+| Release build and attach | BUILD-050–058 | *(manual)* |
 
-**19 requirements, 4 `auto` and 15 `manual`.**
+**28 requirements, 4 `auto` and 24 `manual`.**
 
 The proportion is what a build skeleton looks like: almost every requirement here is a fact about
 configuration, verified by the build running at all, and the only executable behaviour in the
 module is the function the unit tests cover. The two added by the v1 specification —
 `:core`'s Android-free build (`BUILD-014`) and Robolectric's scoped arrival (`BUILD-023`) — are
 configuration facts of exactly the same kind, ahead of the modules they describe, as `BUILD-002`
-and `BUILD-010`'s `minSdk` change already are.
+and `BUILD-010`'s `minSdk` change already are. Release build and attach (`BUILD-050`–`058`) is the
+same kind of fact again: a workflow's shape and a Gradle wiring decision, checked by the build
+succeeding and by reading the diff, not by a unit test asserting YAML.
