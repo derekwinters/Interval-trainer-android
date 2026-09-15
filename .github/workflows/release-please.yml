@@ -7,6 +7,12 @@ name: release-please
 # substitutes pieces of the semver value it computed, never a freestanding
 # counter — so the "Bump VERSION_CODE" step below rewrites it on the release
 # pull request instead (BUILD-015).
+#
+# build-and-attach builds the versioned release APK and attaches it to the release in this same
+# run (BUILD-050-058). A separate tag-triggered workflow would never fire: release-please pushes
+# its tag with the default GITHUB_TOKEN, and GitHub does not start workflow runs from events that
+# token itself initiated — and even if it did, that run would execute the workflow file frozen at
+# the tag, not whatever is on main today.
 
 on:
   push:
@@ -20,6 +26,9 @@ permissions:
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       # Pinned to a SHA, not a tag: a tag can move, and this runs with this
       # repository's token. The trailing comment records the version.
@@ -61,3 +70,68 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git commit -am "chore(release): bump VERSION_CODE"
           git push origin "HEAD:${HEAD_REF}"
+
+  build-and-attach:
+    name: build and attach the release APK
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      # The exact commit release-please tagged, with its own version bump already applied — not
+      # necessarily the commit that triggered this run (BUILD-053).
+      - name: Check out the release tag
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      # Provisioned the same way pr.yml provisions them (BUILD-044).
+      - name: Set up the JDK
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+
+      # Gradle needs a keystore file, not the base64 secret itself (BUILD-050). The decoded file
+      # lives only in the runner's temp directory for this job and is never logged.
+      - name: Decode the release keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          keystore_path="$RUNNER_TEMP/release.keystore"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$keystore_path"
+          echo "ANDROID_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
+
+      - name: Assemble the release APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_ALIAS_PASSWORD: ${{ secrets.ANDROID_KEY_ALIAS_PASSWORD }}
+        run: ./gradlew assembleRelease
+
+      - name: Remove the decoded keystore
+        if: always()
+        run: rm -f "$ANDROID_KEYSTORE_PATH"
+
+      # Refuses to publish anything not signed by the pinned release certificate (SIGN-052),
+      # before any asset reaches the release.
+      - name: Verify the release signature
+        run: python3 .github/scripts/verify_release_signature.py app/build/outputs/apk/release/*.apk
+
+      # Uses the runner's pre-installed gh CLI rather than a dedicated upload action: nothing a
+      # new action would do here that `gh release upload` does not, and every action added is
+      # another uses: reference to pin for no gain (BUILD-055).
+      - name: Attach the release APK to the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ needs.release-please.outputs.tag_name }}" \
+            app/build/outputs/apk/release/*.apk \
+            --repo "${{ github.repository }}"
