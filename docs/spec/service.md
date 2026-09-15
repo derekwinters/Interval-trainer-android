@@ -191,7 +191,7 @@ runner.)*
 
 | Section | IDs | Tests |
 |---|---|---|
-| What produces a workout's schedule | SVC-001–002 | Covered by `TimerStateTest.kt` via `TIMER-002`–`003`; the naming itself is *(manual)* |
+| What produces a workout's schedule | SVC-001–002 | Covered by `ScheduleTest.kt` via `TIMER-001`–`003`; the naming itself is *(manual)* |
 | The foreground service | SVC-010–013 | *(manual)* |
 | The notification | SVC-020–024 | *(manual)* |
 | The notification permission | SVC-030–033 | *(manual)* |
@@ -207,6 +207,7 @@ boundary [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md) dre
 service's lifecycle, a system notification's content and actions, Doze and the wake lock, a task
 being removed from recents, a confirmation dialog appearing — none of it is reachable from a JVM
 runner with no emulator and no connected device, and this page does not pretend otherwise. The one
-piece of arithmetic this page touches, the schedule copy in §1, already has its test: `TIMER-002`
-and `TIMER-003` are asserted by `TimerStateTest.kt`, and `SVC-001`–`002` add nothing to test beyond
-naming that function correctly, which is what this page exists to do.
+piece of arithmetic this page touches, the schedule copy in §1, already has its test: `TIMER-001`–
+`003` are asserted by `ScheduleTest.kt`
+([#67](https://github.com/derekwinters/Interval-trainer-android/issues/67)), and `SVC-001`–`002`
+add nothing to test beyond naming that function correctly, which is what this page exists to do.
