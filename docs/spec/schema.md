@@ -131,17 +131,22 @@ high-intensity protocol charted and later rejected for this app
 - **SCHEMA-030** Seeding runs once, in `RoomDatabase.Callback.onCreate()`, inserting both presets
   and every one of their interval rows in a single transaction. It does not run on every app
   launch and does not run again after a migration, only on a database created from nothing.
+  *(auto: `PresetDaoTest.kt` reopens an already-seeded database file and asserts the preset count
+  did not double — the closest a v1 schema with no migration yet can come to proving "not on a
+  migration". The single-transaction insert itself is manual: `SeedDataCallback.kt` runs inside the
+  same connection and transaction Room's own `onCreate` already holds open, rather than opening one
+  of its own.)*
 - **SCHEMA-031** The **short** preset is warm-up 3:00, then three rounds of work 1:00 and recovery
-  2:00, then cool-down 3:00 — eight interval rows, total 15:00.
+  2:00, then cool-down 3:00 — eight interval rows, total 15:00. *(auto: `PresetDaoTest.kt`.)*
 - **SCHEMA-032** The **full** preset is warm-up 5:00, then eight rounds of work 1:00 and recovery
-  2:00, then cool-down 5:00 — eighteen interval rows, total 34:00.
+  2:00, then cool-down 5:00 — eighteen interval rows, total 34:00. *(auto: `PresetDaoTest.kt`.)*
 - **SCHEMA-033** Both presets end their last round's recovery before cool-down begins; neither
   preset omits a trailing recovery. *(auto: `PresetDaoTest.kt`, asserting the seeded row counts,
   kinds, durations and totals in `SCHEMA-031`–`032`.)*
 - **SCHEMA-034** The seeded presets' `name` values are **"Short Example"** for the short preset
   (`SCHEMA-031`) and **"Long Example"** for the full preset (`SCHEMA-032`), decided by the
   repository owner, asked directly. They are ordinary `presets.name` values with no special status
-  (`SCHEMA-013`).
+  (`SCHEMA-013`). *(auto: `PresetDaoTest.kt`.)*
 
 | | Short | Full |
 |---|---|---|
@@ -183,18 +188,19 @@ Restated here as requirements, from [ADR 0003](../adr/0003-room-with-the-schema-
 | The module and the schema files | SCHEMA-001–004 | *(manual)* |
 | The `presets` table | SCHEMA-010–014 | `PresetDaoTest.kt` (SCHEMA-012, 014); *(manual)* SCHEMA-010–011, 013 |
 | The `intervals` table | SCHEMA-020–027 | *(manual)*, all — schema shape and an absent constraint |
-| Seeding | SCHEMA-030–034 | `PresetDaoTest.kt` (SCHEMA-033); *(manual)* SCHEMA-030–032, 034 |
+| Seeding | SCHEMA-030–034 | `PresetDaoTest.kt` (SCHEMA-030's once-only guarantee, SCHEMA-031–034); *(manual)* SCHEMA-030's single-transaction insert |
 | The contract-test policy | SCHEMA-040–044 | `SchemaMigrationTest.kt` (SCHEMA-041, 043); *(manual)* SCHEMA-042, 044 |
 
-**27 requirements, 5 `auto` and 22 `manual`.**
+**27 requirements, 9 `auto` and 18 `manual`.**
 
 **`:database` and `PresetDaoTest.kt` now exist**, at
 `database/src/jvmTest/kotlin/com/derekwinters/intervaltrainer/database/PresetDaoTest.kt`
-(`BUILD-002`), asserting `SCHEMA-012` and `SCHEMA-014` as this table said they would. Two of the
-five `auto` requirements above are still ahead of the code: `SCHEMA-033`'s seeded-row assertions
-wait on the seeding work itself
-([#74](https://github.com/derekwinters/Interval-trainer-android/issues/74)), and `SCHEMA-041`,
-`SCHEMA-043` wait on the contract-test harness
+(`BUILD-002`), asserting `SCHEMA-012` and `SCHEMA-014` as this table said they would, and, since
+[#74](https://github.com/derekwinters/Interval-trainer-android/issues/74), the seeded row counts,
+kinds, durations and totals in `SCHEMA-031`–`032`, the seeded names in `SCHEMA-034`, and that
+reopening an already-seeded database file does not seed its presets again — the closest a v1
+schema, with no migration to drive it through yet, can come to testing `SCHEMA-030`'s "not on a
+later migration". `SCHEMA-041`, `SCHEMA-043` still wait on the contract-test harness
 ([#75](https://github.com/derekwinters/Interval-trainer-android/issues/75)), including
 `SchemaMigrationTest.kt`, still named here in the future tense for the same reason
 [`docs/spec/timer.md`](timer.md) and [`docs/spec/cues.md`](cues.md) name their own tests ahead of
@@ -211,6 +217,6 @@ at here.
 type, a foreign key, an index — which is a configuration fact the exported schema and Room's own
 diff checks make visible, not something a JVM assertion adds value by re-stating. What *is*
 genuinely behaviour rather than shape — insertion order surviving a read, a cascade delete actually
-removing the child rows, the seed producing the right rows, and a migration proving data
-survival — are exactly the five marked `auto`, and they are the ones this page's tests exist to
-catch a regression in.
+removing the child rows, the seed producing the right rows and not producing them twice, and a
+migration proving data survival — are exactly the nine marked `auto`, and they are the ones this
+page's tests exist to catch a regression in.
