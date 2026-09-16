@@ -13,12 +13,12 @@ import com.derekwinters.intervaltrainer.designsystem.AppTheme
 
 /**
  * A destination home (`docs/spec/screens.md` §1, `SCREEN-006`–`008`) navigates to that has no
- * screen of its own yet: the preset editor (§2,
- * [#80](https://github.com/derekwinters/Interval-trainer-android/issues/80)) and the running
- * screen (§3, [#81](https://github.com/derekwinters/Interval-trainer-android/issues/81)) are
- * unbuilt, and so is settings (§5). The *route* each one navigates to is real, so home's own
- * navigation is not guessing at a destination that does not exist; the composable behind that
- * route is this one, until the issue that owns it replaces it.
+ * screen of its own yet: the running screen (§3,
+ * [#81](https://github.com/derekwinters/Interval-trainer-android/issues/81)) and settings (§5) are
+ * unbuilt. The preset editor (§2, `#80`) was this way too, until this pull request replaced its
+ * placeholder with `PresetEditorScreen`. The *route* each remaining one navigates to is real, so
+ * home's own navigation is not guessing at a destination that does not exist; the composable
+ * behind that route is this one, until the issue that owns it replaces it.
  *
  * Not a screen in its own right, and not asserted against `docs/spec/design-system.md`'s layouts
  * (`DS-070`–`079`) for that reason — see this pull request's Deviations section.

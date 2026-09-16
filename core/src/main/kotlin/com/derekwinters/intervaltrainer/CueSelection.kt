@@ -19,11 +19,13 @@ private fun IntervalKind.boundaryVibration(): VibrationPattern = when (this) {
  * CUE-030: the colour role of an interval of this kind. Warm-up and cool-down share
  * [ColorRole.NEUTRAL].
  *
- * Internal, not private: [scheduleSegments] (`PresetSummary.kt`, `docs/spec/screens.md`
- * `SCREEN-004`) reads this same mapping for the home screen's colour strip, rather than a second
- * copy of `CUE-030` living outside this file.
+ * Public, not internal: [scheduleSegments] (`PresetSummary.kt`, `docs/spec/screens.md`
+ * `SCREEN-004`) reads this same mapping for the home screen's colour strip, and the preset editor
+ * row (`docs/spec/screens.md` `SCREEN-012`'s colour dot) reads it directly from `:app` for the
+ * same reason — one mapping this file owns, not a second copy of `CUE-030` living outside it or
+ * duplicated at each call site.
  */
-internal fun IntervalKind.colorRole(): ColorRole = when (this) {
+fun IntervalKind.colorRole(): ColorRole = when (this) {
     IntervalKind.WORK -> ColorRole.WORK
     IntervalKind.RECOVERY -> ColorRole.RECOVERY
     IntervalKind.WARM_UP, IntervalKind.COOL_DOWN -> ColorRole.NEUTRAL

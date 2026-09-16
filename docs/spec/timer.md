@@ -294,9 +294,11 @@ deadline model, the lead-in, skip, stop and the summary, and rounds completed �
 `ScheduleGeneratorTest.kt`, all three at
 `core/src/test/kotlin/com/derekwinters/intervaltrainer/`. `TIMER-072`, the rest of §8, is not a
 `:core` test at all: it is the preset editor's own refusal of a short duration
-(`docs/spec/schema.md` `SCHEMA-026`), and the editor is
-[#29](https://github.com/derekwinters/Interval-trainer-android/issues/29)/[#40](https://github.com/derekwinters/Interval-trainer-android/issues/40)'s,
-not built yet. Cue selection
+(`docs/spec/schema.md` `SCHEMA-026`), and the editor
+([#80](https://github.com/derekwinters/Interval-trainer-android/issues/80),
+`docs/spec/screens.md` §2) gates its own generator dialog's confirm action on it rather than
+letting an invalid duration reach `generateRounds`/`appendGeneratedRounds` at all — still a screen
+fact, not a `:core` one, so it stays manual. Cue selection
 ([#71](https://github.com/derekwinters/Interval-trainer-android/issues/71),
 `docs/spec/cues.md`) is built too, `CueSink` now a real interface with one member, tested by
 `CueSelectionTest.kt` at the same path. That is what lets `TIMER-033` — the lead-in fires the
@@ -322,5 +324,6 @@ test time, so the long cases cost no more than the short ones, and a reducer wit
 `android.*` can be driven event by event. The six that are not are an absence from a stored model,
 an absence of a setting, an absence of a control, an absence of persistence, one navigation fact
 that belongs to a screen this page does not specify, and `TIMER-072` — four of those six verified by
-reading a diff rather than by running anything, and `TIMER-072` verified by the preset editor's own
-test, once the editor exists to write one.
+reading a diff rather than by running anything, and `TIMER-072` verified manually against the
+preset editor's own screen (`docs/spec/screens.md` §2), since a below-minimum generator input never
+reaching `:core` at all is a screen fact, not a `:core` reducer, even now that the editor exists.

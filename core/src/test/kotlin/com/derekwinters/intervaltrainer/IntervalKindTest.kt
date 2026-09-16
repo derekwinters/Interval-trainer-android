@@ -4,13 +4,13 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * JVM unit tests for [IntervalKind.next] (`docs/spec/screens.md` `SCREEN-014`): the fixed cycle a
+ * JVM unit tests for [IntervalKind.next] (`docs/spec/screens.md` `SCREEN-014a`): the fixed cycle a
  * freshly added or reopened row's kind advances through when its colour dot/name is tapped while
  * the row is open for editing.
  */
 class IntervalKindTest {
 
-    /** SCREEN-014: the cycle is warm-up, work, recovery, cool-down, then back to warm-up. */
+    /** SCREEN-014a: the cycle is warm-up, work, recovery, cool-down, then back to warm-up. */
     @Test
     fun `cycles through the four kinds in a fixed order`() {
         assertEquals(IntervalKind.WORK, IntervalKind.WARM_UP.next())
