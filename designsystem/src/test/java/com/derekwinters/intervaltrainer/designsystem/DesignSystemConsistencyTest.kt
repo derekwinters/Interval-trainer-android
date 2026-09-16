@@ -2,13 +2,13 @@ package com.derekwinters.intervaltrainer.designsystem
 
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
-import androidx.compose.ui.test.assertHeightIsAtLeast
-import androidx.compose.ui.test.assertWidthIsAtLeast
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -54,6 +54,21 @@ class DesignSystemConsistencyTest {
      * sampled instance — [TouchTargetTag] marks every icon-button example in
      * `ComponentGallery.kt`, and [CountStepperTag]'s descendants pick up `CountStepper`'s own two
      * buttons without `CountStepper.kt` needing a test-only parameter of its own.
+     *
+     * Asserts against [androidx.compose.ui.semantics.SemanticsNode.touchBoundsInRoot]
+     * ([assertTouchWidthIsAtLeast]/[assertTouchHeightIsAtLeast] below), not `ui-test`'s own
+     * `assertWidthIsAtLeast`/`assertHeightIsAtLeast`. Those compare the semantics node's *layout*
+     * bounds — `boundsInRoot`/`size`, which `SemanticsNode.findCoordinatorToGetBounds()` resolves to
+     * whichever semantics-bearing `Modifier.Node` is `isImportantForBounds` (`clickable`'s, here) —
+     * and that node sits *after* `.size(drawnSize)` in each control's modifier chain, so its own
+     * coordinator reports the drawn size, not the 48dp `Modifier.minimumInteractiveComponentSize()`
+     * reserves around it. `touchBoundsInRoot`'s own KDoc says as much directly: "this can be larger
+     * than `size` when the layout is less than `ViewConfiguration.minimumTouchTargetSize`". Real
+     * Material3 components have the identical layout-vs-touch split — `IconButton` chains
+     * `.minimumInteractiveComponentSize().size(...)` the same way — so this is a genuine distinction
+     * in what `ui-test` calls "bounds", not a defect in `IconButtons.kt`/`CountStepper.kt`, and
+     * `assertWidthIsAtLeast`/`assertHeightIsAtLeast` were simply the wrong assertion for a *touch
+     * target* requirement.
      */
     @Test
     fun `every touch-target-scoped control meets the 48dp minimum`() {
@@ -74,8 +89,8 @@ class DesignSystemConsistencyTest {
         )
         for (index in 0 until count) {
             matches[index]
-                .assertWidthIsAtLeast(48.dp)
-                .assertHeightIsAtLeast(48.dp)
+                .assertTouchWidthIsAtLeast(48.dp)
+                .assertTouchHeightIsAtLeast(48.dp)
         }
     }
 
@@ -134,4 +149,38 @@ class DesignSystemConsistencyTest {
             header.boundsInRoot.top < maxHeaderTop,
         )
     }
+}
+
+/** The tolerance `ui-test`'s own bounds assertions use, e.g. `BoundsAssertions.kt`'s `assertIsAtLeast`. */
+private val TouchBoundsTolerance = 0.5.dp
+
+/**
+ * `SemanticsNode.touchBoundsInRoot`'s width, asserted at least [expectedMinWidth] — the touch-target
+ * counterpart to `ui-test`'s own (layout-bounds-only) `assertWidthIsAtLeast`. See the KDoc on
+ * `every touch-target-scoped control meets the 48dp minimum` above for why this control needs the
+ * touch bounds rather than the layout bounds.
+ */
+private fun SemanticsNodeInteraction.assertTouchWidthIsAtLeast(
+    expectedMinWidth: Dp,
+): SemanticsNodeInteraction {
+    val node = fetchSemanticsNode("Failed to retrieve touch bounds of the node.")
+    val widthDp = with(node.layoutInfo.density) { node.touchBoundsInRoot.width.toDp() }
+    assertTrue(
+        "expected touch width at least $expectedMinWidth, got $widthDp for node ${node.id}",
+        widthDp >= expectedMinWidth - TouchBoundsTolerance,
+    )
+    return this
+}
+
+/** [assertTouchWidthIsAtLeast]'s height counterpart. */
+private fun SemanticsNodeInteraction.assertTouchHeightIsAtLeast(
+    expectedMinHeight: Dp,
+): SemanticsNodeInteraction {
+    val node = fetchSemanticsNode("Failed to retrieve touch bounds of the node.")
+    val heightDp = with(node.layoutInfo.density) { node.touchBoundsInRoot.height.toDp() }
+    assertTrue(
+        "expected touch height at least $expectedMinHeight, got $heightDp for node ${node.id}",
+        heightDp >= expectedMinHeight - TouchBoundsTolerance,
+    )
+    return this
 }
