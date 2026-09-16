@@ -99,11 +99,16 @@ dependencies {
     // formatSeconds lives in :core now (ADR 0005, BUILD-014).
     implementation(project(":core"))
 
-    // :database's Android target (SCHEMA-001). This is a structural dependency only, the same
-    // shape ADR 0004/BUILD-016 added Compose to this module before any screen used it: nothing
-    // in :app constructs an `IntervalTrainerDatabase` or a `RoomPresetStore` yet, because nothing
-    // in :app reads or writes a preset yet. The first screen that needs one is what wires this up.
+    // :database's Android target (SCHEMA-001): the home screen (SCREEN-002, #79) is the first
+    // screen that reads a preset, via AppDatabase/RoomPresetStore.
     implementation(project(":database"))
+
+    // :designsystem's exposed vocabulary (ADR 0007, BUILD-019): AppTheme, ScreenHeader, the
+    // layouts and the button/icon-button set. The home screen (#79) is the first screen that
+    // needed any of it, so this is the dependency DS-090/BUILD-017's own doc comments described
+    // ahead of themselves — it is real now, and a raw `androidx.compose.material3` import inside
+    // :app is a compile error from this point on, not merely a convention.
+    implementation(project(":designsystem"))
 
     // The Compose BOM pins every androidx.compose.* artifact declared below to one literal
     // version (BUILD-017); the BOM's own version is itself a literal, per the build's second
@@ -115,6 +120,12 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
+
+    // Vector icon assets (Icons.Filled.*), for ScreenHeader's icon trailing action and the home
+    // row's Edit control (SCREEN-001, SCREEN-005). Ships icon data, not a Material *component* —
+    // depending on it directly from :app does not touch the DS-090/ADR-0007 module boundary that
+    // keeps raw `material3` types out of :app's reach, per :designsystem's own build.gradle.kts.
+    implementation("androidx.compose.material:material-icons-core")
 
     // Not managed by the Compose BOM, so each carries its own literal version (BUILD-017).
     implementation("androidx.activity:activity-compose:1.9.3")

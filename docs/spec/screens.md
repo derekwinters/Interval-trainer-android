@@ -37,6 +37,14 @@ lock.
 > screen shows that is not traceable to a `:core` reducer is a value about to disagree with another
 > screen showing the same thing.
 
+> **Invariant — Edit and Start are always two separate, independently tappable controls.** A row's
+> Edit and Start actions are never merged into one combined tap target, and no other part of the row
+> — the name, the meta line, the colour strip — is ever wired to either action as a shortcut. This is
+> what `SCREEN-005`'s "a tap can never start a workout by accident" actually excludes: an
+> implementation that reacts to a tap anywhere on the row, or that treats a long-press or a swipe as
+> an alternate way to start or edit, would still have "two controls" while reintroducing exactly the
+> accidental-start risk the row exists to rule out.
+
 ---
 
 ## 1. Home
@@ -54,12 +62,31 @@ actions, and nothing else on the row is tappable, so a tap can never start a wor
 - **SCREEN-003** Each row shows the preset's name, and beneath it: the number of rounds it plans
   (`TIMER-060`) and the schedule's total duration, formatted as `formatSeconds` does
   (`BUILD-030`–`033`) — for example "4 rounds · 15:30". A preset with no work intervals shows no
-  round count, only the total — for example "Steady effort · 25:00" — since a round count of zero
-  is not a fact worth stating. *(manual: the row's rendering is a screen fact; the round count and
-  total it displays are `:core` arithmetic, covered once a reducer test exists.)*
+  round count, only the total, by itself — for example just "25:00", not "0 rounds · 25:00" — since
+  a round count of zero is not a fact worth stating. (The settled design's own mockup pairs this
+  case with the label "Steady effort" ahead of the total; that is the mockup's illustrative preset
+  *name*, not a second piece of meta text this requirement adds, and an earlier draft of this
+  requirement's own example could be misread as the latter — corrected here.) The round count and
+  the total are one computation, `presetSummary(preset)` in `:core`
+  (`core/src/main/kotlin/com/derekwinters/intervaltrainer/PresetSummary.kt`): the preset's own
+  schedule (`scheduleFrom`), the count of its `WORK` intervals against the sum of every interval's
+  duration — so this row, and any other screen that ever needs the same two numbers, read one
+  answer rather than two that could drift apart (this page's third invariant). *(manual: the row's
+  own rendering — the name, the layout, "N rounds · total" versus a bare total — is a screen fact;
+  the two numbers themselves are `:core` arithmetic, covered by
+  `core/src/test/kotlin/com/derekwinters/intervaltrainer/PresetSummaryTest.kt`.)*
 - **SCREEN-004** Each row carries a thin colour strip previewing the proportion of the schedule
   each interval kind occupies, using the colour tokens `CUE-030` and `DS-050` already fix — work,
-  recovery, and the shared neutral for warm-up and cool-down.
+  recovery, and the shared neutral for warm-up and cool-down. The strip is one segment per interval,
+  in schedule order, each sized by its share of the total duration: `scheduleSegments(preset)` in
+  `:core` (`PresetSummary.kt`), which reads its colour role from `CueSelection.kt`'s own
+  `IntervalKind.colorRole()` (`CUE-030`) rather than a second copy of that mapping. The row itself
+  only translates each `ColorRole` to the design system's actual `Color` (`DS-050`), since `:core`
+  does not depend on `:designsystem` and has no way to know that mapping itself. An empty schedule,
+  or one whose total duration is zero, yields no segments, and the row draws no strip rather than
+  dividing by zero. *(manual: the strip's own rendering is a screen fact; the segments it draws are
+  `:core` arithmetic, covered by
+  `core/src/test/kotlin/com/derekwinters/intervaltrainer/PresetSummaryTest.kt`.)*
 - **SCREEN-005** Each row has exactly two controls, both always visible: **Edit** and **Start**.
   Nothing else on the row responds to a tap — not the name, not the meta line, not the colour strip.
 - **SCREEN-006** Tapping **Start** starts a workout from that preset immediately (`TIMER-013`) and
@@ -68,9 +95,24 @@ actions, and nothing else on the row is tappable, so a tap can never start a wor
 - **SCREEN-008** A floating action button (`DS-007`) opens the preset editor loaded with a new,
   empty preset.
 
-*(All of §1 is manual: screen structure and navigation, not arithmetic. SCREEN-003's own content —
-the round count and the total — is `:core` arithmetic and is covered there, once that reducer
-exists; what this page specifies is only how the row renders it.)*
+`SCREEN-006`, `SCREEN-007` and `SCREEN-008` land ahead of what they name, the same way this
+project's build has staged v1 ahead of its own pieces before now
+(`docs/spec/build.md` `BUILD-018`): the preset editor (§2,
+[#80](https://github.com/derekwinters/Interval-trainer-android/issues/80)) and the running screen
+(§3, [#81](https://github.com/derekwinters/Interval-trainer-android/issues/81)) are not built yet,
+and settings (§5) is not built yet either. Home registers a real navigation route for each of the
+three — `SCREEN-006`/`007`/`008` name real destinations, not ones an implementation would have to
+guess at later — landing on a placeholder composable for whichever has not shipped. `SCREEN-006`'s
+"starts a workout... immediately" is real regardless of the running screen's own state: the
+foreground service it starts (`docs/spec/service.md` `SVC-010`–`013`) already exists and does not
+wait for a screen to show its progress. Each placeholder is replaced, route unchanged, the moment
+its own issue lands — this is a staging choice this pull request made, not a specification change,
+and is noted in its own Deviations section.
+
+*(All of §1 is manual: screen structure and navigation, not arithmetic. SCREEN-003's and
+SCREEN-004's own content — the round count, the total, and the colour-strip segments — is `:core`
+arithmetic, covered by `PresetSummaryTest.kt`, exactly as each requirement's own text above says;
+what this page specifies is only how the row renders it.)*
 
 ## 2. The preset editor
 
@@ -281,7 +323,7 @@ runner.)*
 
 | Section | IDs | Tests |
 |---|---|---|
-| Home | SCREEN-001–008 | *(manual)* |
+| Home | SCREEN-001–008 | `PresetSummaryTest.kt` (SCREEN-003's round count and total, SCREEN-004's colour-strip segments); *(manual)* SCREEN-001–008 |
 | The preset editor | SCREEN-010–019 | *(manual)* |
 | The running screen — content | SCREEN-020–024 | *(manual)* |
 | The running screen — controls | SCREEN-030–033 | *(manual)* |
@@ -297,14 +339,19 @@ runner.)*
 screen's layout, control set, content or navigation is assertable on a JVM runner without a
 simulated Android runtime — that is
 [`docs/spec/design-system.md`](design-system.md)'s territory (`DS-091`, `DS-093`), and this page
-does not duplicate it. Several requirements here — a preset's round count and total
-(`SCREEN-003`, `SCREEN-018`), and the timer values the running screen and the summary read
-(`SCREEN-021`–`022`, `SCREEN-050`) — merely *display* arithmetic that `TIMER-025`, `TIMER-060`,
-`TIMER-061`, `TIMER-011` and `TIMER-054` already cover in `TimerStateTest.kt`; that coverage counts
-against those `TIMER` requirements, not against the `SCREEN` requirement that a screen renders the
-value correctly, which is what stays `manual` here. This page adds no new `:core` test files of its
-own; it cites the ones `timer.md` and `build.md` already name, and is honest that everything else —
-whether a screen's structure actually matches this page, whether a control does what it says,
-whether the lock actually holds — is a human reading the
-screen against this specification, the same proportion `docs/spec/design-system.md` reports for
-the same reason.
+does not duplicate it. Several requirements here — a preset's round count and total, and its
+colour-strip proportions (`SCREEN-003`, `SCREEN-004`, `SCREEN-018`), and the timer values the
+running screen and the summary read (`SCREEN-021`–`022`, `SCREEN-050`) — merely *display*
+arithmetic that lives in `:core`; that coverage counts against the `:core` function computing the
+value, not against the `SCREEN` requirement that a screen renders it correctly, which is what stays
+`manual` here regardless. `SCREEN-021`–`022` and `SCREEN-050` cite `TIMER-025`, `TIMER-060`,
+`TIMER-061`, `TIMER-011` and `TIMER-054`, already covered in `TimerStateTest.kt`; `SCREEN-018` (the
+preset editor's own footer) still has no reducer to cite, since the preset editor
+([#80](https://github.com/derekwinters/Interval-trainer-android/issues/80)) is not built yet.
+`SCREEN-003` and `SCREEN-004` are this page's own first new `:core` test file, added alongside home
+itself ([#79](https://github.com/derekwinters/Interval-trainer-android/issues/79)):
+`PresetSummary.kt` and `PresetSummaryTest.kt`, cited directly in each requirement's own text above
+rather than only here. This page is honest that everything else — whether a screen's structure
+actually matches this page, whether a control does what it says, whether the lock actually holds —
+is a human reading the screen against this specification, the same proportion
+`docs/spec/design-system.md` reports for the same reason.
