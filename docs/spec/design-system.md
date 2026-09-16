@@ -27,8 +27,11 @@ is implemented, and so is the component vocabulary in §1–3
 layer and each with a `@Preview`. The closed set of three screen layouts in §8 is now implemented
 too ([#76](https://github.com/derekwinters/Interval-trainer-android/issues/76)): `ListLayout`,
 `FullBleedLayout`, and `FormLayout`, each built from this component vocabulary and each with a
-`@Preview`. `:app` does not yet depend on `:designsystem`, so the compile-time enforcement `DS-090`
-describes does not yet apply to it. A Robolectric dependency now exists, scoped to `:designsystem`
+`@Preview`. `:app` now depends on `:designsystem`
+([#79](https://github.com/derekwinters/Interval-trainer-android/issues/79), the home screen, the
+first screen that needed its vocabulary), so the compile-time enforcement `DS-090` describes now
+genuinely applies to it: a `material3` import inside `:app` is a compile error today, not a
+statement about a boundary with nothing yet on the other side of it. A Robolectric dependency now exists, scoped to `:designsystem`
 alone (`BUILD-023`), and `DesignSystemConsistencyTest.kt` runs `DS-091`'s touch-target and
 content-description assertions against the component gallery
 ([#78](https://github.com/derekwinters/Interval-trainer-android/issues/78), `DS-095`). `DS-093` —
@@ -213,11 +216,14 @@ constraint [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md) b
 
 - **DS-090** The `:designsystem` module boundary, with `material3` declared `implementation`, is the
   structural enforcement mechanism: a raw Material component used outside `:designsystem` is a
-  compile error. The module and the dependency declaration exist (`BUILD-019`); the enforcement
-  itself has nothing to bite on yet, since `:app` does not depend on `:designsystem` until a later
-  issue wires that up. *(manual: a module boundary, per [ADR 0007](../adr/0007-a-designsystem-module-with-bespoke-colour-tokens.md);
-  not something a test of this page asserts, the same way `CUE-003` treats its own module
-  boundary.)*
+  compile error. The module and the dependency declaration exist (`BUILD-019`), and the enforcement
+  now has something to bite on: `:app` depends on `:designsystem`
+  ([#79](https://github.com/derekwinters/Interval-trainer-android/issues/79)), so an
+  `androidx.compose.material3` import inside `:app` fails the build rather than merely being a
+  convention nobody has tested yet. *(manual: a module boundary, per
+  [ADR 0007](../adr/0007-a-designsystem-module-with-bespoke-colour-tokens.md); not something a test
+  of this page asserts, the same way `CUE-003` treats its own module boundary — the compile error
+  itself is the enforcement, with nothing further for a unit test to add.)*
 - **DS-091** JVM assertions over the Compose semantics tree, run under Robolectric, check every
   clickable node's touch target against the 48dp minimum (`DS-005`–`008`), a component's position in
   the root across the screens that share it, and that every icon-only control has a non-empty content
@@ -244,10 +250,13 @@ constraint [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md) b
 - **DS-093** Every screen's root composable is asserted to be one of the three layouts named in §8.
   The assertion follows this specification's set — it does not hard-code the three names in a way
   that would need changing independently of `DS-070` — so an addition under `DS-074` does not fight
-  the tooling. *(auto, once a real screen exists to assert this about: no v1 screen is built yet
-  ([#33](https://github.com/derekwinters/Interval-trainer-android/issues/33)), so this still has
-  nothing to run against; `DesignSystemConsistencyTest.kt`, as `DS-091`, is still where it will
-  live.)*
+  the tooling. *(auto, once a real screen exists to assert this about: the home screen
+  ([#79](https://github.com/derekwinters/Interval-trainer-android/issues/79)) is now built, in
+  `:app`, but `DesignSystemConsistencyTest.kt` lives in `:designsystem`, which `:app` depends on and
+  not the other way around (`ADR 0007`) — it has no way to reach into `:app`'s own composables to
+  assert this about them. This still has nothing to run against for that reason, not because no
+  screen exists; giving `:app` its own Robolectric harness to assert `DS-093` against a real screen
+  is a separate, not-yet-filed piece of work this pull request does not take on.)*
 - **DS-094** The colour tokens in §6 are checked for WCAG contrast: a pure-Kotlin unit test computes
   the contrast ratio for each token pair text is rendered against and asserts it meets the
   requirement `CUE-033` states. It needs no Android runtime and runs independently of `DS-091`'s
@@ -312,7 +321,7 @@ this decision:
 | Colour tokens | DS-050–052 | `ColorSchemeMappingTest.kt` (DS-051's `ColorScheme` mapping); `TokenContrastTest.kt` (DS-050–051, via DS-094, not yet written); *(manual)* DS-050, DS-052 |
 | Screen split | DS-060–062 | *(manual)* |
 | Screen layouts | DS-070–079 | `ListLayout`, `FullBleedLayout`, `FormLayout` in `:designsystem` (`#76`); `DesignSystemConsistencyTest.kt` (DS-070, via DS-093, not yet written); *(manual)* DS-071–079 |
-| Enforcement — adopted | DS-090–095 | `DesignSystemConsistencyTest.kt` (DS-091); `TokenContrastTest.kt` (DS-094, not yet written); *(manual)* DS-090, DS-092, DS-093 (no screen to assert yet), DS-095 |
+| Enforcement — adopted | DS-090–095 | `DesignSystemConsistencyTest.kt` (DS-091); `TokenContrastTest.kt` (DS-094, not yet written); *(manual)* DS-090 (real now, per `BUILD-017`/`#79`, but still a compile-time boundary, not a unit test), DS-092, DS-093 (a real screen exists, `#79`, but nothing in `:designsystem` reaches into `:app` to assert it against one), DS-095 |
 | Enforcement — not adopted | DS-096–097 | *(manual)* |
 | Human judgement calls | DS-098–101 | *(manual)* |
 
@@ -328,8 +337,9 @@ three screen layouts (`DS-070`–`079`) is now implemented too
 `FullBleedLayout`, and `FormLayout`, each with a `@Preview`, each built from the component vocabulary
 above rather than duplicating it. Both stay `*(manual)*` in this table, on purpose: a `@Preview` is
 not a Robolectric assertion, and `DS-070`–`079` do not claim one exists — `DesignSystemConsistencyTest.kt`
-asserts `DS-091` today, but its `DS-093` clause (a screen's chosen layout) still has no screen to
-check (below).
+asserts `DS-091` today, but its `DS-093` clause (a screen's chosen layout) still has no screen it can
+reach to check (below): the home screen (`#79`) now exists, but in `:app`, which this module's own
+test source set cannot see into (`ADR 0007`'s dependency direction runs the other way).
 
 **One of the three `auto` tests this page promised now exists; the other two still do not.**
 `:designsystem` has a Robolectric dependency now
@@ -340,10 +350,12 @@ invariant. `DesignSystemConsistencyTest.kt` exists and asserts `DS-091`'s touch-
 content-description checks against the gallery — every clickable node it renders, not a sample, per
 this page's fourth invariant. `DS-091`'s own third clause, a component's position in the root "across
 the screens that share it", is checked today as the gallery's own `ScreenHeader` placement, since no
-v1 screen exists yet to compare across; that is an honest narrowing of the wording for now, not a
-claim the cross-screen case is already covered. `DS-093` — that a screen's root composable is one of
-the three layouts in §8 — still has no test, because it still has nothing to assert: no v1 screen
-exists yet ([#33](https://github.com/derekwinters/Interval-trainer-android/issues/33)).
+v1 screen built inside `:designsystem` itself exists to compare across (the home screen, `#79`,
+lives in `:app` instead); that is an honest narrowing of the wording for now, not a claim the
+cross-screen case is already covered. `DS-093` — that a screen's root composable is one of the
+three layouts in §8 — still has no test, not because no v1 screen exists ([#79](https://github.com/derekwinters/Interval-trainer-android/issues/79)
+built the first one) but because `DesignSystemConsistencyTest.kt` has no way to reach it from
+inside `:designsystem`'s own test source set.
 `TokenContrastTest.kt` (`DS-094`) is unrelated to this decision and is still not written, for the
 same reason as before — `CUE-033` and this page both name "the contrast requirement" without stating
 the numeric ratio a test would assert, and choosing one was judged a design decision for whoever

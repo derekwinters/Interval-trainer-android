@@ -119,17 +119,29 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
   [ADR 0007](../adr/0007-a-designsystem-module-with-bespoke-colour-tokens.md) narrowed ADR 0004's
   `:app`-level Material 3 dependency to `:designsystem`, declared there once as `implementation`
   (`BUILD-019`); `:app` still carries only the Compose runtime, activity and navigation artefacts
-  this requirement adds, and nothing that reads `androidx.compose.material3` directly, though it
-  gains `:designsystem`'s own exposed vocabulary — starting with `AppTheme` — once a later issue
-  wires `:app` to depend on that module. *(manual: a build-configuration fact; the workflow's build
-  is the check.)*
-- **BUILD-018** `:app` has exactly one activity, `MainActivity`, a `ComponentActivity` whose
-  `onCreate` calls `setContent` with a single Compose `NavHost` holding exactly one destination — a
-  placeholder with no behaviour of its own and no `MaterialTheme` wrapper, since nothing here reads
-  Material 3 (`BUILD-017`). It is the shell every later screen issue adds a real destination to, not
-  a screen: none of the six v1 screens ([`docs/spec/screens.md`](screens.md)) exists yet. *(manual:
-  a build-configuration/UI-shell fact with no computable behaviour to unit test; `assembleDebug`
-  producing an APK that launches it is the check, the same as `BUILD-012`.)*
+  this requirement adds, and nothing that reads `androidx.compose.material3` directly. `:app` now
+  also depends on `:designsystem` itself ([#79](https://github.com/derekwinters/Interval-trainer-android/issues/79),
+  the home screen, the first screen that needed its vocabulary) and gains its exposed vocabulary —
+  `AppTheme`, `ScreenHeader`, `ListLayout`, the button and icon-button set — through that dependency,
+  never through a `material3` import of its own; and, separately from `material3`,
+  `androidx.compose.material:material-icons-core`, which `:designsystem`'s own `build.gradle.kts`
+  already notes ships icon data rather than a Material *component*, so `:app` depending on it
+  directly does not touch this requirement's own module boundary. *(manual: a build-configuration
+  fact; the workflow's build is the check.)*
+- **BUILD-018** `:app` had exactly one activity, `MainActivity`, a `ComponentActivity` whose
+  `onCreate` called `setContent` with a single Compose `NavHost` holding exactly one destination — a
+  placeholder with no behaviour of its own and no `MaterialTheme` wrapper — until the home screen
+  ([#79](https://github.com/derekwinters/Interval-trainer-android/issues/79),
+  [`docs/spec/screens.md`](screens.md) §1) became its first real one. `MainActivity` now wraps its
+  `NavHost` in `:designsystem`'s `AppTheme` (`BUILD-017`) and the graph holds `home` alongside a
+  placeholder destination each for the preset editor, the running screen and settings — the three
+  `docs/spec/screens.md` §1 names but that are not built yet (`SCREEN-006`–`008`,
+  [#80](https://github.com/derekwinters/Interval-trainer-android/issues/80),
+  [#81](https://github.com/derekwinters/Interval-trainer-android/issues/81)) — each replaced,
+  unchanged route, the moment its own issue lands. This remains the shell every later screen issue
+  adds a real destination to, not a screen itself: the other five of the six v1 screens still do not
+  exist. *(manual: a build-configuration/UI-shell fact with no computable behaviour to unit test;
+  `assembleDebug` producing an APK that launches it is the check, the same as `BUILD-012`.)*
 - **BUILD-019** `:designsystem` applies the Android library plugin, the Kotlin Android plugin and
   the Compose compiler plugin (`BUILD-016`) — an Android library rather than pure Kotlin like
   `:core` (`BUILD-014`), since it hosts Compose UI, per
@@ -317,11 +329,14 @@ simulated Android runtime, and `DesignSystemConsistencyTest.kt` is real code now
 too, so `BUILD-002` and `BUILD-020` describe the build as it stands rather than ahead of it — its
 own contract-test harness (`docs/spec/schema.md` `SCHEMA-040`–`044`) and seeded data
 (`SCHEMA-030`–`034`) are still ahead of it, tracked on that page rather than this one.
-`BUILD-016`–`019` are the same kind again, this time not ahead of
-anything else: the Compose compiler, BOM, navigation artefacts and `:designsystem`'s own module
-boundary they describe are wired up across this pull request and the one before it, and the
-placeholder `NavHost` `BUILD-018` specifies still has no computable behaviour — a screen with
-something to compute arrives with the first real destination, and its test arrives with it.
+`BUILD-016`–`019` are the same kind again, mostly not ahead of anything else: the Compose compiler,
+BOM, navigation artefacts and `:designsystem`'s own module boundary they describe are wired up.
+`BUILD-018`'s placeholder `NavHost` no longer describes the build as it stands, either — the home
+screen ([#79](https://github.com/derekwinters/Interval-trainer-android/issues/79)) is its first real
+destination, `:app` depends on `:designsystem` for real per `BUILD-017`, and the requirement's own
+text now says so — but a screen's own content and controls remain no more unit-testable than the
+placeholder they replaced (`docs/spec/screens.md`'s own traceability section says why), so
+`BUILD-018` stays `manual` rather than gaining a test of its own.
 `BUILD-015`'s `VERSION_CODE` bump is different: it
 runs as a Python script rather than a Gradle or Kotlin fact, so — like the release-signature gate
 in [`signing.md`](signing.md) — it is `auto` rather than `manual`, tested with no Android SDK at

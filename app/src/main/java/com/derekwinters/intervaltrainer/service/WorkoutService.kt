@@ -13,8 +13,7 @@ import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.room.Room
-import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import com.derekwinters.intervaltrainer.AppDatabase
 import com.derekwinters.intervaltrainer.CueTimerState
 import com.derekwinters.intervaltrainer.IntervalKind
 import com.derekwinters.intervaltrainer.MainActivity
@@ -24,7 +23,6 @@ import com.derekwinters.intervaltrainer.TimerEvent
 import com.derekwinters.intervaltrainer.TimerState
 import com.derekwinters.intervaltrainer.database.IntervalTrainerDatabase
 import com.derekwinters.intervaltrainer.database.RoomPresetStore
-import com.derekwinters.intervaltrainer.database.SeedDataCallback
 import com.derekwinters.intervaltrainer.formatSeconds
 import com.derekwinters.intervaltrainer.notificationContent
 import com.derekwinters.intervaltrainer.toggleEvent
@@ -70,16 +68,9 @@ class WorkoutService : Service() {
         super.onCreate()
         // SCHEMA-004: the real PresetStore a workout starts from, built the first time anything
         // in :app needs one (app/build.gradle.kts's own note on why nothing built this earlier).
-        // Room's Kotlin Multiplatform builder takes a file path rather than resolving a bare name
-        // against the app's databases directory itself, unlike the older Android-only overload —
-        // getDatabasePath(...).absolutePath is what does that resolution here.
-        database = Room.databaseBuilder<IntervalTrainerDatabase>(
-            context = applicationContext,
-            name = applicationContext.getDatabasePath(DATABASE_NAME).absolutePath,
-        )
-            .setDriver(BundledSQLiteDriver())
-            .addCallback(SeedDataCallback)
-            .build()
+        // AppDatabase.open is the one place :app builds this, so this service and the home screen
+        // (SCREEN-002, #79) can never open two different database files.
+        database = AppDatabase.open(applicationContext)
         presetStore = RoomPresetStore(database.presetDao())
         session = WorkoutSession(presetStore, clock, NoOpCueSink)
         createNotificationChannel()
@@ -308,7 +299,6 @@ class WorkoutService : Service() {
     companion object {
         private const val CHANNEL_ID = "workout"
         private const val NOTIFICATION_ID = 1
-        private const val DATABASE_NAME = "interval-trainer.db"
 
         /** SVC-012: far inside `TIMER-070`'s five-second minimum interval, per its own doc comment. */
         private const val TICK_INTERVAL_MILLIS = 200L
