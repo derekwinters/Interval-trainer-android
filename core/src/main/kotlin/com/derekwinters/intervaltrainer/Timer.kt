@@ -211,3 +211,26 @@ fun List<ScheduleEntry>.roundsCompleted(): Pair<Int, Int> {
     val completed = workEntries.count { it.outcome == IntervalOutcome.FINISHED }
     return completed to planned
 }
+
+/**
+ * `docs/spec/screens.md` `SCREEN-022a`: the round **currently in progress** against rounds
+ * planned, reported the same shape as [roundsCompleted] — a pair — but counting *position*
+ * rather than completion. `docs/spec/timer.md` §7 explicitly leaves "a better rendering of a
+ * non-uniform workout" to the running screen's own issue; this is that issue's resolution.
+ *
+ * The round in progress is the **ordinal, among the schedule's work intervals, of the last one
+ * reached at or before [index]** — the schedule position the timer is currently either working
+ * through or resting after, not yet the next one to come. A work interval counts the moment its
+ * lead-in begins (`index` points at it during [TimerPhase.LeadIn]), and stays the round in
+ * progress through whatever non-work interval follows it, until the next work interval's own
+ * lead-in begins. It counts a work interval reached this way regardless of whether it was
+ * finished or skipped (`TIMER-061`'s FINISHED-only rule is for rounds *completed*, a different
+ * question this function does not answer) — skip still moves the schedule position forward, and
+ * "in progress" tracks position. Zero before the first work interval is reached, e.g. during a
+ * leading warm-up.
+ */
+fun List<ScheduleEntry>.currentRound(index: Int): Pair<Int, Int> {
+    val planned = count { it.interval.kind == IntervalKind.WORK }
+    val inProgress = take(index + 1).count { it.interval.kind == IntervalKind.WORK }
+    return inProgress to planned
+}
