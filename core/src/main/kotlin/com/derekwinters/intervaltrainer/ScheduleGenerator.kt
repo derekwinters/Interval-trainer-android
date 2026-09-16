@@ -62,3 +62,31 @@ fun generateRounds(
         }
     }
 }
+
+/**
+ * The preset editor's own splice (`docs/spec/screens.md` `SCREEN-017`): [generateRounds]'s output
+ * appended onto the end of [existing] — the editor's current, in-memory interval list — never
+ * replacing or reordering what was already there (`TIMER-083`, `TIMER-084`).
+ *
+ * [existing] is read, not mutated: the returned list is a fresh one, so a caller holding its own
+ * reference to [existing] (an editor's undo point, a snapshot for a test) never sees it change out
+ * from under it.
+ *
+ * The rows appended are exactly what [generateRounds] itself returns for the same four
+ * arguments — plain [Interval] values, with nothing marking where the split between "existing" and
+ * "generated" falls once they are in the one list (`TIMER-085`). A caller that wants only the
+ * newly generated rows — to give each one its own identity for a UI list, for instance — reads
+ * `result.drop(existing.size)`.
+ *
+ * @throws IllegalArgumentException exactly as [generateRounds] does, for the same reason
+ * (`TIMER-070`, `TIMER-073`): a below-minimum work or recovery duration is refused rather than
+ * spliced in.
+ */
+fun appendGeneratedRounds(
+    existing: List<Interval>,
+    roundCount: Int,
+    workDurationSeconds: Int,
+    recoveryDurationSeconds: Int,
+    trailingRecovery: Boolean = false,
+): List<Interval> =
+    existing + generateRounds(roundCount, workDurationSeconds, recoveryDurationSeconds, trailingRecovery)

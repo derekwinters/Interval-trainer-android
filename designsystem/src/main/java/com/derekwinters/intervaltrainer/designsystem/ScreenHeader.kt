@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -39,10 +40,10 @@ sealed interface ScreenHeaderAction {
 }
 
 /**
- * `ScreenHeader` (`DS-020`–`021`): a fixed header row — a title top-left, exactly one trailing
- * action (an icon or a text button), and an optional page-level FAB. Every one of the six v1
- * screens uses this, including the three built from stock Material 3 components — never a stock
- * `TopAppBar` (`DS-021`).
+ * `ScreenHeader` (`DS-020`–`021`): a fixed header row — an optional leading back action
+ * (`DS-013`), a title top-left, exactly one trailing action (an icon or a text button), and an
+ * optional page-level FAB. Every one of the six v1 screens uses this, including the three built
+ * from stock Material 3 components — never a stock `TopAppBar` (`DS-021`).
  *
  * `docs/spec/screens.md`'s two settled headers (`SCREEN-001`, `SCREEN-010`) each show only a title
  * and one trailing action; neither passes a FAB to `ScreenHeader` itself; home's own FAB
@@ -53,11 +54,18 @@ sealed interface ScreenHeaderAction {
  * the list layout's own "optional bottom action or FAB" slot (`DS-071`) is where a list-layout
  * screen's FAB is actually composed — see `ListLayout` in `ScreenLayouts.kt` — and this `fab`
  * parameter is left unset by every v1 screen.
+ *
+ * `onBack` (`DS-013`) is nullable because home (`SCREEN-001`) has no back action at all — it is
+ * the app's own start destination — while the preset editor (`SCREEN-010`) is opened from home and
+ * needs one to return to it. When non-null, a leading `StatusIconButton` (`DS-005`) rendered with
+ * `Icons.Filled.ArrowBack` and the content description "Back" sits before the title; when null, no
+ * leading space is reserved for it, so `SCREEN-001`'s title sits exactly where it always has.
  */
 @Composable
 fun ScreenHeader(
     title: String,
     modifier: Modifier = Modifier,
+    onBack: (() -> Unit)? = null,
     trailingAction: ScreenHeaderAction? = null,
     fab: (@Composable () -> Unit)? = null,
 ) {
@@ -70,6 +78,14 @@ fun ScreenHeader(
                 .padding(horizontal = spacing.lg, vertical = spacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (onBack != null) {
+                StatusIconButton(
+                    icon = Icons.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    onClick = onBack,
+                    modifier = Modifier.padding(end = spacing.sm),
+                )
+            }
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
@@ -126,6 +142,7 @@ private fun ScreenHeaderWithTextActionAndFabPreview() {
         Surface(color = AppTheme.colors.bg) {
             ScreenHeader(
                 title = "Edit preset",
+                onBack = {},
                 trailingAction = ScreenHeaderAction.TextAction(label = "Save", onClick = {}),
                 fab = {
                     FabIconButton(

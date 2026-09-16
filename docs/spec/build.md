@@ -133,14 +133,15 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
   placeholder with no behaviour of its own and no `MaterialTheme` wrapper — until the home screen
   ([#79](https://github.com/derekwinters/Interval-trainer-android/issues/79),
   [`docs/spec/screens.md`](screens.md) §1) became its first real one. `MainActivity` now wraps its
-  `NavHost` in `:designsystem`'s `AppTheme` (`BUILD-017`) and the graph holds `home` alongside a
-  placeholder destination each for the preset editor, the running screen and settings — the three
-  `docs/spec/screens.md` §1 names but that are not built yet (`SCREEN-006`–`008`,
-  [#80](https://github.com/derekwinters/Interval-trainer-android/issues/80),
+  `NavHost` in `:designsystem`'s `AppTheme` (`BUILD-017`) and the graph holds `home` alongside the
+  preset editor ([#80](https://github.com/derekwinters/Interval-trainer-android/issues/80),
+  `docs/spec/screens.md` §2, `PresetEditorScreen`) and a placeholder destination each for the
+  running screen and settings — the two `docs/spec/screens.md` §1 names that are not built yet
+  (`SCREEN-006`, `SCREEN-008`,
   [#81](https://github.com/derekwinters/Interval-trainer-android/issues/81)) — each replaced,
   unchanged route, the moment its own issue lands. This remains the shell every later screen issue
-  adds a real destination to, not a screen itself: the other five of the six v1 screens still do not
-  exist. *(manual: a build-configuration/UI-shell fact with no computable behaviour to unit test;
+  adds a real destination to, not a screen itself: four of the six v1 screens still do not exist.
+  *(manual: a build-configuration/UI-shell fact with no computable behaviour to unit test;
   `assembleDebug` producing an APK that launches it is the check, the same as `BUILD-012`.)*
 - **BUILD-019** `:designsystem` applies the Android library plugin, the Kotlin Android plugin and
   the Compose compiler plugin (`BUILD-016`) — an Android library rather than pure Kotlin like

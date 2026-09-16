@@ -21,9 +21,10 @@ Part of what is specified here does not exist in the build yet. `:designsystem` 
 (`BUILD-002`, `BUILD-019`) with `material3` declared `implementation`, the token layer — the colour
 tokens, the spacing scale and the three timer typographic roles, assembled into a root `AppTheme` —
 is implemented, and so is the component vocabulary in §1–3
-([#73](https://github.com/derekwinters/Interval-trainer-android/issues/73)): `PrimaryButton`,
+([#73](https://github.com/derekwinters/Interval-trainer-android/issues/73) built the first ten;
+`#80` added `Toggle` and widened `AlertDialog` and `ScreenHeader`, per §1–3 below): `PrimaryButton`,
 `SecondaryButton`, `DestructiveButton`, the three icon-button roles, `CountStepper`,
-`DurationScrollPicker`, the `AlertDialog` wrapper, and `ScreenHeader`, each reading only the token
+`DurationScrollPicker`, `Toggle`, the `AlertDialog` wrapper, and `ScreenHeader`, each reading only the token
 layer and each with a `@Preview`. The closed set of three screen layouts in §8 is now implemented
 too ([#76](https://github.com/derekwinters/Interval-trainer-android/issues/76)): `ListLayout`,
 `FullBleedLayout`, and `FormLayout`, each built from this component vocabulary and each with a
@@ -94,6 +95,15 @@ none of the six v1 screens exists yet. That remains
   This supersedes the increment/decrement wording in [#29](https://github.com/derekwinters/Interval-trainer-android/issues/29)
   and in [#40](https://github.com/derekwinters/Interval-trainer-android/issues/40)'s own original
   text, both of which predate this decision.
+- **DS-014** `Toggle` is a bespoke on/off switch — track and knob, never a Material `Switch` — for a
+  bespoke-vocabulary screen (`DS-060`) that needs to show and flip a boolean. The preset editor's
+  round generator (`docs/spec/screens.md` `SCREEN-017`, the trailing-recovery control) is the only
+  v1 caller; the stock-Material settings screen's own default-mute switch (`SCREEN-061`) uses
+  `androidx.compose.material3.Switch` directly, per `DS-061`, not this component. Numbered `DS-014`
+  rather than appended after `DS-013` inside its own family's `DS-001`–`009` block, for the same
+  reason `DS-013` itself sits ahead of `DS-020`: that block was already nine requirements deep, and
+  `014` was the next number free before the dialogs and scaffolding blocks that follow it — see this
+  pull request's Deviations section.
 
 ## 2. Dialogs
 
@@ -102,11 +112,26 @@ none of the six v1 screens exists yet. That remains
   addition is a specification change.
 - **DS-011** A dialog's cancel action sits left, its affirmative action sits right, and a destructive
   action inside a dialog is rendered in red text.
+- **DS-012** `AlertDialog`'s body is either the title/text pair `DS-010` describes, or arbitrary
+  composable content, for a dialog that needs more than a sentence to say what it is asking. The
+  preset editor's round generator (`docs/spec/screens.md` `SCREEN-017`) is the first caller that
+  does — a round-count stepper, two duration pickers and a trailing-recovery control, none of which
+  is a string. This is still the one overlay component `DS-010` names, not a second one added
+  beside it: the addition is to what the existing body slot may hold, per the invariant that a
+  vocabulary addition is a specification change, not to the closed set of overlays itself.
 
 ## 3. Screen scaffolding
 
-- **DS-020** `ScreenHeader` is a fixed header row: a title top-left, exactly one trailing action
-  (an icon or a text button), and an optional page-level FAB (home's "new preset").
+- **DS-013** `ScreenHeader` accepts an optional leading back action, rendered before the title,
+  for a screen that needs one to return to wherever it was opened from. Home (`SCREEN-001`) has
+  none; the preset editor (`SCREEN-010`) is the first screen built that does. `DS-013` sits here,
+  numbered ahead of `DS-020`–`021` rather than appended after them, because those two numbers were
+  already fixed by `ScreenHeader`'s own first implementation
+  ([#73](https://github.com/derekwinters/Interval-trainer-android/issues/73)) before this page had
+  a reason to add a third slot to the same component — see this pull request's Deviations section.
+- **DS-020** `ScreenHeader` is a fixed header row: an optional leading back action (`DS-013`), a
+  title top-left, exactly one trailing action (an icon or a text button), and an optional
+  page-level FAB (home's "new preset").
 - **DS-021** Every one of the six v1 screens uses `ScreenHeader`, including the three built from
   stock Material 3 components in §7 — never a stock `TopAppBar`.
 
@@ -265,7 +290,8 @@ constraint [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md) b
   satisfies `CUE-033`. Unaffected by `#78`: the numeric contrast ratio it would assert is still an
   open design decision, unrelated to Robolectric.)*
 - **DS-095** The component gallery — a single `@Preview` screen showing every button variant, both
-  icon-button roles, `CountStepper`, the duration picker, `ScreenHeader`, and a dialog together — is
+  icon-button roles, `CountStepper`, the duration picker, `ScreenHeader`, `Toggle`, and a dialog
+  together — is
   not a screenshot target. It composes inside the list layout from §8.1 rather than arranging its own
   scaffolding, per this page's first invariant, and its dialog is shown by default rather than behind
   a trigger a test would first have to simulate, so one composition of the gallery is everything
@@ -313,9 +339,9 @@ this decision:
 
 | Section | IDs | Tests |
 |---|---|---|
-| Buttons and actions | DS-001–009 | *(manual)* |
-| Dialogs | DS-010–011 | *(manual)* |
-| Screen scaffolding | DS-020–021 | *(manual)* |
+| Buttons and actions | DS-001–009, DS-014 | *(manual)* |
+| Dialogs | DS-010–012 | *(manual)* |
+| Screen scaffolding | DS-013, DS-020–021 | *(manual)* |
 | Timer typography | DS-030–033 | *(manual)* |
 | Spacing | DS-040 | *(manual)* |
 | Colour tokens | DS-050–052 | `ColorSchemeMappingTest.kt` (DS-051's `ColorScheme` mapping); `TokenContrastTest.kt` (DS-050–051, via DS-094, not yet written); *(manual)* DS-050, DS-052 |
@@ -325,13 +351,17 @@ this decision:
 | Enforcement — not adopted | DS-096–097 | *(manual)* |
 | Human judgement calls | DS-098–101 | *(manual)* |
 
-**46 requirements, 3 `auto` and 43 `manual`.** This table's "Tests" column is what a JVM test
+**49 requirements, 3 `auto` and 46 `manual`.** This table's "Tests" column is what a JVM test
 checks, and stays as written above whether or not the component itself has been built: `*(manual)*`
-means "no test", not "no code". `DS-001`–`DS-011` and `DS-020`–`021` (buttons and actions, dialogs,
-screen scaffolding) are now implemented in `:designsystem`
-([#73](https://github.com/derekwinters/Interval-trainer-android/issues/73)) — `PrimaryButton`,
-`SecondaryButton`, `DestructiveButton`, the three icon-button roles, `CountStepper`,
-`DurationScrollPicker`, `AlertDialog`, and `ScreenHeader`, each with a `@Preview`. The closed set of
+means "no test", not "no code". `DS-001`–`DS-013`, `DS-014` and `DS-020`–`021` (buttons and
+actions, dialogs, screen scaffolding) are now implemented in `:designsystem`
+([#73](https://github.com/derekwinters/Interval-trainer-android/issues/73) built the first ten;
+`DS-012`, `DS-013` and `DS-014` — `AlertDialog`'s content slot, `ScreenHeader`'s back action, and
+`Toggle` — are
+[#80](https://github.com/derekwinters/Interval-trainer-android/issues/80)'s own addition, for the
+preset editor) — `PrimaryButton`, `SecondaryButton`, `DestructiveButton`, the three icon-button
+roles, `CountStepper`, `DurationScrollPicker`, `AlertDialog`, `ScreenHeader`, and `Toggle`, each with
+a `@Preview`. The closed set of
 three screen layouts (`DS-070`–`079`) is now implemented too
 ([#76](https://github.com/derekwinters/Interval-trainer-android/issues/76)) — `ListLayout`,
 `FullBleedLayout`, and `FormLayout`, each with a `@Preview`, each built from the component vocabulary

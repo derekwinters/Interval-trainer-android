@@ -58,11 +58,15 @@ import androidx.compose.ui.tooling.preview.Preview
  * never through `ScreenHeader`'s own optional `fab` parameter — see `ScreenHeader.kt`'s doc comment,
  * which deferred this exact question to this layout. `ScreenHeader`'s `fab` parameter is not used by
  * this composable's own call to `ScreenHeader`.
+ *
+ * `onBack` passes straight through to `ScreenHeader`'s own `onBack` (`DS-013`): home (`SCREEN-001`)
+ * leaves it unset, the preset editor (`SCREEN-010`) passes its own back navigation.
  */
 @Composable
 fun ListLayout(
     title: String,
     modifier: Modifier = Modifier,
+    onBack: (() -> Unit)? = null,
     trailingAction: ScreenHeaderAction? = null,
     bottomSlot: (@Composable () -> Unit)? = null,
     content: LazyListScope.() -> Unit,
@@ -72,7 +76,7 @@ fun ListLayout(
     Surface(modifier = modifier.fillMaxSize(), color = colors.bg) {
         Box(modifier = Modifier.fillMaxSize()) {
             Column(modifier = Modifier.fillMaxSize()) {
-                ScreenHeader(title = title, trailingAction = trailingAction)
+                ScreenHeader(title = title, onBack = onBack, trailingAction = trailingAction)
                 LazyColumn(
                     modifier = Modifier
                         .weight(1f)

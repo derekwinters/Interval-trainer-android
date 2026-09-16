@@ -23,3 +23,17 @@ data class Interval(
     val kind: IntervalKind,
     val durationSeconds: Int,
 )
+
+/**
+ * Cycles [IntervalKind] through a fixed order — warm-up, work, recovery, cool-down, then back to
+ * warm-up (`docs/spec/screens.md` `SCREEN-014a`) — the preset editor's own mechanism for setting a
+ * row's kind: tapping a row's colour dot/name while it is open for editing advances it one step
+ * along this cycle, rather than the editor needing a separate picker control for a four-value
+ * enum. Four taps from any starting kind return to that same kind.
+ */
+fun IntervalKind.next(): IntervalKind = when (this) {
+    IntervalKind.WARM_UP -> IntervalKind.WORK
+    IntervalKind.WORK -> IntervalKind.RECOVERY
+    IntervalKind.RECOVERY -> IntervalKind.COOL_DOWN
+    IntervalKind.COOL_DOWN -> IntervalKind.WARM_UP
+}
