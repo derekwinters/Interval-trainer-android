@@ -232,10 +232,11 @@ constraint [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md) b
   checked today as the gallery's own `ScreenHeader` placement, since no v1 screen exists yet for a
   genuine cross-screen comparison — that widens once [#33](https://github.com/derekwinters/Interval-trainer-android/issues/33)'s
   screens do.)*
-- **DS-092** Robolectric's `android-all` jar is pre-fetched and cached in continuous integration with
-  `robolectric.offline` set, never vendored as a committed jar in this repository and never fetched
-  live inside the `./gradlew test` invocation that gates a pull request. This is what keeps `DS-091`
-  compatible with [`docs/spec/build.md`](build.md)'s clean-checkout invariant, and settles the open
+- **DS-092** Robolectric's `android-all` jar is pre-fetched into, and cached from, Robolectric's own
+  default local Maven repository (`~/.m2/repository`) in continuous integration, never vendored as a
+  committed jar in this repository and never fetched live inside the `./gradlew test` invocation
+  that gates a pull request. This is what keeps `DS-091` compatible with
+  [`docs/spec/build.md`](build.md)'s clean-checkout invariant, and settles the open
   question ADR 0005 left for the v1 specification to answer. *(manual: a continuous-integration
   configuration fact, checked by the workflow having no network step for it left unaccounted; wired
   into `pr.yml` and `release-candidate.yml`, the two workflows that run `./gradlew test`,

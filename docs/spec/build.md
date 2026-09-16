@@ -159,9 +159,10 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
   it is not adopted for `:core` or for `:database`, both of which are tested with no simulated
   Android runtime at all ([ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md),
   [ADR 0003](../adr/0003-room-with-the-schema-treated-as-an-api.md)). Its `android-all` jar is
-  pre-fetched and cached in continuous integration with `robolectric.offline` set, never vendored
-  and never fetched live inside the `./gradlew test` invocation that gates a pull request (`DS-092`),
-  which is what keeps `BUILD-021`'s clean-checkout invariant satisfied for that invocation while
+  pre-fetched into, and cached from, Robolectric's own default local Maven repository in continuous
+  integration, never vendored and never fetched live inside the `./gradlew test` invocation that
+  gates a pull request (`DS-092`), which is what keeps `BUILD-021`'s clean-checkout invariant
+  satisfied for that invocation while
   `:designsystem`'s tests use a simulated runtime deliberately. *(manual: a dependency-scope and
   continuous-integration fact.)*
 

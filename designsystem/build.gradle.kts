@@ -82,23 +82,33 @@ dependencies {
     testImplementation("androidx.compose.ui:ui-test-junit4")
 }
 
-// DS-092 / BUILD-023: left to its own defaults, Robolectric resolves its `android-all` jar by
-// downloading it from Maven Central the first time a test needs it — a network fetch from inside
-// whatever invokes the test, which is exactly what `docs/spec/build.md`'s clean-checkout invariant
-// (BUILD-021) forbids for the `./gradlew test` invocation that gates a pull request. Both
-// properties below are Robolectric's own, real names for the fix
-// (https://robolectric.org/configuring/): `robolectric.dependency.dir` points it at a directory of
-// already-downloaded jars in Maven layout, and `robolectric.offline` stops it from ever reaching
-// past that directory. Neither is set for a local developer run — only CI sets the two environment
-// variables below, once its own pre-fetch step (`.github/workflows/pr.yml`,
-// `.github/workflows/release-candidate.yml`) has populated the directory and `actions/cache` has
-// cached it — so a local `./gradlew test` keeps Robolectric's ordinary live-download behaviour as
-// its fallback.
+// DS-092 / BUILD-023: left to its own defaults, Robolectric resolves its `android-all` jar with
+// its own `MavenDependencyResolver` — downloading it from Maven Central the first time a test
+// needs it, into Robolectric's own real local Maven repository (`~/.m2/repository` by default) —
+// and reuses whatever it finds already there on every later resolution without touching the
+// network again, no extra configuration required. A network fetch from inside the test run is
+// exactly what `docs/spec/build.md`'s clean-checkout invariant (BUILD-021) forbids for the
+// `./gradlew test` invocation that gates a pull request, so CI (`.github/workflows/pr.yml`,
+// `.github/workflows/release-candidate.yml`) caches that same `~/.m2/repository` directory with
+// `actions/cache` between runs instead of vendoring the jar.
+//
+// Two of Robolectric's own real configuration properties
+// (https://robolectric.org/configuring/), `robolectric.dependency.dir` and `robolectric.offline`,
+// look like the obvious way to also *prove* a run stayed off the network, but neither is
+// compatible with the Maven-repository cache above: `robolectric.dependency.dir`
+// (`LocalDependencyResolver`) reads a flat, non-Maven-layout directory that nothing populates by
+// a live resolution, and `robolectric.offline` set on its own — without `dependency.dir` — falls
+// back to resolving against the current working directory rather than the Maven cache at all
+// (Robolectric's own `LegacyDependencyResolver`, which is still the default resolver in 4.16.1).
+// So the property below is `robolectric.dependency.repo.url` instead: CI points it at a
+// deliberately unreachable host only for the run that must prove the cache is warm, since
+// `MavenDependencyResolver` only ever opens a connection to that URL for an artifact it cannot
+// already find in `~/.m2/repository` — a warm cache never reaches it, and a cold one fails loudly
+// instead of silently downloading from the real Maven Central. Not set for a local developer run,
+// so a local `./gradlew test` keeps Robolectric's ordinary live-download behaviour as its
+// fallback.
 tasks.withType<Test>().configureEach {
-    providers.environmentVariable("ROBOLECTRIC_DEPENDENCY_DIR").orNull?.let { dependencyDir ->
-        systemProperty("robolectric.dependency.dir", dependencyDir)
-    }
-    providers.environmentVariable("ROBOLECTRIC_OFFLINE").orNull?.let { offline ->
-        systemProperty("robolectric.offline", offline)
+    providers.environmentVariable("ROBOLECTRIC_DEPENDENCY_REPO_URL").orNull?.let { repoUrl ->
+        systemProperty("robolectric.dependency.repo.url", repoUrl)
     }
 }
