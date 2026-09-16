@@ -117,4 +117,17 @@ tasks.withType<Test>().configureEach {
     providers.environmentVariable("ROBOLECTRIC_DEPENDENCY_REPO_URL").orNull?.let { repoUrl ->
         systemProperty("robolectric.dependency.repo.url", repoUrl)
     }
+
+    // Diagnosability (#78, #107): the default `Test` task logging collapses a failed assertion to
+    // one line — class, method name and source location — with no message and no value, which is
+    // exactly why `--stacktrace` on the Gradle CLI invocation in `.github/workflows/pr.yml` and
+    // `.github/workflows/release-candidate.yml` did not surface what `assertHeightIsAtLeast`
+    // actually measured. `TestExceptionFormat.FULL` prints the thrown exception's own message —
+    // the `AssertionError` text Compose's testing API builds, which names the node and the value it
+    // measured — alongside the stack trace, in the same console output CI already captures.
+    testLogging {
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showCauses = true
+        showStackTraces = true
+    }
 }
