@@ -124,10 +124,14 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
   the home screen, the first screen that needed its vocabulary) and gains its exposed vocabulary —
   `AppTheme`, `ScreenHeader`, `ListLayout`, the button and icon-button set — through that dependency,
   never through a `material3` import of its own; and, separately from `material3`,
-  `androidx.compose.material:material-icons-core`, which `:designsystem`'s own `build.gradle.kts`
-  already notes ships icon data rather than a Material *component*, so `:app` depending on it
-  directly does not touch this requirement's own module boundary. *(manual: a build-configuration
-  fact; the workflow's build is the check.)*
+  `androidx.compose.material:material-icons-extended`, which `:designsystem`'s own
+  `build.gradle.kts` already notes ships icon data rather than a Material *component*, so `:app`
+  depending on it directly does not touch this requirement's own module boundary. `:app` needs the
+  `-extended` artifact rather than `:designsystem`'s `-core` one because the running screen's
+  transport controls ([#81](https://github.com/derekwinters/Interval-trainer-android/issues/81))
+  use `Pause`, `SkipNext`, `Stop`, `VolumeOff` and `VolumeUp`, none of which are in `-core`'s small
+  curated icon set; `-extended` is a strict superset of `-core`; a module declares one or the
+  other, never both. *(manual: a build-configuration fact; the workflow's build is the check.)*
 - **BUILD-018** `:app` had exactly one activity, `MainActivity`, a `ComponentActivity` whose
   `onCreate` called `setContent` with a single Compose `NavHost` holding exactly one destination — a
   placeholder with no behaviour of its own and no `MaterialTheme` wrapper — until the home screen

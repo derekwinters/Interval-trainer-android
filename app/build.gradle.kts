@@ -121,11 +121,14 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
-    // Vector icon assets (Icons.Filled.*), for ScreenHeader's icon trailing action and the home
-    // row's Edit control (SCREEN-001, SCREEN-005). Ships icon data, not a Material *component* —
-    // depending on it directly from :app does not touch the DS-090/ADR-0007 module boundary that
-    // keeps raw `material3` types out of :app's reach, per :designsystem's own build.gradle.kts.
-    implementation("androidx.compose.material:material-icons-core")
+    // Vector icon assets (Icons.Filled.*), for ScreenHeader's icon trailing action, the home
+    // row's Edit control (SCREEN-001, SCREEN-005), and the running screen's transport controls
+    // (#81) — Pause/SkipNext/Stop/VolumeOff/VolumeUp aren't in the curated -core set, so :app
+    // needs the full -extended artifact (a strict superset of -core, never declared alongside
+    // it). Ships icon data, not a Material *component* — depending on it directly from :app does
+    // not touch the DS-090/ADR-0007 module boundary that keeps raw `material3` types out of
+    // :app's reach, per :designsystem's own build.gradle.kts.
+    implementation("androidx.compose.material:material-icons-extended")
 
     // Not managed by the Compose BOM, so each carries its own literal version (BUILD-017).
     implementation("androidx.activity:activity-compose:1.9.3")
