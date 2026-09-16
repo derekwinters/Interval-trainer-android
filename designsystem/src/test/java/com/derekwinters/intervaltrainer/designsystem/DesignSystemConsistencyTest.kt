@@ -29,8 +29,11 @@ import org.robolectric.annotation.Config
  * Robolectric-scoped-to-Compose-screens note (ADR 0005) — but, per AndroidX's own source, it is
  * `createAndroidComposeRule<ComponentActivity>()` under the hood, so it *does* launch a real
  * (empty) `ComponentActivity` via `ActivityScenarioRule`, whatever an earlier draft of this KDoc
- * claimed. `designsystem/build.gradle.kts`'s `debugImplementation` on `ui-test-manifest` is what
- * lets `PackageManager` resolve that `Activity`'s launch intent under Robolectric.
+ * claimed. `designsystem/build.gradle.kts`'s `testImplementation` on `ui-test-manifest` is what
+ * lets `PackageManager` resolve that `Activity`'s launch intent under Robolectric — for every
+ * build type's unit test task, `testDebugUnitTest` and `testReleaseUnitTest` alike, since
+ * `./gradlew test` runs both and `testImplementation` (unlike `debugImplementation`) is not
+ * scoped to one build type.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])

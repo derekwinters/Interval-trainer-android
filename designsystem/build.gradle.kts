@@ -83,9 +83,25 @@ dependencies {
     // is exactly the artifact that declares that `ComponentActivity` for `PackageManager` to
     // resolve; without it, `startActivitySyncInternal` cannot resolve an `ActivityInfo` for the
     // launch intent and throws before any content is ever set.
+    //
+    // `testImplementation`, not `debugImplementation`: `./gradlew test` runs both
+    // `testDebugUnitTest` and `testReleaseUnitTest` for this module (AGP's `test` aggregate task
+    // covers every build type's unit tests, not only debug's), and `debugImplementation` only
+    // reaches the debug build type's own manifest merge — it never reaches
+    // `processReleaseUnitTestManifest`, so `testReleaseUnitTest` fails with the same "Unable to
+    // resolve activity" error `debugImplementation` was meant to fix, just one variant later.
+    // `testImplementation` is AGP's documented per-source-set configuration for the unit test
+    // source set and is not build-type-scoped: it lands on both `testDebugUnitTest` and
+    // `testReleaseUnitTest`'s compile and runtime classpaths (and so both variants' merged test
+    // manifests) without adding `ui-test-manifest` to the module's real debug or release AAR the
+    // way `debugImplementation`/`releaseImplementation` would. This is also the exact pattern
+    // Google's own `core/designsystem` module in android/nowinandroid — a Compose design-system
+    // library tested with Robolectric the same way this module is — uses:
+    // `testImplementation(libs.androidx.compose.ui.testManifest)`, with no `testBuildType`
+    // override anywhere in that repo.
     testImplementation("org.robolectric:robolectric:4.16.1")
     testImplementation("androidx.compose.ui:ui-test-junit4")
-    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    testImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
 // DS-092 / BUILD-023: left to its own defaults, Robolectric resolves its `android-all` jar with
