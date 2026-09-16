@@ -6,18 +6,20 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 /**
- * JVM unit tests for [generateRounds], the round generator (`TIMER-080`–`085`). They need no
- * device, no emulator and no simulated Android runtime, matching every other `:core` test
+ * JVM unit tests for [generateRounds], the round generator (`TIMER-080`–`085`), and for
+ * [appendGeneratedRounds], the preset editor's own splice of the generator's output onto the end
+ * of the list already open for editing (`docs/spec/screens.md` `SCREEN-017`, `TIMER-083`). They
+ * need no device, no emulator and no simulated Android runtime, matching every other `:core` test
  * (ADR 0005).
  *
  * This file also covers `TIMER-070` and `TIMER-073` — the minimum-interval rule as it applies to
  * the generator specifically. `TIMER-072` ("the editor rejects a duration below the minimum") is
- * **not** covered here: it is the preset editor's own behaviour (`docs/spec/screens.md`,
+ * **not** covered here: it is the preset editor's own behaviour, gating its "Add" action rather
+ * than calling this function with an invalid input (`docs/spec/screens.md` `SCREEN-017`,
  * `docs/spec/schema.md` `SCHEMA-026`, which names the editor's refusal, not the generator's, as
- * that requirement's test) and the editor is [#29](https://github.com/derekwinters/Interval-trainer-android/issues/29)/
- * [#40](https://github.com/derekwinters/Interval-trainer-android/issues/40)'s, not this module's.
- * `TIMER-071` (three countdown ticks) is `CueSelectionTest.kt`'s, per the traceability table; it
- * is about playback, not authoring, and the generator does not touch it.
+ * that requirement's test). `TIMER-071` (three countdown ticks) is `CueSelectionTest.kt`'s, per
+ * the traceability table; it is about playback, not authoring, and the generator does not touch
+ * it.
  */
 class ScheduleGeneratorTest {
 
@@ -238,5 +240,112 @@ class ScheduleGeneratorTest {
             listOf(Interval(IntervalKind.WORK, 5), Interval(IntervalKind.RECOVERY, 5)),
             rows,
         )
+    }
+
+    // ---- appendGeneratedRounds (SCREEN-017) ------------------------------------------------
+
+    /**
+     * SCREEN-017, TIMER-083: the generator's rows land after whatever the editor's list already
+     * held, in the same order [generateRounds] itself would produce them, never replacing or
+     * reordering the existing rows.
+     */
+    @Test
+    fun `splices the generated block onto the end of the existing list`() {
+        val existing = listOf(Interval(IntervalKind.WARM_UP, 180))
+
+        val spliced = appendGeneratedRounds(
+            existing = existing,
+            roundCount = 2,
+            workDurationSeconds = 30,
+            recoveryDurationSeconds = 15,
+        )
+
+        assertEquals(
+            listOf(
+                Interval(IntervalKind.WARM_UP, 180),
+                Interval(IntervalKind.WORK, 30),
+                Interval(IntervalKind.RECOVERY, 15),
+                Interval(IntervalKind.WORK, 30),
+            ),
+            spliced,
+        )
+    }
+
+    /** SCREEN-017: an empty editor list is a valid starting point — the block simply becomes the
+     * whole list. */
+    @Test
+    fun `splicing onto an empty list yields just the generated block`() {
+        val spliced = appendGeneratedRounds(
+            existing = emptyList(),
+            roundCount = 1,
+            workDurationSeconds = 20,
+            recoveryDurationSeconds = 10,
+            trailingRecovery = true,
+        )
+
+        assertEquals(
+            listOf(Interval(IntervalKind.WORK, 20), Interval(IntervalKind.RECOVERY, 10)),
+            spliced,
+        )
+    }
+
+    /** SCREEN-017: [existing] itself is never mutated or reordered — splicing reads it, and
+     * returns a new list, rather than changing the caller's own list in place. */
+    @Test
+    fun `never mutates the existing list it is given`() {
+        val existing = listOf(Interval(IntervalKind.WARM_UP, 180), Interval(IntervalKind.WORK, 45))
+
+        val spliced = appendGeneratedRounds(
+            existing = existing,
+            roundCount = 1,
+            workDurationSeconds = 30,
+            recoveryDurationSeconds = 15,
+            trailingRecovery = true,
+        )
+
+        assertEquals(listOf(Interval(IntervalKind.WARM_UP, 180), Interval(IntervalKind.WORK, 45)), existing)
+        assertEquals(4, spliced.size)
+    }
+
+    /**
+     * TIMER-085, SCREEN-017's own "indistinguishable from hand-authored" acceptance criterion:
+     * the rows [appendGeneratedRounds] adds are plain [Interval] values, equal by value to a
+     * hand-typed row with the same kind and duration — nothing about the tail it appended marks
+     * where the split between "existing" and "generated" was.
+     */
+    @Test
+    fun `the appended rows are ordinary intervals, indistinguishable from hand-authored ones`() {
+        val handAuthored = listOf(Interval(IntervalKind.WARM_UP, 180))
+
+        val spliced = appendGeneratedRounds(
+            existing = handAuthored,
+            roundCount = 1,
+            workDurationSeconds = 30,
+            recoveryDurationSeconds = 15,
+            trailingRecovery = true,
+        )
+        val generatedTail = spliced.drop(handAuthored.size)
+
+        assertEquals(
+            listOf(Interval(IntervalKind.WORK, 30), Interval(IntervalKind.RECOVERY, 15)),
+            generatedTail,
+        )
+        // The whole point: a fresh Preset built from the spliced list treats every row alike.
+        val preset = Preset(id = "preset-1", name = "Spliced", intervals = spliced)
+        assertEquals(spliced, scheduleFrom(preset))
+    }
+
+    /** TIMER-070, TIMER-073: an invalid duration is rejected here exactly as [generateRounds]
+     * itself rejects it — nothing about going through the splice weakens the rule. */
+    @Test
+    fun `rejects a below-minimum duration exactly as generateRounds does`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            appendGeneratedRounds(
+                existing = emptyList(),
+                roundCount = 1,
+                workDurationSeconds = 4,
+                recoveryDurationSeconds = 15,
+            )
+        }
     }
 }

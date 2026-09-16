@@ -8,7 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 
 /**
- * `AlertDialog` (`DS-010`, `DS-011`): the only overlay component in the v1 vocabulary — no
+ * `AlertDialog` (`DS-010`–`012`): the only overlay component in the v1 vocabulary — no
  * bottom-sheet component exists (`DS-010`). Cancel sits left, the affirmative action sits right,
  * and a destructive affirmative action is rendered in red text (`DS-011`).
  *
@@ -22,18 +22,29 @@ import androidx.compose.ui.tooling.preview.Preview
  * `cancelText` is nullable because not every dialog needs a cancel action (a purely informational
  * dialog has only an affirmative "OK"); when it is non-null, `onCancel` defaults to
  * `onDismissRequest` so a plain "Cancel" does not need its own separate handler.
+ *
+ * `DS-012`: the body is either [text] (a plain sentence, this component's original shape) or
+ * [content], arbitrary composable content for a dialog that needs to ask for more than a sentence
+ * can hold — the preset editor's round generator (`docs/spec/screens.md` `SCREEN-017`) is the
+ * first caller that passes one. [content] wins when both are given; passing neither renders an
+ * empty body rather than failing, since a caller that wants one exact behaviour or the other
+ * already has [text] and [content] to say so. [confirmEnabled] lets a caller gate the affirmative
+ * action on its own dialog's validity (the generator's own duration minimum, `TIMER-072`) without
+ * this component needing to know what that validity check is.
  */
 @Composable
 fun AlertDialog(
     title: String,
-    text: String,
     confirmText: String,
     onConfirm: () -> Unit,
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
+    text: String? = null,
+    content: (@Composable () -> Unit)? = null,
     cancelText: String? = null,
     onCancel: (() -> Unit)? = null,
     isConfirmDestructive: Boolean = false,
+    confirmEnabled: Boolean = true,
 ) {
     val colors = AppTheme.colors
     Material3AlertDialog(
@@ -43,12 +54,18 @@ fun AlertDialog(
         titleContentColor = colors.fg,
         textContentColor = colors.dim,
         title = { Text(text = title) },
-        text = { Text(text = text) },
+        text = {
+            if (content != null) content() else Text(text = text.orEmpty())
+        },
         confirmButton = {
-            TextButton(onClick = onConfirm) {
+            TextButton(onClick = onConfirm, enabled = confirmEnabled) {
                 Text(
                     text = confirmText,
-                    color = if (isConfirmDestructive) colors.destructive else colors.work,
+                    color = when {
+                        !confirmEnabled -> colors.dim
+                        isConfirmDestructive -> colors.destructive
+                        else -> colors.work
+                    },
                 )
             }
         },
