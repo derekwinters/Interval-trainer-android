@@ -19,4 +19,11 @@ plugins {
     // Room's KSP compiler (SCHEMA-001–002). KSP's own version tracks the Kotlin version it runs
     // against; 2.0.21-1.0.28 is the release published for Kotlin 2.0.21 above.
     id("com.google.devtools.ksp") version "2.0.21-1.0.28" apply false
+    // Room's own Gradle plugin (SCHEMA-003), published at the same literal version as the
+    // `androidx.room:room-runtime`/`room-compiler` coordinates in database/build.gradle.kts —
+    // Room ships its Gradle plugin from the same release train as the library itself. It replaces
+    // a manual `ksp { arg("room.schemaLocation", ...) }` with the plugin's own `room {
+    // schemaDirectory(...) }` DSL, which writes each KSP task's exported schema to its own
+    // variant-scoped subdirectory instead of one shared path every task races to write.
+    id("androidx.room") version "2.7.0" apply false
 }

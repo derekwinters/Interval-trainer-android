@@ -23,6 +23,7 @@ plugins {
     id("org.jetbrains.kotlin.multiplatform")
     id("com.android.library")
     id("com.google.devtools.ksp")
+    id("androidx.room")
 }
 
 kotlin {
@@ -99,9 +100,17 @@ dependencies {
 }
 
 // SCHEMA-003: Room's own convention, exported on every compile and committed to version control,
-// never shipped in the APK. This is the documented fallback KSP argument for a build that does
-// not apply Room's own Gradle plugin — this module skips that plugin deliberately, to keep one
-// fewer plugin-version pairing this sandbox had no way to check against a real build.
-ksp {
-    arg("room.schemaLocation", "$projectDir/schemas")
+// never shipped in the APK. This module applies Room's own Gradle plugin (`androidx.room`, pinned
+// next to the `androidx.room:room-runtime`/`room-compiler` coordinates above in the root
+// build.gradle.kts) rather than passing `room.schemaLocation` to `ksp {}` directly: this is a
+// Kotlin Multiplatform module with both `androidTarget()` and `jvm()`, so Room's compiler runs as
+// more than one KSP task (`kspDebugKotlinAndroid`, `kspReleaseKotlinAndroid`, `kspKotlinJvm`). A
+// single shared `ksp { arg(...) }` path sends every one of those tasks to the exact same schema
+// file, and Room's own `exportSchema` step reads that file to validate against before writing a
+// new one — so when two tasks run close together, one can read the other's still-in-progress
+// write and fail on truncated JSON. The plugin's `room { schemaDirectory(...) }` DSL is
+// variant-aware: it gives each task its own subdirectory under the path below, so no two tasks
+// ever contend for the same file.
+room {
+    schemaDirectory("$projectDir/schemas")
 }
