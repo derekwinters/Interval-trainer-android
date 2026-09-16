@@ -9,6 +9,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -154,7 +155,7 @@ private fun Modifier.dashedBorder(
     dashLength: Dp,
     gapLength: Dp,
     shape: Shape,
-): Modifier = androidx.compose.ui.draw.drawWithContent {
+): Modifier = drawWithContent {
     drawContent()
     val strokeWidthPx = strokeWidth.toPx()
     val outline = shape.createOutline(size, layoutDirection, this)
