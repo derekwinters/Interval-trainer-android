@@ -75,11 +75,17 @@ dependencies {
     // Robolectric arrives here, and only here, with the feature that justifies it: the
     // semantics-tree assertions over the component gallery (DS-091, DS-095, BUILD-023). Neither
     // :core nor :database takes this dependency (ADR 0005). `createComposeRule()` from
-    // `ui-test-junit4` hosts a composition directly under RobolectricTestRunner with no Activity
-    // and no `ui-test-manifest` — that artifact only matters for `createAndroidComposeRule<T>()`,
-    // which this module has no need of.
+    // `ui-test-junit4` is, per AndroidX's own source, `createAndroidComposeRule<ComponentActivity>()`
+    // under the hood: it launches a real (empty) `androidx.activity.ComponentActivity` via
+    // `ActivityScenarioRule`, the same launch path `RoboMonitoringInstrumentation` resolves through
+    // `PackageManager` — it does not host a composition without one, whatever an earlier draft of
+    // this comment (and of `DesignSystemConsistencyTest.kt`'s own KDoc) claimed. `ui-test-manifest`
+    // is exactly the artifact that declares that `ComponentActivity` for `PackageManager` to
+    // resolve; without it, `startActivitySyncInternal` cannot resolve an `ActivityInfo` for the
+    // launch intent and throws before any content is ever set.
     testImplementation("org.robolectric:robolectric:4.16.1")
     testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
 // DS-092 / BUILD-023: left to its own defaults, Robolectric resolves its `android-all` jar with

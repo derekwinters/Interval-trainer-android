@@ -66,6 +66,7 @@ jobs:
         run: >-
           ./gradlew :designsystem:testDebugUnitTest
           --tests "com.derekwinters.intervaltrainer.designsystem.DesignSystemConsistencyTest"
+          --stacktrace
 
       # A deliberately unreachable repository URL, not robolectric.offline (see
       # designsystem/build.gradle.kts: offline mode on its own does not read the Maven cache at
@@ -75,7 +76,7 @@ jobs:
       - name: Run the unit tests
         env:
           ROBOLECTRIC_DEPENDENCY_REPO_URL: https://robolectric-cache-miss.invalid/maven2
-        run: ./gradlew test
+        run: ./gradlew test --stacktrace
 
       - name: Assemble the debug APK
         run: ./gradlew assembleDebug

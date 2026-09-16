@@ -74,13 +74,14 @@ jobs:
         run: >-
           ./gradlew :designsystem:testDebugUnitTest
           --tests "com.derekwinters.intervaltrainer.designsystem.DesignSystemConsistencyTest"
+          --stacktrace
 
       # A deliberately unreachable repository URL, not robolectric.offline — see
       # designsystem/build.gradle.kts and pr.yml's matching step for why.
       - name: Run the unit tests
         env:
           ROBOLECTRIC_DEPENDENCY_REPO_URL: https://robolectric-cache-miss.invalid/maven2
-        run: ./gradlew test
+        run: ./gradlew test --stacktrace
 
       # Gradle needs a keystore file, not the base64 secret itself (BUILD-050, BUILD-063). The
       # decoded file lives only in the runner's temp directory for this job and is never logged.

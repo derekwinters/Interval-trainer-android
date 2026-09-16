@@ -24,10 +24,13 @@ import org.robolectric.annotation.Config
  *
  * `@Config(sdk = [34])` pins one Robolectric-supported API level rather than letting it float with
  * whatever `compileSdk` (35) happens to be, so a `compileSdk` bump does not silently change which
- * `android-all` jar this test needs (`DS-092`, `BUILD-023`). Nothing here needs an `Activity`:
- * [createComposeRule] hosts the composition directly, the documented Robolectric-native path for
- * Compose UI tests, per `docs/spec/design-system.md`'s Robolectric-scoped-to-Compose-screens note
- * (ADR 0005).
+ * `android-all` jar this test needs (`DS-092`, `BUILD-023`). [createComposeRule] is the documented
+ * Robolectric-native path for Compose UI tests, per `docs/spec/design-system.md`'s
+ * Robolectric-scoped-to-Compose-screens note (ADR 0005) — but, per AndroidX's own source, it is
+ * `createAndroidComposeRule<ComponentActivity>()` under the hood, so it *does* launch a real
+ * (empty) `ComponentActivity` via `ActivityScenarioRule`, whatever an earlier draft of this KDoc
+ * claimed. `designsystem/build.gradle.kts`'s `debugImplementation` on `ui-test-manifest` is what
+ * lets `PackageManager` resolve that `Activity`'s launch intent under Robolectric.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
