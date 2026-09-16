@@ -24,9 +24,12 @@ is implemented, and so is the component vocabulary in §1–3
 ([#73](https://github.com/derekwinters/Interval-trainer-android/issues/73)): `PrimaryButton`,
 `SecondaryButton`, `DestructiveButton`, the three icon-button roles, `CountStepper`,
 `DurationScrollPicker`, the `AlertDialog` wrapper, and `ScreenHeader`, each reading only the token
-layer and each with a `@Preview`. `:app` does not yet depend on `:designsystem`, so the
-compile-time enforcement `DS-090` describes does not yet apply to it, and no screen layout (§8) and
-no Robolectric dependency exist yet — a component existing and having a `@Preview` is not the same
+layer and each with a `@Preview`. The closed set of three screen layouts in §8 is now implemented
+too ([#76](https://github.com/derekwinters/Interval-trainer-android/issues/76)): `ListLayout`,
+`FullBleedLayout`, and `FormLayout`, each built from this component vocabulary and each with a
+`@Preview`. `:app` does not yet depend on `:designsystem`, so the
+compile-time enforcement `DS-090` describes does not yet apply to it, and no Robolectric dependency
+exists yet — a component or a layout existing and having a `@Preview` is not the same
 as a screen using it or a semantics-tree test asserting anything about it (`DS-091`, `DS-093`
 below, still `#78`'s job). This page describes what the rest of this vocabulary becomes when
 [#33](https://github.com/derekwinters/Interval-trainer-android/issues/33) and later implementation
@@ -156,6 +159,16 @@ placement, per this page's first invariant.
 - **DS-072** Use it when the screen's primary content is a collection of like items browsed
   top-to-bottom and acted on individually. Screens: home (the preset list), the preset editor,
   settings, summary.
+- **DS-079** A list-layout screen's optional bottom action or FAB (`DS-071`) is composed through the
+  layout's own bottom slot, never through `ScreenHeader`'s own optional `fab` parameter (`DS-020`).
+  The two slots read as the same thing in prose, but only one may be the actual mechanism, or a
+  screen author has a real choice to make that this specification should have made instead.
+  `ScreenHeader`'s `fab` parameter remains on that component, for a caller outside the closed set of
+  layouts; every v1 list-layout screen (home's FAB, `SCREEN-008`) leaves it unset and uses the list
+  layout's bottom slot instead. Settled by
+  [#76](https://github.com/derekwinters/Interval-trainer-android/issues/76), resolving the question
+  `ScreenHeader`'s own implementation ([#73](https://github.com/derekwinters/Interval-trainer-android/issues/73))
+  deferred to this layout.
 
 ### 8.2 Full-bleed layout
 
@@ -269,21 +282,24 @@ this decision:
 | Spacing | DS-040 | *(manual)* |
 | Colour tokens | DS-050–052 | `ColorSchemeMappingTest.kt` (DS-051's `ColorScheme` mapping); `TokenContrastTest.kt` (DS-050–051, via DS-094, not yet written); *(manual)* DS-050, DS-052 |
 | Screen split | DS-060–062 | *(manual)* |
-| Screen layouts | DS-070–078 | `DesignSystemConsistencyTest.kt` (DS-070, via DS-093); *(manual)* DS-071–078 |
+| Screen layouts | DS-070–079 | `ListLayout`, `FullBleedLayout`, `FormLayout` in `:designsystem` (`#76`); `DesignSystemConsistencyTest.kt` (DS-070, via DS-093, not yet written); *(manual)* DS-071–079 |
 | Enforcement — adopted | DS-090–095 | `DesignSystemConsistencyTest.kt` (DS-091, DS-093); `TokenContrastTest.kt` (DS-094); *(manual)* DS-090, DS-092, DS-095 |
 | Enforcement — not adopted | DS-096–097 | *(manual)* |
 | Human judgement calls | DS-098–101 | *(manual)* |
 
-**45 requirements, 3 `auto` and 42 `manual`.** This table's "Tests" column is what a JVM test
+**46 requirements, 3 `auto` and 43 `manual`.** This table's "Tests" column is what a JVM test
 checks, and stays as written above whether or not the component itself has been built: `*(manual)*`
 means "no test", not "no code". `DS-001`–`DS-011` and `DS-020`–`021` (buttons and actions, dialogs,
 screen scaffolding) are now implemented in `:designsystem`
 ([#73](https://github.com/derekwinters/Interval-trainer-android/issues/73)) — `PrimaryButton`,
 `SecondaryButton`, `DestructiveButton`, the three icon-button roles, `CountStepper`,
-`DurationScrollPicker`, `AlertDialog`, and `ScreenHeader`, each with a `@Preview` — but that is
-still `*(manual)*` in this table, on purpose: a `@Preview` is not a Robolectric assertion, and this
-page does not claim one exists until `DesignSystemConsistencyTest.kt` does
-(`DS-091`, `DS-093`, below, `#78`'s job).
+`DurationScrollPicker`, `AlertDialog`, and `ScreenHeader`, each with a `@Preview`. The closed set of
+three screen layouts (`DS-070`–`079`) is now implemented too
+([#76](https://github.com/derekwinters/Interval-trainer-android/issues/76)) — `ListLayout`,
+`FullBleedLayout`, and `FormLayout`, each with a `@Preview`, each built from the component vocabulary
+above rather than duplicating it. Both stay `*(manual)*` in this table, on purpose: a `@Preview` is
+not a Robolectric assertion, and this page does not claim one exists until
+`DesignSystemConsistencyTest.kt` does (`DS-091`, `DS-093`, below, `#78`'s job).
 
 **The three `auto` tests this page promised still do not exist.** `:designsystem` now exists
 (`BUILD-002`, `BUILD-019`), with the colour tokens, spacing scale, timer typography roles and

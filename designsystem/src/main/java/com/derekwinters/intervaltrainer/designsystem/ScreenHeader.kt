@@ -48,11 +48,11 @@ sealed interface ScreenHeaderAction {
  * and one trailing action; neither passes a FAB to `ScreenHeader` itself; home's own FAB
  * (`SCREEN-008`) is described as a screen-level element, not as part of its `ScreenHeader` call.
  * `DS-020` nonetheless names the FAB as part of what `ScreenHeader` "is", so this composable still
- * accepts an optional `fab` slot — rendered anchored to this row's trailing edge — for a future
- * caller that wants the header itself to carry it. Which screens actually pass one, and whether the
- * list layout's own "optional bottom action or FAB" slot (`DS-071`) is where a FAB is composed
- * instead, is a layout-level decision (`docs/spec/design-system.md` §8) out of this issue's scope —
- * see this change's pull request description.
+ * accepts an optional `fab` slot — rendered anchored to this row's trailing edge — for a caller
+ * outside the closed set of layouts in `docs/spec/design-system.md` §8. **Resolved by `DS-079`:**
+ * the list layout's own "optional bottom action or FAB" slot (`DS-071`) is where a list-layout
+ * screen's FAB is actually composed — see `ListLayout` in `ScreenLayouts.kt` — and this `fab`
+ * parameter is left unset by every v1 screen.
  */
 @Composable
 fun ScreenHeader(
