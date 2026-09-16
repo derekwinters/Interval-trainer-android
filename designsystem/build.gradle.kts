@@ -43,6 +43,13 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
+    // Vector icon assets (Icons.Filled.*) for the icon-button roles and ScreenHeader's icon
+    // trailing action (DS-005–007, DS-020). This is a separate `androidx.compose.material` icons
+    // artifact, not `androidx.compose.material3` — it ships icon data, not a Material *component*,
+    // so depending on it does not touch the DS-090/ADR-0007 module boundary that keeps raw Material
+    // widgets out of :app's reach.
+    implementation("androidx.compose.material:material-icons-core")
+
     // material3 is declared `implementation`, never `api` (ADR 0007 Decision 1, DS-090): Gradle's
     // `implementation` dependencies are not exposed on a consuming module's compile classpath, so
     // :app has no compile-time access to any androidx.compose.material3 type — only to whatever

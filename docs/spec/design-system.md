@@ -17,13 +17,18 @@ warm-up and cool-down share a neutral, red is not used for a kind. This page fix
 names the app's components read, and the roles those tokens also satisfy on Material's own
 `ColorScheme`. Neither page restates the other's decision.
 
-Most of what is specified here does not exist in the build yet. `:designsystem` now exists
-(`BUILD-002`, `BUILD-019`) with `material3` declared `implementation`, and the token layer
-below — the colour tokens, the spacing scale and the three timer typographic roles, assembled into
-a root `AppTheme` — is implemented. `:app` does not yet depend on `:designsystem`, so the
-compile-time enforcement `DS-090` describes does not yet apply to it, and no component vocabulary
-(`PrimaryButton`, `ScreenHeader`, and the rest of §1–3), no screen layout (§8), and no Robolectric
-dependency exist yet. This page describes what the rest of this vocabulary becomes when
+Part of what is specified here does not exist in the build yet. `:designsystem` now exists
+(`BUILD-002`, `BUILD-019`) with `material3` declared `implementation`, the token layer — the colour
+tokens, the spacing scale and the three timer typographic roles, assembled into a root `AppTheme` —
+is implemented, and so is the component vocabulary in §1–3
+([#73](https://github.com/derekwinters/Interval-trainer-android/issues/73)): `PrimaryButton`,
+`SecondaryButton`, `DestructiveButton`, the three icon-button roles, `CountStepper`,
+`DurationScrollPicker`, the `AlertDialog` wrapper, and `ScreenHeader`, each reading only the token
+layer and each with a `@Preview`. `:app` does not yet depend on `:designsystem`, so the
+compile-time enforcement `DS-090` describes does not yet apply to it, and no screen layout (§8) and
+no Robolectric dependency exist yet — a component existing and having a `@Preview` is not the same
+as a screen using it or a semantics-tree test asserting anything about it (`DS-091`, `DS-093`
+below, still `#78`'s job). This page describes what the rest of this vocabulary becomes when
 [#33](https://github.com/derekwinters/Interval-trainer-android/issues/33) and later implementation
 tickets do that work, in the same way `docs/spec/cues.md` specifies cue selection with no `:core`
 module yet to hold it.
@@ -269,12 +274,21 @@ this decision:
 | Enforcement — not adopted | DS-096–097 | *(manual)* |
 | Human judgement calls | DS-098–101 | *(manual)* |
 
-**45 requirements, 3 `auto` and 42 `manual`.**
+**45 requirements, 3 `auto` and 42 `manual`.** This table's "Tests" column is what a JVM test
+checks, and stays as written above whether or not the component itself has been built: `*(manual)*`
+means "no test", not "no code". `DS-001`–`DS-011` and `DS-020`–`021` (buttons and actions, dialogs,
+screen scaffolding) are now implemented in `:designsystem`
+([#73](https://github.com/derekwinters/Interval-trainer-android/issues/73)) — `PrimaryButton`,
+`SecondaryButton`, `DestructiveButton`, the three icon-button roles, `CountStepper`,
+`DurationScrollPicker`, `AlertDialog`, and `ScreenHeader`, each with a `@Preview` — but that is
+still `*(manual)*` in this table, on purpose: a `@Preview` is not a Robolectric assertion, and this
+page does not claim one exists until `DesignSystemConsistencyTest.kt` does
+(`DS-091`, `DS-093`, below, `#78`'s job).
 
 **The three `auto` tests this page promised still do not exist.** `:designsystem` now exists
-(`BUILD-002`, `BUILD-019`), with the colour tokens, spacing scale and timer typography roles
-implemented and assembled into a root `AppTheme`, and a Compose dependency is now in the build —
-but Robolectric is not, so `DesignSystemConsistencyTest.kt` (`DS-091`, `DS-093`) still has no
+(`BUILD-002`, `BUILD-019`), with the colour tokens, spacing scale, timer typography roles and
+component vocabulary (§1–3) implemented, and a Compose dependency is now in the build — but
+Robolectric is not, so `DesignSystemConsistencyTest.kt` (`DS-091`, `DS-093`) still has no
 Compose test dependency to run against, and `TokenContrastTest.kt` (`DS-094`) — the WCAG contrast
 check this page names for the colour tokens — is not written either: `CUE-033` and this page both
 name "the contrast requirement" without stating the numeric ratio a test would assert, and choosing
