@@ -120,6 +120,18 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.navigation:navigation-compose:2.8.5")
 
+    // WorkoutService's own dependencies (SVC-010–024): NotificationCompat and the wake lock's
+    // Context.getSystemService come from androidx.core; the tick loop is a coroutine.
+    implementation("androidx.core:core-ktx:1.15.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+
+    // :database declares these as `implementation`, not `api` (database/build.gradle.kts), so
+    // they do not reach :app's own compile classpath transitively — WorkoutService calls
+    // `Room.databaseBuilder` and `BundledSQLiteDriver` directly (SCHEMA-004), so :app needs both
+    // for itself, at the same literal versions :database already pins.
+    implementation("androidx.room:room-runtime:2.7.0")
+    implementation("androidx.sqlite:sqlite-bundled:2.5.0")
+
     // The unit tests run on the JVM alone (BUILD-021), so nothing here needs a device.
     testImplementation("junit:junit:4.13.2")
 }

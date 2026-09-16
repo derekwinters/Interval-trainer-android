@@ -41,6 +41,12 @@ because this page is where their observable consequences are specified:
 > names the preset from this copy, and the workout does not depend on the preset row still existing
 > or still saying the same thing.
 
+> **Invariant — the pause/resume toggle is one function of state, called from everywhere it
+> appears.** No surface — the notification, the running screen — decides for itself whether
+> "toggle" means pause or resume; each calls the same pure function over the workout's current
+> state (`SVC-026`), which is what makes `SVC-023` true by construction rather than by two
+> implementations agreeing to match.
+
 ---
 
 ## 1. What produces a workout's schedule, named accurately
@@ -83,6 +89,13 @@ the ADR, is this specification's call — see the pull request's Deviations sect
   toggle — reach the service from any screen that sends them, and the service's own state is what
   every screen observing the workout reads, per the app-wide observability invariant above.
   *(manual: an architecture fact; no JVM test reaches across the service boundary.)*
+- **SVC-014** The mapping from a command to the event it applies is a pure function of the
+  workout's current state and the command alone, independent of whatever transport — an `Intent`
+  action, a notification's `PendingIntent` — carried the command in. It also resolves a start
+  command's preset id against the preset store (`SCHEMA-004`), which `:core`'s own pure `reduce`
+  never does, which is why it lives in `:app` rather than `:core`; nothing about that placement
+  excuses it from a test of its own. *(auto: exercised by `WorkoutSessionTest.kt`, on the JVM, with
+  no `android.*` import anywhere in the class under test.)*
 
 ## 3. The notification
 
@@ -100,9 +113,24 @@ the ADR, is this specification's call — see the pull request's Deviations sect
   notification costs one interval and cannot be undone (`TIMER-040`); this is accepted, since the
   same is true of skip from the running screen, and a workout is a lower-stakes thing to lose one
   interval of than to lose entirely (`SVC-021`'s reasoning for excluding stop).
+- **SVC-025** The notification's content (`SVC-020`) is derived by a pure function of the
+  workout's [`TimerState`](../../core/src/main/kotlin/com/derekwinters/intervaltrainer/TimerState.kt)
+  and the clock alone, living in `:core` next to its other reducers (`ADR 0005`) rather than
+  assembled ad hoc from the Android notification APIs. During the lead-in, "current interval" is
+  the interval the lead-in counts down into, and the remaining time is the lead-in's own countdown,
+  not that interval's full duration — the same phase and the same `remainingMillis` a screen
+  showing the lead-in would read (`TIMER-030`–`036`). There is no content, and no notification, for
+  idle or ended. *(auto: exercised by `WorkoutNotificationContentTest.kt`.)*
+- **SVC-026** The one event the notification's pause/resume action sends is decided by the pure
+  function the invariant above names — `Pause` from running, `Resume` from paused — never by which
+  label the control happens to be showing. *(auto: exercised by `WorkoutNotificationContentTest.kt`.)*
 
-*(All of §3 is manual: a notification's content and its actions are not reachable from a JVM
-runner, per [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md).)*
+*(`SVC-020`–`024` are manual: a notification's content and its actions are not reachable from a JVM
+runner, per [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md). `SVC-025`–`026`
+factor the two pieces of that content that *are* pure functions of state out into `:core`, the same
+split every other screen-facing reducer already gets — see this pull request's Deviations section
+for why this widens the traceability table's `auto` count from the v1 specification's original
+zero.)*
 
 ## 4. The notification permission
 
@@ -193,17 +221,19 @@ runner.)*
 |---|---|---|
 | What produces a workout's schedule | SVC-001–002 | Covered by `ScheduleTest.kt` via `TIMER-001`–`003`; the naming itself is *(manual)* |
 | The foreground service | SVC-010–013 | *(manual)* |
+| The foreground service — command handling | SVC-014 | `WorkoutSessionTest.kt` |
 | The notification | SVC-020–024 | *(manual)* |
+| The notification — content and the pause/resume toggle, as pure functions | SVC-025–026 | `WorkoutNotificationContentTest.kt` |
 | The notification permission | SVC-030–033 | *(manual)* |
 | Battery optimisation | SVC-040 | *(manual)* |
 | Task removal | SVC-041–042 | *(manual)* |
 | Stop | SVC-050–053 | *(manual)* |
 | Preset edited or deleted mid-workout | SVC-060–062 | *(manual)*, consequence of `TIMER-002`–`003` |
 
-**25 requirements, 0 `auto` and 25 `manual`.**
+**28 requirements, 3 `auto` and 25 `manual`.**
 
-**Why every requirement here is `manual`.** This page is almost entirely the far side of the
-boundary [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md) drew: a foreground
+**Why almost every requirement here is `manual`.** This page is almost entirely the far side of
+the boundary [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md) drew: a foreground
 service's lifecycle, a system notification's content and actions, Doze and the wake lock, a task
 being removed from recents, a confirmation dialog appearing — none of it is reachable from a JVM
 runner with no emulator and no connected device, and this page does not pretend otherwise. The one
@@ -211,3 +241,10 @@ piece of arithmetic this page touches, the schedule copy in §1, already has its
 `003` are asserted by `ScheduleTest.kt`
 ([#67](https://github.com/derekwinters/Interval-trainer-android/issues/67)), and `SVC-001`–`002`
 add nothing to test beyond naming that function correctly, which is what this page exists to do.
+
+Building the service itself (issue #77) added three more: `SVC-014` (which command produces which
+event) and `SVC-025`–`026` (the notification's content, and its pause/resume toggle) are every one
+of them a pure function of state that has no reason to touch `android.*` to compute, so each is
+pulled out and tested the same way `:core`'s own reducers are — the platform-only remainder is the
+service that calls them, the wake lock, and the actual `NotificationCompat` calls, which stay
+`manual` for the same reason the rest of this page is.
