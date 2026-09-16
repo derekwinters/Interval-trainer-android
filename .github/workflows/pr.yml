@@ -42,7 +42,33 @@ jobs:
       - name: Run the release-signature gate's unit tests
         run: python3 -m unittest discover -s .github/scripts/tests -v
 
+      # DS-092 / BUILD-023: caches Robolectric's android-all jar rather than leaving `./gradlew
+      # test` to download it live on every run. Keyed on designsystem/build.gradle.kts, so pinning
+      # a different Robolectric version there invalidates this cache instead of silently reusing a
+      # stale jar.
+      - name: Restore the Robolectric android-all jar cache
+        id: robolectric-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/robolectric
+          key: robolectric-android-all-${{ hashFiles('designsystem/build.gradle.kts') }}
+
+      # The one step allowed to reach the network for this jar, and only on a cache miss: it
+      # resolves the jar into the directory `robolectric.dependency.dir` reads
+      # (`ROBOLECTRIC_DEPENDENCY_DIR`), so "Run the unit tests" below finds it already there and
+      # never touches the network for it itself.
+      - name: Pre-fetch the Robolectric android-all jar
+        if: steps.robolectric-cache.outputs.cache-hit != 'true'
+        env:
+          ROBOLECTRIC_DEPENDENCY_DIR: /home/runner/.cache/robolectric
+        run: >-
+          ./gradlew :designsystem:testDebugUnitTest
+          --tests "com.derekwinters.intervaltrainer.designsystem.DesignSystemConsistencyTest"
+
       - name: Run the unit tests
+        env:
+          ROBOLECTRIC_DEPENDENCY_DIR: /home/runner/.cache/robolectric
+          ROBOLECTRIC_OFFLINE: 'true'
         run: ./gradlew test
 
       - name: Assemble the debug APK

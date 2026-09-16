@@ -30,6 +30,16 @@ android {
     buildFeatures {
         compose = true
     }
+
+    testOptions {
+        unitTests {
+            // Robolectric's own recommendation for a Compose semantics-tree test (DS-091): without
+            // this, resource-backed values the token layer reads — the JetBrains Mono font
+            // (TimerTypography.kt) among them — are not guaranteed to resolve under a simulated
+            // runtime.
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 dependencies {
@@ -61,4 +71,34 @@ dependencies {
     // Android runtime, since androidx.compose.ui.graphics.Color and
     // androidx.compose.material3.ColorScheme are plain, JVM-computable types.
     testImplementation("junit:junit:4.13.2")
+
+    // Robolectric arrives here, and only here, with the feature that justifies it: the
+    // semantics-tree assertions over the component gallery (DS-091, DS-095, BUILD-023). Neither
+    // :core nor :database takes this dependency (ADR 0005). `createComposeRule()` from
+    // `ui-test-junit4` hosts a composition directly under RobolectricTestRunner with no Activity
+    // and no `ui-test-manifest` — that artifact only matters for `createAndroidComposeRule<T>()`,
+    // which this module has no need of.
+    testImplementation("org.robolectric:robolectric:4.16.1")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+}
+
+// DS-092 / BUILD-023: left to its own defaults, Robolectric resolves its `android-all` jar by
+// downloading it from Maven Central the first time a test needs it — a network fetch from inside
+// whatever invokes the test, which is exactly what `docs/spec/build.md`'s clean-checkout invariant
+// (BUILD-021) forbids for the `./gradlew test` invocation that gates a pull request. Both
+// properties below are Robolectric's own, real names for the fix
+// (https://robolectric.org/configuring/): `robolectric.dependency.dir` points it at a directory of
+// already-downloaded jars in Maven layout, and `robolectric.offline` stops it from ever reaching
+// past that directory. Neither is set for a local developer run — only CI sets the two environment
+// variables below, once its own pre-fetch step (`.github/workflows/pr.yml`,
+// `.github/workflows/release-candidate.yml`) has populated the directory and `actions/cache` has
+// cached it — so a local `./gradlew test` keeps Robolectric's ordinary live-download behaviour as
+// its fallback.
+tasks.withType<Test>().configureEach {
+    providers.environmentVariable("ROBOLECTRIC_DEPENDENCY_DIR").orNull?.let { dependencyDir ->
+        systemProperty("robolectric.dependency.dir", dependencyDir)
+    }
+    providers.environmentVariable("ROBOLECTRIC_OFFLINE").orNull?.let { offline ->
+        systemProperty("robolectric.offline", offline)
+    }
 }

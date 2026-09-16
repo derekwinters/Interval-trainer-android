@@ -23,8 +23,12 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
 > of one.** Amended from "the skeleton stays a skeleton" per
 > [ADR 0004](../adr/0004-jetpack-compose-with-material-3.md), which needed this invariant to yield
 > on its own terms rather than be broken: v1's six screens are the feature that justifies Compose,
-> and the semantics-tree tests those screens need are the feature that justifies Robolectric
-> (`BUILD-023`). The invariant still forbids speculation — nothing is added because it might be
+> and the semantics-tree tests over the component vocabulary and its gallery fixture
+> ([`docs/spec/design-system.md`](design-system.md) `DS-091`, `DS-095`) are the feature that
+> justifies Robolectric (`BUILD-023`) — arriving with the gallery
+> [#78](https://github.com/derekwinters/Interval-trainer-android/issues/78) builds, since `DS-095`
+> names the gallery as exactly what those assertions run against, rather than waiting on the six
+> screens themselves. The invariant still forbids speculation — nothing is added because it might be
 > useful, and nothing added stays added once the feature it was for is gone — it no longer forbids
 > a user-interface framework, annotation processing, or a test dependency needing a simulated
 > Android runtime by name, because v1 now needs at least one of each.
@@ -150,15 +154,16 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
 - **BUILD-022** At least one unit test exercises production Kotlin code, so that a wrong or missing
   implementation makes it red. A test that only asserts a constant satisfies nothing. *(manual:
   satisfied by the tests for BUILD-030–033 below, which call production code now in `:core`.)*
-- **BUILD-023** Robolectric arrives once `:designsystem`'s Compose screens exist, scoped to their
+- **BUILD-023** Robolectric is a `:designsystem`-only test dependency, scoped to its Compose
   semantics-tree tests alone ([`docs/spec/design-system.md`](design-system.md) `DS-091`, `DS-093`) —
   it is not adopted for `:core` or for `:database`, both of which are tested with no simulated
   Android runtime at all ([ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md),
   [ADR 0003](../adr/0003-room-with-the-schema-treated-as-an-api.md)). Its `android-all` jar is
   pre-fetched and cached in continuous integration with `robolectric.offline` set, never vendored
-  and never fetched live inside `./gradlew test` (`DS-092`), which is what keeps `BUILD-021`'s
-  clean-checkout invariant satisfied for `:app`'s own tests while `:designsystem`'s tests use a
-  simulated runtime deliberately. *(manual: a dependency-scope and continuous-integration fact.)*
+  and never fetched live inside the `./gradlew test` invocation that gates a pull request (`DS-092`),
+  which is what keeps `BUILD-021`'s clean-checkout invariant satisfied for that invocation while
+  `:designsystem`'s tests use a simulated runtime deliberately. *(manual: a dependency-scope and
+  continuous-integration fact.)*
 
 ## 4. Duration formatting
 
@@ -304,8 +309,10 @@ configuration, verified by the build running at all, and the only executable beh
 cover. `:core`'s Android-free build (`BUILD-014`) was one of two requirements the v1 specification
 added ahead of the modules they describe; `:core` now exists, so `BUILD-014` describes the build as
 it stands. `:designsystem` now exists too, so `BUILD-019` describes it as it stands rather than
-ahead of it — but Robolectric's scoped arrival (`BUILD-023`) is still ahead of that same module,
-since nothing in `:designsystem` yet needs a simulated Android runtime. `:database` now exists
+ahead of it, and `BUILD-023`'s Robolectric dependency is no longer ahead of it either: the component
+gallery ([`docs/spec/design-system.md`](design-system.md) `DS-095`) is what finally needs a
+simulated Android runtime, and `DesignSystemConsistencyTest.kt` is real code now, not a promise
+([#78](https://github.com/derekwinters/Interval-trainer-android/issues/78)). `:database` now exists
 too, so `BUILD-002` and `BUILD-020` describe the build as it stands rather than ahead of it — its
 own contract-test harness (`docs/spec/schema.md` `SCHEMA-040`–`044`) and seeded data
 (`SCHEMA-030`–`034`) are still ahead of it, tracked on that page rather than this one.
