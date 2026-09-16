@@ -30,6 +30,16 @@ android {
     buildFeatures {
         compose = true
     }
+
+    testOptions {
+        unitTests {
+            // Robolectric's own recommendation for a Compose semantics-tree test (DS-091): without
+            // this, resource-backed values the token layer reads — the JetBrains Mono font
+            // (TimerTypography.kt) among them — are not guaranteed to resolve under a simulated
+            // runtime.
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 dependencies {
@@ -61,4 +71,79 @@ dependencies {
     // Android runtime, since androidx.compose.ui.graphics.Color and
     // androidx.compose.material3.ColorScheme are plain, JVM-computable types.
     testImplementation("junit:junit:4.13.2")
+
+    // Robolectric arrives here, and only here, with the feature that justifies it: the
+    // semantics-tree assertions over the component gallery (DS-091, DS-095, BUILD-023). Neither
+    // :core nor :database takes this dependency (ADR 0005). `createComposeRule()` from
+    // `ui-test-junit4` is, per AndroidX's own source, `createAndroidComposeRule<ComponentActivity>()`
+    // under the hood: it launches a real (empty) `androidx.activity.ComponentActivity` via
+    // `ActivityScenarioRule`, the same launch path `RoboMonitoringInstrumentation` resolves through
+    // `PackageManager` — it does not host a composition without one, whatever an earlier draft of
+    // this comment (and of `DesignSystemConsistencyTest.kt`'s own KDoc) claimed. `ui-test-manifest`
+    // is exactly the artifact that declares that `ComponentActivity` for `PackageManager` to
+    // resolve; without it, `startActivitySyncInternal` cannot resolve an `ActivityInfo` for the
+    // launch intent and throws before any content is ever set.
+    //
+    // `testImplementation`, not `debugImplementation`: `./gradlew test` runs both
+    // `testDebugUnitTest` and `testReleaseUnitTest` for this module (AGP's `test` aggregate task
+    // covers every build type's unit tests, not only debug's), and `debugImplementation` only
+    // reaches the debug build type's own manifest merge — it never reaches
+    // `processReleaseUnitTestManifest`, so `testReleaseUnitTest` fails with the same "Unable to
+    // resolve activity" error `debugImplementation` was meant to fix, just one variant later.
+    // `testImplementation` is AGP's documented per-source-set configuration for the unit test
+    // source set and is not build-type-scoped: it lands on both `testDebugUnitTest` and
+    // `testReleaseUnitTest`'s compile and runtime classpaths (and so both variants' merged test
+    // manifests) without adding `ui-test-manifest` to the module's real debug or release AAR the
+    // way `debugImplementation`/`releaseImplementation` would. This is also the exact pattern
+    // Google's own `core/designsystem` module in android/nowinandroid — a Compose design-system
+    // library tested with Robolectric the same way this module is — uses:
+    // `testImplementation(libs.androidx.compose.ui.testManifest)`, with no `testBuildType`
+    // override anywhere in that repo.
+    testImplementation("org.robolectric:robolectric:4.16.1")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    testImplementation("androidx.compose.ui:ui-test-manifest")
+}
+
+// DS-092 / BUILD-023: left to its own defaults, Robolectric resolves its `android-all` jar with
+// its own `MavenDependencyResolver` — downloading it from Maven Central the first time a test
+// needs it, into Robolectric's own real local Maven repository (`~/.m2/repository` by default) —
+// and reuses whatever it finds already there on every later resolution without touching the
+// network again, no extra configuration required. A network fetch from inside the test run is
+// exactly what `docs/spec/build.md`'s clean-checkout invariant (BUILD-021) forbids for the
+// `./gradlew test` invocation that gates a pull request, so CI (`.github/workflows/pr.yml`,
+// `.github/workflows/release-candidate.yml`) caches that same `~/.m2/repository` directory with
+// `actions/cache` between runs instead of vendoring the jar.
+//
+// Two of Robolectric's own real configuration properties
+// (https://robolectric.org/configuring/), `robolectric.dependency.dir` and `robolectric.offline`,
+// look like the obvious way to also *prove* a run stayed off the network, but neither is
+// compatible with the Maven-repository cache above: `robolectric.dependency.dir`
+// (`LocalDependencyResolver`) reads a flat, non-Maven-layout directory that nothing populates by
+// a live resolution, and `robolectric.offline` set on its own — without `dependency.dir` — falls
+// back to resolving against the current working directory rather than the Maven cache at all
+// (Robolectric's own `LegacyDependencyResolver`, which is still the default resolver in 4.16.1).
+// So the property below is `robolectric.dependency.repo.url` instead: CI points it at a
+// deliberately unreachable host only for the run that must prove the cache is warm, since
+// `MavenDependencyResolver` only ever opens a connection to that URL for an artifact it cannot
+// already find in `~/.m2/repository` — a warm cache never reaches it, and a cold one fails loudly
+// instead of silently downloading from the real Maven Central. Not set for a local developer run,
+// so a local `./gradlew test` keeps Robolectric's ordinary live-download behaviour as its
+// fallback.
+tasks.withType<Test>().configureEach {
+    providers.environmentVariable("ROBOLECTRIC_DEPENDENCY_REPO_URL").orNull?.let { repoUrl ->
+        systemProperty("robolectric.dependency.repo.url", repoUrl)
+    }
+
+    // Diagnosability (#78, #107): the default `Test` task logging collapses a failed assertion to
+    // one line — class, method name and source location — with no message and no value, which is
+    // exactly why `--stacktrace` on the Gradle CLI invocation in `.github/workflows/pr.yml` and
+    // `.github/workflows/release-candidate.yml` did not surface what `assertHeightIsAtLeast`
+    // actually measured. `TestExceptionFormat.FULL` prints the thrown exception's own message —
+    // the `AssertionError` text Compose's testing API builds, which names the node and the value it
+    // measured — alongside the stack trace, in the same console output CI already captures.
+    testLogging {
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showCauses = true
+        showStackTraces = true
+    }
 }

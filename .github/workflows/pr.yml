@@ -42,8 +42,41 @@ jobs:
       - name: Run the release-signature gate's unit tests
         run: python3 -m unittest discover -s .github/scripts/tests -v
 
+      # DS-092 / BUILD-023: caches the real Maven-layout local repository Robolectric's own
+      # default resolver (MavenDependencyResolver) downloads the android-all(-instrumented) jar
+      # into — `~/.m2/repository`, its own hard-coded default — rather than leaving `./gradlew
+      # test` to download it live on every run. Keyed on designsystem/build.gradle.kts, so pinning
+      # a different Robolectric version there invalidates this cache instead of silently reusing a
+      # jar for the wrong version. See designsystem/build.gradle.kts for why
+      # `robolectric.dependency.dir` / `robolectric.offline` are not used for this.
+      - name: Restore the Robolectric Maven-repository cache
+        id: robolectric-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.m2/repository
+          key: robolectric-m2-android-all-${{ hashFiles('designsystem/build.gradle.kts') }}
+
+      # The one step allowed to reach the network for this jar, and only on a cache miss: run with
+      # Robolectric's ordinary defaults (no special properties — see designsystem/build.gradle.kts)
+      # so its own MavenDependencyResolver downloads the jar from Maven Central straight into
+      # ~/.m2/repository itself, which "Restore the Robolectric Maven-repository cache" above then
+      # persists.
+      - name: Pre-fetch the Robolectric android-all jar
+        if: steps.robolectric-cache.outputs.cache-hit != 'true'
+        run: >-
+          ./gradlew :designsystem:testDebugUnitTest
+          --tests "com.derekwinters.intervaltrainer.designsystem.DesignSystemConsistencyTest"
+          --stacktrace
+
+      # A deliberately unreachable repository URL, not robolectric.offline (see
+      # designsystem/build.gradle.kts: offline mode on its own does not read the Maven cache at
+      # all). MavenDependencyResolver only opens a connection to this URL for an artifact it
+      # cannot already find in ~/.m2/repository, so a warm cache never reaches it and a cold one
+      # fails loudly here instead of silently reaching the real Maven Central.
       - name: Run the unit tests
-        run: ./gradlew test
+        env:
+          ROBOLECTRIC_DEPENDENCY_REPO_URL: https://robolectric-cache-miss.invalid/maven2
+        run: ./gradlew test --stacktrace
 
       - name: Assemble the debug APK
         run: ./gradlew assembleDebug

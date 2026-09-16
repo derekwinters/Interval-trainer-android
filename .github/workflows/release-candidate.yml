@@ -57,8 +57,31 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
 
+      # DS-092 / BUILD-023, the same mechanism pr.yml uses: caches the real Maven-layout local
+      # repository Robolectric's own default resolver downloads the android-all(-instrumented) jar
+      # into (`~/.m2/repository`) rather than leaving `./gradlew test` to download it live on
+      # every run. See designsystem/build.gradle.kts for why `robolectric.dependency.dir` /
+      # `robolectric.offline` are not used for this.
+      - name: Restore the Robolectric Maven-repository cache
+        id: robolectric-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.m2/repository
+          key: robolectric-m2-android-all-${{ hashFiles('designsystem/build.gradle.kts') }}
+
+      - name: Pre-fetch the Robolectric android-all jar
+        if: steps.robolectric-cache.outputs.cache-hit != 'true'
+        run: >-
+          ./gradlew :designsystem:testDebugUnitTest
+          --tests "com.derekwinters.intervaltrainer.designsystem.DesignSystemConsistencyTest"
+          --stacktrace
+
+      # A deliberately unreachable repository URL, not robolectric.offline — see
+      # designsystem/build.gradle.kts and pr.yml's matching step for why.
       - name: Run the unit tests
-        run: ./gradlew test
+        env:
+          ROBOLECTRIC_DEPENDENCY_REPO_URL: https://robolectric-cache-miss.invalid/maven2
+        run: ./gradlew test --stacktrace
 
       # Gradle needs a keystore file, not the base64 secret itself (BUILD-050, BUILD-063). The
       # decoded file lives only in the runner's temp directory for this job and is never logged.

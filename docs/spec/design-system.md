@@ -27,14 +27,16 @@ is implemented, and so is the component vocabulary in §1–3
 layer and each with a `@Preview`. The closed set of three screen layouts in §8 is now implemented
 too ([#76](https://github.com/derekwinters/Interval-trainer-android/issues/76)): `ListLayout`,
 `FullBleedLayout`, and `FormLayout`, each built from this component vocabulary and each with a
-`@Preview`. `:app` does not yet depend on `:designsystem`, so the
-compile-time enforcement `DS-090` describes does not yet apply to it, and no Robolectric dependency
-exists yet — a component or a layout existing and having a `@Preview` is not the same
-as a screen using it or a semantics-tree test asserting anything about it (`DS-091`, `DS-093`
-below, still `#78`'s job). This page describes what the rest of this vocabulary becomes when
-[#33](https://github.com/derekwinters/Interval-trainer-android/issues/33) and later implementation
-tickets do that work, in the same way `docs/spec/cues.md` specifies cue selection with no `:core`
-module yet to hold it.
+`@Preview`. `:app` does not yet depend on `:designsystem`, so the compile-time enforcement `DS-090`
+describes does not yet apply to it. A Robolectric dependency now exists, scoped to `:designsystem`
+alone (`BUILD-023`), and `DesignSystemConsistencyTest.kt` runs `DS-091`'s touch-target and
+content-description assertions against the component gallery
+([#78](https://github.com/derekwinters/Interval-trainer-android/issues/78), `DS-095`). `DS-093` —
+that a screen's root composable is one of the three layouts in §8 — still has nothing to assert: a
+component or a layout existing and having a `@Preview` is not the same as a screen using it, and
+none of the six v1 screens exists yet. That remains
+[#33](https://github.com/derekwinters/Interval-trainer-android/issues/33)'s job, in the same way
+`docs/spec/cues.md` specifies cue selection with no `:core` module yet to hold it.
 
 ---
 
@@ -56,6 +58,13 @@ module yet to hold it.
 > An implementing agent that needs a shape this page does not name amends this page first, with the
 > reasoning for the addition, rather than improvising a one-off at the call site. §8.4 states the same
 > rule for layouts specifically, because it was decided first and carries its own bar.
+
+> **Invariant — a semantics-tree assertion quantifies over every node the gallery renders, not a
+> hand-picked sample.** `DesignSystemConsistencyTest.kt`'s touch-target and content-description
+> checks (`DS-091`) walk every clickable node the gallery's semantics tree reports at the time the
+> test runs; a test that asserts one button and calls the rest "the same" has quietly narrowed
+> `DS-091`'s "every" down to "some", and is wrong regardless of whether the sample it happened to
+> pick passes.
 
 ---
 
@@ -213,29 +222,49 @@ constraint [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md) b
   clickable node's touch target against the 48dp minimum (`DS-005`–`008`), a component's position in
   the root across the screens that share it, and that every icon-only control has a non-empty content
   description. They quantify over every screen rather than naming one, and need no screenshot.
-  *(auto, once `:designsystem` and its Compose test dependencies exist: `DesignSystemConsistencyTest.kt`,
-  to live at `designsystem/src/test/kotlin/com/derekwinters/intervaltrainer/designsystem/DesignSystemConsistencyTest.kt`.)*
-- **DS-092** Robolectric's `android-all` jar is pre-fetched and cached in continuous integration with
-  `robolectric.offline` set, never vendored as a committed jar in this repository and never fetched
-  live inside `./gradlew test`. This is what keeps `DS-091` compatible with
-  [`docs/spec/build.md`](build.md)'s clean-checkout invariant, and settles the open question ADR 0005
-  left for the v1 specification to answer. *(manual: a continuous-integration configuration fact,
-  checked by the workflow having no network step for it left unaccounted.)*
+  *(auto: `DesignSystemConsistencyTest.kt`, at
+  `designsystem/src/test/java/com/derekwinters/intervaltrainer/designsystem/DesignSystemConsistencyTest.kt`
+  — `src/test/java`, not the `src/test/kotlin` path this page named before `:designsystem` had a test
+  convention of its own to follow; `ColorSchemeMappingTest.kt` already set it, and this file follows
+  suit rather than starting a second one. It asserts the touch-target and content-description checks
+  against the component gallery (`DS-095`), over every clickable node the gallery renders, per this
+  page's fourth invariant. The "position in the root across the screens that share it" clause is
+  checked today as the gallery's own `ScreenHeader` placement, since no v1 screen exists yet for a
+  genuine cross-screen comparison — that widens once [#33](https://github.com/derekwinters/Interval-trainer-android/issues/33)'s
+  screens do.)*
+- **DS-092** Robolectric's `android-all` jar is pre-fetched into, and cached from, Robolectric's own
+  default local Maven repository (`~/.m2/repository`) in continuous integration, never vendored as a
+  committed jar in this repository and never fetched live inside the `./gradlew test` invocation
+  that gates a pull request. This is what keeps `DS-091` compatible with
+  [`docs/spec/build.md`](build.md)'s clean-checkout invariant, and settles the open
+  question ADR 0005 left for the v1 specification to answer. *(manual: a continuous-integration
+  configuration fact, checked by the workflow having no network step for it left unaccounted; wired
+  into `pr.yml` and `release-candidate.yml`, the two workflows that run `./gradlew test`,
+  [#78](https://github.com/derekwinters/Interval-trainer-android/issues/78).)*
 - **DS-093** Every screen's root composable is asserted to be one of the three layouts named in §8.
   The assertion follows this specification's set — it does not hard-code the three names in a way
   that would need changing independently of `DS-070` — so an addition under `DS-074` does not fight
-  the tooling. *(auto, once `:designsystem` exists: `DesignSystemConsistencyTest.kt`, as `DS-091`.)*
+  the tooling. *(auto, once a real screen exists to assert this about: no v1 screen is built yet
+  ([#33](https://github.com/derekwinters/Interval-trainer-android/issues/33)), so this still has
+  nothing to run against; `DesignSystemConsistencyTest.kt`, as `DS-091`, is still where it will
+  live.)*
 - **DS-094** The colour tokens in §6 are checked for WCAG contrast: a pure-Kotlin unit test computes
   the contrast ratio for each token pair text is rendered against and asserts it meets the
   requirement `CUE-033` states. It needs no Android runtime and runs independently of `DS-091`'s
   Robolectric dependency. *(auto, once `:designsystem` exists: `TokenContrastTest.kt`, to live at
-  `designsystem/src/test/kotlin/com/derekwinters/intervaltrainer/designsystem/TokenContrastTest.kt`;
-  satisfies `CUE-033`.)*
+  `designsystem/src/test/java/com/derekwinters/intervaltrainer/designsystem/TokenContrastTest.kt`;
+  satisfies `CUE-033`. Unaffected by `#78`: the numeric contrast ratio it would assert is still an
+  open design decision, unrelated to Robolectric.)*
 - **DS-095** The component gallery — a single `@Preview` screen showing every button variant, both
-  icon-button roles, `CountStepper`, the duration picker and a dialog together — is not a screenshot
-  target. It is the fixture `DS-091` and `DS-093`'s tests run their assertions against, so one
-  gallery composable is what every screen-spanning assertion actually inspects.
-  *(manual: a test-fixture design fact, not itself an assertion.)*
+  icon-button roles, `CountStepper`, the duration picker, `ScreenHeader`, and a dialog together — is
+  not a screenshot target. It composes inside the list layout from §8.1 rather than arranging its own
+  scaffolding, per this page's first invariant, and its dialog is shown by default rather than behind
+  a trigger a test would first have to simulate, so one composition of the gallery is everything
+  `DS-091`'s assertions need to see. It is the fixture `DS-091` and `DS-093`'s tests run their
+  assertions against, so one gallery composable is what every screen-spanning assertion actually
+  inspects. *(manual: a test-fixture design fact, not itself an assertion; the composable is
+  `ComponentGallery`, at
+  `designsystem/src/main/java/com/derekwinters/intervaltrainer/designsystem/ComponentGallery.kt`.)*
 
 ### 9.2 Explicitly not adopted for v1
 
@@ -283,7 +312,7 @@ this decision:
 | Colour tokens | DS-050–052 | `ColorSchemeMappingTest.kt` (DS-051's `ColorScheme` mapping); `TokenContrastTest.kt` (DS-050–051, via DS-094, not yet written); *(manual)* DS-050, DS-052 |
 | Screen split | DS-060–062 | *(manual)* |
 | Screen layouts | DS-070–079 | `ListLayout`, `FullBleedLayout`, `FormLayout` in `:designsystem` (`#76`); `DesignSystemConsistencyTest.kt` (DS-070, via DS-093, not yet written); *(manual)* DS-071–079 |
-| Enforcement — adopted | DS-090–095 | `DesignSystemConsistencyTest.kt` (DS-091, DS-093); `TokenContrastTest.kt` (DS-094); *(manual)* DS-090, DS-092, DS-095 |
+| Enforcement — adopted | DS-090–095 | `DesignSystemConsistencyTest.kt` (DS-091); `TokenContrastTest.kt` (DS-094, not yet written); *(manual)* DS-090, DS-092, DS-093 (no screen to assert yet), DS-095 |
 | Enforcement — not adopted | DS-096–097 | *(manual)* |
 | Human judgement calls | DS-098–101 | *(manual)* |
 
@@ -298,24 +327,45 @@ three screen layouts (`DS-070`–`079`) is now implemented too
 ([#76](https://github.com/derekwinters/Interval-trainer-android/issues/76)) — `ListLayout`,
 `FullBleedLayout`, and `FormLayout`, each with a `@Preview`, each built from the component vocabulary
 above rather than duplicating it. Both stay `*(manual)*` in this table, on purpose: a `@Preview` is
-not a Robolectric assertion, and this page does not claim one exists until
-`DesignSystemConsistencyTest.kt` does (`DS-091`, `DS-093`, below, `#78`'s job).
+not a Robolectric assertion, and `DS-070`–`079` do not claim one exists — `DesignSystemConsistencyTest.kt`
+asserts `DS-091` today, but its `DS-093` clause (a screen's chosen layout) still has no screen to
+check (below).
 
-**The three `auto` tests this page promised still do not exist.** `:designsystem` now exists
-(`BUILD-002`, `BUILD-019`), with the colour tokens, spacing scale, timer typography roles and
-component vocabulary (§1–3) implemented, and a Compose dependency is now in the build — but
-Robolectric is not, so `DesignSystemConsistencyTest.kt` (`DS-091`, `DS-093`) still has no
-Compose test dependency to run against, and `TokenContrastTest.kt` (`DS-094`) — the WCAG contrast
-check this page names for the colour tokens — is not written either: `CUE-033` and this page both
-name "the contrast requirement" without stating the numeric ratio a test would assert, and choosing
-one was judged a design decision for whoever picks up `DS-094` to make deliberately rather than by
-implication here. What the token layer's own implementation does add is `ColorSchemeMappingTest.kt`,
-a fourth, previously-unnamed test asserting `DS-051`'s six-role mapping — not one of the three IDs
-promised `auto` above, but real production code (`designSystemColorScheme()`) a wrong mapping would
-make red. `DesignSystemConsistencyTest.kt` and `TokenContrastTest.kt` are still named here so the
-tests that will assert `DS-091`, `DS-093` and `DS-094` have one home each rather than being invented
-at implementation time, and they are still named in the future tense on purpose. A requirement
-marked `auto` is a promise that a JVM test *can* assert it and *will*, not a claim that one does.
+**One of the three `auto` tests this page promised now exists; the other two still do not.**
+`:designsystem` has a Robolectric dependency now
+([#78](https://github.com/derekwinters/Interval-trainer-android/issues/78), `docs/spec/build.md`
+`BUILD-023`), scoped to its Compose semantics-tree tests alone and arriving with the component
+gallery that justifies it (`DS-095`) rather than ahead of it, per `docs/spec/build.md`'s own
+invariant. `DesignSystemConsistencyTest.kt` exists and asserts `DS-091`'s touch-target and
+content-description checks against the gallery — every clickable node it renders, not a sample, per
+this page's fourth invariant. `DS-091`'s own third clause, a component's position in the root "across
+the screens that share it", is checked today as the gallery's own `ScreenHeader` placement, since no
+v1 screen exists yet to compare across; that is an honest narrowing of the wording for now, not a
+claim the cross-screen case is already covered. `DS-093` — that a screen's root composable is one of
+the three layouts in §8 — still has no test, because it still has nothing to assert: no v1 screen
+exists yet ([#33](https://github.com/derekwinters/Interval-trainer-android/issues/33)).
+`TokenContrastTest.kt` (`DS-094`) is unrelated to this decision and is still not written, for the
+same reason as before — `CUE-033` and this page both name "the contrast requirement" without stating
+the numeric ratio a test would assert, and choosing one was judged a design decision for whoever
+picks up `DS-094` to make deliberately rather than by implication here. What the token layer's own
+implementation separately adds is `ColorSchemeMappingTest.kt`, a fourth, previously-unnamed test
+asserting `DS-051`'s six-role mapping — not one of the three IDs promised `auto` above, but real
+production code (`designSystemColorScheme()`) a wrong mapping would make red.
+`DesignSystemConsistencyTest.kt` lives at `designsystem/src/test/java/com/derekwinters/intervaltrainer/designsystem/DesignSystemConsistencyTest.kt`
+— `src/test/java`, matching where `ColorSchemeMappingTest.kt` already lives, not the `src/test/kotlin`
+path this page named before `:designsystem` had a test convention of its own to follow.
+`TokenContrastTest.kt` is still named here in the future tense on purpose, so the test that will
+assert `DS-094` has a home rather than being invented at implementation time. A requirement marked
+`auto` is a promise that a JVM test *can* assert it and *will*, not a claim that one does; `DS-091`
+now redeems most of that promise, `DS-093` and `DS-094` still do not.
+
+Robolectric's `android-all` jar is what a live `./gradlew test` would otherwise fetch from Maven
+Central the first time a Robolectric test runs (`DS-092`); pre-fetching and caching it in `pr.yml`
+and `release-candidate.yml` — the two workflows that run `./gradlew test`
+([#78](https://github.com/derekwinters/Interval-trainer-android/issues/78)) — is what keeps that
+fetch out of the gating invocation itself. `DS-092` stays `*(manual)*` regardless: a
+continuous-integration configuration fact is not something a JVM test asserts, whether or not the
+configuration exists.
 
 **Why the proportion is almost entirely `manual`.** Most of this page is a design fact — a fill
 colour, a padding value, which slot a title sits in — the same way most of `build.md` is a
