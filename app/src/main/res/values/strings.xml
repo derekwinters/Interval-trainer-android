@@ -1,4 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Interval Trainer</string>
+
+    <!-- SVC-020, SVC-025: the notification channel a running workout posts to. -->
+    <string name="workout_notification_channel_name">Running workout</string>
+
+    <!-- SVC-020: the notification's status content, "Work — 0:45" — the current interval's kind
+         name and its remaining time. -->
+    <string name="workout_notification_content" translatable="false">%1$s — %2$s</string>
+
+    <!-- IntervalKind's four display names, shared by the notification (SVC-020) today; the
+         running screen (SCREEN-020, issue #81) needs the same four and should read them from
+         here rather than a second copy. -->
+    <string name="interval_kind_warm_up">Warm-up</string>
+    <string name="interval_kind_work">Work</string>
+    <string name="interval_kind_recovery">Recovery</string>
+    <string name="interval_kind_cool_down">Cool-down</string>
+
+    <!-- SVC-021: the notification's two actions. -->
+    <string name="workout_action_pause">Pause</string>
+    <string name="workout_action_resume">Resume</string>
+    <string name="workout_action_skip">Skip</string>
 </resources>
