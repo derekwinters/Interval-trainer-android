@@ -172,9 +172,10 @@ Restated here as requirements, from [ADR 0003](../adr/0003-room-with-the-schema-
   the change is not made in that shape. The test is the gate, not a review comment.
   *(manual: a policy statement; nothing automated enforces the refusal itself.)*
 - **SCHEMA-043** At v1 there is exactly one schema version and no migration to test, so
-  `SchemaMigrationTest.kt` exists with nothing to assert yet — the harness invariant above, honoured
-  before it has a job. It is named here, in the future tense, the same way `TimerStateTest.kt` and
-  `CueSelectionTest.kt` are named ahead of their tests.
+  `SchemaMigrationTest.kt` ([#75](https://github.com/derekwinters/Interval-trainer-android/issues/75))
+  exists, in `:database`'s `jvmTest` source set, with nothing to assert yet — the harness invariant
+  above, honoured before it has a job, the same way `TimerStateTest.kt` and `CueSelectionTest.kt`
+  were named ahead of their own tests.
 - **SCHEMA-044** A future `workouts` table, if history arrives in v2, is an **additive** change
   under this policy — a new table, not a change to `presets` or `intervals` — and needs nothing
   beyond `SCHEMA-040`.
@@ -200,11 +201,18 @@ Restated here as requirements, from [ADR 0003](../adr/0003-room-with-the-schema-
 kinds, durations and totals in `SCHEMA-031`–`032`, the seeded names in `SCHEMA-034`, and that
 reopening an already-seeded database file does not seed its presets again — the closest a v1
 schema, with no migration to drive it through yet, can come to testing `SCHEMA-030`'s "not on a
-later migration". `SCHEMA-041`, `SCHEMA-043` still wait on the contract-test harness
-([#75](https://github.com/derekwinters/Interval-trainer-android/issues/75)), including
-`SchemaMigrationTest.kt`, still named here in the future tense for the same reason
-[`docs/spec/timer.md`](timer.md) and [`docs/spec/cues.md`](cues.md) name their own tests ahead of
-their code.
+later migration". `SchemaMigrationTest.kt` now exists too, at
+`database/src/jvmTest/kotlin/com/derekwinters/intervaltrainer/database/SchemaMigrationTest.kt`
+([#75](https://github.com/derekwinters/Interval-trainer-android/issues/75)), satisfying
+`SCHEMA-043`: at v1 there is exactly one schema version and no migration to test, so the file is a
+documented, empty harness — its KDoc names the exact `androidx.room.testing.MigrationTestHelper`
+shape a future test will use, verified against Room 2.7.0's own source rather than assumed from
+this page's Room-3-era research note — rather than a test with something to assert.
+`SCHEMA-041` stays unmet until a breaking change actually needs it: that requirement is a promise
+about the *next* migration's test, not a claim this file makes today, and two more things that
+test will need are still missing regardless of this file — the committed v1 schema JSON
+(`SCHEMA-003`, [#100](https://github.com/derekwinters/Interval-trainer-android/issues/100)) and an
+actual v2 to migrate to.
 
 **The exported schema JSON (`SCHEMA-003`) is not committed in the pull request that added this
 paragraph.** `:database`'s Room and `androidx.sqlite` dependencies resolve only from Google's

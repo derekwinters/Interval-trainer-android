@@ -503,3 +503,20 @@ version to current, and fixture data seeded per version and kept forever.
    ("schema file changed ⇒ a migration and a migration test changed"; "released schema files are
    immutable") would have to be written — plausibly as one of the Python checks under `.github/scripts/`,
    which need no JDK or SDK.
+
+**Addendum, 2026-09-16 (issue [#75](https://github.com/derekwinters/Interval-trainer-android/issues/75)).**
+Open question 4 above is answered for the line `:database` actually shipped on: **`androidx.room:room-testing`
+2.7.0 does publish a JVM actual of `MigrationTestHelper` with a schema-directory-path constructor**, the same
+shape this note documented for `room3-testing` above. Read directly from Room 2.7.0-era source on the
+`androidx/androidx` GitHub mirror — `room/room-testing/src/{commonMain,jvmMain}/kotlin/androidx/room/testing/`
+at commit `2d71e6c2c489947a51d0835622a9f997f7412eeb` (2025-04-01, eight days before the 2.7.0 release; the `2.x`
+tree is gone from the current `androidx-main` tip, so this is the newest commit found with it still present),
+not assumed from this page's Room-3 findings: the module is `androidx.room.testing` (not `androidx.room3.testing`),
+its Gradle module `:room:room-testing` targets `androidTarget()`, `jvm()`, `ios()`, `linux()` and `mac()`, and
+its JVM actual is `MigrationTestHelper(schemaDirectoryPath: java.nio.file.Path, databasePath: java.nio.file.Path,
+driver: SQLiteDriver, databaseClass: KClass<out RoomDatabase>, databaseFactory = ..., autoMigrationSpecs =
+emptyList()) : org.junit.rules.TestWatcher()`, used as a `@get:Rule`, with `createDatabase(version)` and
+`runMigrationsAndValidate(version, migrations)`. This was not compiled or run — the same Google Maven
+reachability limits as the rest of `:database` apply — only read from source. See
+`database/src/jvmTest/kotlin/com/derekwinters/intervaltrainer/database/SchemaMigrationTest.kt` for where this
+is recorded for the module itself.
