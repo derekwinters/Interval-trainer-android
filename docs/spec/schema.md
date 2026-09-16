@@ -188,13 +188,24 @@ Restated here as requirements, from [ADR 0003](../adr/0003-room-with-the-schema-
 
 **27 requirements, 5 `auto` and 22 `manual`.**
 
-**The `auto` tests do not exist yet.** There is no `:database` module in the build today —
-`settings.gradle.kts` includes exactly one module, `:app` (`BUILD-002`). `PresetDaoTest.kt` and
-`SchemaMigrationTest.kt` are named here so the tests that will assert `SCHEMA-012`, `SCHEMA-014`,
-`SCHEMA-033`, `SCHEMA-041` and `SCHEMA-043` have one home each, at
-`database/src/jvmTest/kotlin/com/derekwinters/intervaltrainer/database/`, and they are named in the
-future tense on purpose, the same honesty [`docs/spec/timer.md`](timer.md) and
-[`docs/spec/cues.md`](cues.md) state about their own `:core` tests.
+**`:database` and `PresetDaoTest.kt` now exist**, at
+`database/src/jvmTest/kotlin/com/derekwinters/intervaltrainer/database/PresetDaoTest.kt`
+(`BUILD-002`), asserting `SCHEMA-012` and `SCHEMA-014` as this table said they would. Two of the
+five `auto` requirements above are still ahead of the code: `SCHEMA-033`'s seeded-row assertions
+wait on the seeding work itself
+([#74](https://github.com/derekwinters/Interval-trainer-android/issues/74)), and `SCHEMA-041`,
+`SCHEMA-043` wait on the contract-test harness
+([#75](https://github.com/derekwinters/Interval-trainer-android/issues/75)), including
+`SchemaMigrationTest.kt`, still named here in the future tense for the same reason
+[`docs/spec/timer.md`](timer.md) and [`docs/spec/cues.md`](cues.md) name their own tests ahead of
+their code.
+
+**The exported schema JSON (`SCHEMA-003`) is not committed in the pull request that added this
+paragraph.** `:database`'s Room and `androidx.sqlite` dependencies resolve only from Google's
+Maven repository, which the sandbox that wrote this module could not reach; generating the real,
+Room-computed schema file needs a build environment that can. That is tracked as
+[#100](https://github.com/derekwinters/Interval-trainer-android/issues/100) rather than guessed
+at here.
 
 **Why the proportion is mostly `manual`.** Most of this page is the shape of a table — a column, a
 type, a foreign key, an index — which is a configuration fact the exported schema and Room's own

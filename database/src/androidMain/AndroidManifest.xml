@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    :database declares no components of its own — no activity, no service, no permission — so
+    this manifest exists only because AGP's library build expects one to merge. The namespace
+    comes from android.namespace in database/build.gradle.kts, not from a package attribute here.
+-->
+<manifest />
