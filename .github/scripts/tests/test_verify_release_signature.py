@@ -214,10 +214,31 @@ class ParseApksignerCertsTests(unittest.TestCase):
         with self.assertRaises(MalformedApksignerOutput):
             parse_apksigner_certs(truncated)
 
+    def test_a_signer_count_mismatch_carries_the_raw_output_verbatim(self):
+        """SIGN-036.
+
+        This is the exact shape of the real failure in issue #120: apksigner
+        declared one signer and the parser matched none of its lines, and the
+        only thing the CI log showed was the summary sentence — never the
+        actual text that failed to match, leaving the real format a mystery.
+        The raw output belongs in the exception so the next occurrence is
+        diagnosable without waiting for a third failure.
+        """
+        undecodable = "Number of signers: 1\nV2 Signer: certificate DN: CN=Nobody\n"
+        with self.assertRaises(MalformedApksignerOutput) as raised:
+            parse_apksigner_certs(undecodable)
+        self.assertIn(undecodable, str(raised.exception))
+
     def test_output_without_a_signer_count_raises(self):
         """SIGN-033."""
         with self.assertRaises(MalformedApksignerOutput):
             parse_apksigner_certs("Verifies\n")
+
+    def test_output_without_a_signer_count_carries_the_raw_output_verbatim(self):
+        """SIGN-036."""
+        with self.assertRaises(MalformedApksignerOutput) as raised:
+            parse_apksigner_certs("Verifies\n")
+        self.assertIn("Verifies\n", str(raised.exception))
 
     def test_real_non_verbose_output_is_rejected(self):
         """SIGN-033, against the capture that broke a real release.
@@ -477,6 +498,19 @@ class GateExitCodeTests(unittest.TestCase):
         code, output = self._main([CAPTURED_NON_VERBOSE_OUTPUT])
         self.assertEqual(code, 1)
         self.assertIn("Number of signers:", output)
+
+    def test_a_signer_count_mismatch_prints_the_raw_apksigner_output(self):
+        """SIGN-036, end to end: the CI log carries the text that broke parsing.
+
+        Before this, a mismatch like issue #120's real failure — "reported 1
+        signer(s) but 0 could be parsed" — surfaced only that summary
+        sentence. The next occurrence of the same drift must not repeat that:
+        the actual apksigner text has to reach the job log.
+        """
+        undecodable = "Number of signers: 1\nV2 Signer: certificate DN: CN=Nobody\n"
+        code, output = self._main([undecodable])
+        self.assertEqual(code, 1)
+        self.assertIn(undecodable, output)
 
 
 class StandardLibraryOnlyTests(unittest.TestCase):

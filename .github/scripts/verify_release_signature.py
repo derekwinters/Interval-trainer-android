@@ -76,6 +76,26 @@ class MalformedApksignerOutput(ValueError):
     """apksigner output this parser cannot read with confidence."""
 
 
+def _with_raw_output(summary, raw_output):
+    """A `MalformedApksignerOutput` message that carries the raw text too (SIGN-036).
+
+    A summary sentence like "apksigner reported 1 signer(s) but 0 could be
+    parsed" names the symptom but not the cause: it was exactly what issue
+    #120's CI run showed, and the actual apksigner text that defeated the
+    parser was never captured anywhere, so the real new format stayed a
+    mystery through the failure that found it. Attaching the verbatim output,
+    delimited, means the *next* occurrence — of this or any other future
+    format drift — is diagnosable from the one log it produces, not a retry.
+    """
+    return (
+        "{0}\n\nThe raw apksigner output follows, verbatim, so this failure "
+        "is diagnosable without rerunning apksigner:\n"
+        "----- apksigner output begin -----\n"
+        "{1}"
+        "----- apksigner output end -----".format(
+            summary, raw_output if raw_output.endswith("\n") else raw_output + "\n"))
+
+
 # --- Pure decisions ---------------------------------------------------------
 
 
@@ -118,6 +138,12 @@ def parse_apksigner_certs(text):
     silent "no signers found" would read as an unsigned APK — a confusing
     failure — while a silently *short* list could let an unexamined signer
     through.
+
+    Every `MalformedApksignerOutput` raised here carries the raw apksigner
+    text verbatim, delimited, alongside the summary (SIGN-036): the format
+    this parser reads is another tool's to change without notice, and the
+    summary alone — "reported 1 signer(s) but 0 could be parsed" — names the
+    symptom without capturing the text that would explain it.
     """
     declared = None
     by_index = {}
@@ -142,21 +168,21 @@ def parse_apksigner_certs(text):
         else:
             digest = normalize_fingerprint(value)
             if signer["sha256"] and signer["sha256"] != digest:
-                raise MalformedApksignerOutput(
+                raise MalformedApksignerOutput(_with_raw_output(
                     "signer #{0} is reported with two different certificates, "
-                    "{1} and {2}".format(index, signer["sha256"], digest))
+                    "{1} and {2}".format(index, signer["sha256"], digest), text))
             signer["sha256"] = digest
 
     if declared is None:
-        raise MalformedApksignerOutput(
+        raise MalformedApksignerOutput(_with_raw_output(
             "apksigner output has no 'Number of signers:' line — either it was not "
             "asked for --verbose, or the format this gate reads has changed. Either "
-            "way its verdict cannot be trusted")
+            "way its verdict cannot be trusted", text))
 
     if declared != len(by_index):
-        raise MalformedApksignerOutput(
+        raise MalformedApksignerOutput(_with_raw_output(
             "apksigner reported {0} signer(s) but {1} could be parsed — the format "
-            "this gate reads has changed".format(declared, len(by_index)))
+            "this gate reads has changed".format(declared, len(by_index)), text))
 
     return [
         SignerFacts(index=index, dn=by_index[index]["dn"], sha256=by_index[index]["sha256"])
