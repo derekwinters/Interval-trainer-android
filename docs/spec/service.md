@@ -157,6 +157,24 @@ zero.)*
   left open; decided by the repository owner, asked directly, since settings is already in v1's
   scope.
 
+  Built (`#83`) as the notification-specific intent, always: `Settings.ACTION_APP_NOTIFICATION_SETTINGS`
+  with its `Settings.EXTRA_APP_PACKAGE` extra are both API 26+, the same floor this app's own
+  `minSdk` already sits at (`docs/spec/build.md` `BUILD-010`), so there is no older-platform case
+  for `ACTION_APPLICATION_DETAILS_SETTINGS` to cover and no version branch to write. The one real
+  decision here — which action and which extra key open the *notification* settings page rather
+  than the app's general details page — is `notificationSettingsDeepLink`
+  (`app/src/main/java/.../settings/NotificationSettingsDeepLink.kt`), a plain function returning
+  those two string values (not the `android.provider.Settings` constants themselves, which would
+  need the Android SDK on the classpath to even reference) so a JVM test
+  (`NotificationSettingsDeepLinkTest.kt`) can assert them directly; the one real
+  `android.content.Intent` built from them is assembled at the one call site that needs it
+  (`MainActivity.kt`), which is not JVM-testable, per ADR 0005. Reading the permission's own current
+  state reuses `WorkoutService.postNotification`'s own
+  `NotificationManagerCompat.from(context).areNotificationsEnabled()` check
+  (`Context.isNotificationPermissionGranted()`, `MainActivity.kt`) rather than a second mechanism
+  for the same fact, re-read on every resume of the settings screen so the row reflects a grant
+  made from the system settings page this same row just opened.
+
 ## 5. Battery optimisation
 
 - **SVC-040** The app does not request a battery-optimisation exemption. The foreground service
@@ -233,7 +251,7 @@ runner.)*
 | The foreground service — command handling | SVC-014 | `WorkoutSessionTest.kt` |
 | The notification | SVC-020–024 | *(manual)* |
 | The notification — content and the pause/resume toggle, as pure functions | SVC-025–026 | `WorkoutNotificationContentTest.kt` |
-| The notification permission | SVC-030–033 | *(manual)* |
+| The notification permission | SVC-030–033 | `NotificationSettingsDeepLinkTest.kt` (SVC-033's deep-link action/extra); *(manual)* SVC-030–033 |
 | Battery optimisation | SVC-040 | *(manual)* |
 | Task removal | SVC-041–042 | *(manual)* |
 | Stop | SVC-050–053 | *(manual)* |

@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -15,7 +16,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -24,14 +29,17 @@ import androidx.navigation.navArgument
 import com.derekwinters.intervaltrainer.database.IntervalTrainerDatabase
 import com.derekwinters.intervaltrainer.database.RoomPresetStore
 import com.derekwinters.intervaltrainer.designsystem.AppTheme
-import com.derekwinters.intervaltrainer.screens.PlaceholderScreen
 import com.derekwinters.intervaltrainer.screens.editor.PresetEditorScreen
 import com.derekwinters.intervaltrainer.screens.home.HomeScreen
 import com.derekwinters.intervaltrainer.screens.running.RunningScreen
+import com.derekwinters.intervaltrainer.screens.settings.SettingsScreen
 import com.derekwinters.intervaltrainer.screens.summary.SummaryScreen
 import com.derekwinters.intervaltrainer.service.ElapsedRealtimeClock
 import com.derekwinters.intervaltrainer.service.WorkoutService
 import com.derekwinters.intervaltrainer.service.WorkoutServiceState
+import com.derekwinters.intervaltrainer.settings.DataStoreDefaultMuteStore
+import com.derekwinters.intervaltrainer.settings.DefaultMuteStore
+import com.derekwinters.intervaltrainer.settings.notificationSettingsDeepLink
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -44,10 +52,10 @@ import kotlinx.coroutines.withContext
  *
  * Hosts a single Compose Navigation graph, wrapped in `:designsystem`'s [AppTheme] (`ADR 0007`):
  * `home` (`docs/spec/screens.md` §1, the home screen, `#79`), `editor/{presetId}` (§2, the
- * preset editor, `#80`), `running` (§3, the running screen, `#81`), and `summary` (§4, the summary
- * screen, `#82`), plus one placeholder destination for `settings` (§5), which is not built yet.
- * See [PlaceholderScreen]'s own doc comment, and this pull request's Deviations section, for why
- * registering routes ahead of the screen behind them is this project's own staging choice.
+ * preset editor, `#80`), `running` (§3, the running screen, `#81`), `summary` (§4, the summary
+ * screen, `#82`), and `settings` (§5, `#83`) — every v1 screen but the first-run explanation (§6,
+ * not yet built). `docs/spec/build.md` `BUILD-018` documents the staging convention that let each
+ * of these land ahead of the screen behind its own route, back when one still would have.
  *
  * `SCREEN-043`: opening the app while a workout exists lands on the running screen, on every
  * entry. [onNewIntent] carries the one entry point a start destination computed once at
@@ -70,9 +78,22 @@ class MainActivity : ComponentActivity() {
         // and WorkoutService never read two different database files.
         database = AppDatabase.open(applicationContext)
         val presetStore = RoomPresetStore(database.presetDao())
+        // SCREEN-080: the same DefaultMuteStore seam WorkoutService reads from (WorkoutService.kt),
+        // opened separately here rather than shared with it — DataStore's own singleton-per-file
+        // guard (one `PreferenceDataStoreFactory` per file path per process) is what
+        // `preferencesDataStore`'s delegate already provides, so two independently constructed
+        // `DataStoreDefaultMuteStore` instances in the same process still resolve to the one
+        // underlying file, the same way this activity and WorkoutService already open the Room
+        // database (`AppDatabase.open`) independently rather than sharing one instance across
+        // process components that do not share a lifecycle.
+        val defaultMuteStore = DataStoreDefaultMuteStore(applicationContext)
         setContent {
             AppTheme {
-                IntervalTrainerNavHost(presetStore = presetStore, openRunningRequests = openRunningRequests)
+                IntervalTrainerNavHost(
+                    presetStore = presetStore,
+                    defaultMuteStore = defaultMuteStore,
+                    openRunningRequests = openRunningRequests,
+                )
             }
         }
     }
@@ -107,8 +128,8 @@ private fun editorRoute(presetId: String) = "editor/$presetId"
 /**
  * The navigation graph (`BUILD-018`): `home` is the start destination, unless a workout is
  * already running or paused (`SCREEN-043`, see below); `editor/{presetId}` (`#80`), `running`
- * (`#81`) and `summary` (`#82`) are real screens; `settings` is still a registered route behind a
- * [PlaceholderScreen], per `MainActivity`'s own doc comment.
+ * (`#81`), `summary` (`#82`) and `settings` (`#83`) are all real screens now — every v1 screen but
+ * the first-run explanation (§6), which has no route registered yet.
  *
  * `SCREEN-043`: [startDestination] is read once, synchronously, from [WorkoutServiceState] — the
  * running screen's own observation channel — rather than from [MainActivity]'s intent, so a cold
@@ -118,7 +139,11 @@ private fun editorRoute(presetId: String) = "editor/$presetId"
  * comment says why a start destination alone cannot cover it.
  */
 @Composable
-private fun IntervalTrainerNavHost(presetStore: PresetStore, openRunningRequests: SharedFlow<Unit>) {
+private fun IntervalTrainerNavHost(
+    presetStore: PresetStore,
+    defaultMuteStore: DefaultMuteStore,
+    openRunningRequests: SharedFlow<Unit>,
+) {
     val navController = rememberNavController()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -260,7 +285,37 @@ private fun IntervalTrainerNavHost(presetStore: PresetStore, openRunningRequests
             )
         }
         composable(ROUTE_SETTINGS) {
-            PlaceholderScreen(label = "Settings")
+            val defaultMuted by defaultMuteStore.defaultMuted.collectAsState(initial = false)
+            val lifecycleOwner = LocalLifecycleOwner.current
+            var notificationPermissionGranted by remember {
+                mutableStateOf(context.isNotificationPermissionGranted())
+            }
+            // SCREEN-063: the permission can only change from outside this screen — the system
+            // settings page onOpenNotificationSettings below opens — so it is re-read on every
+            // resume rather than once at composition, the way a value this screen itself owns
+            // (SCREEN-061's default mute) would not need to be.
+            DisposableEffect(lifecycleOwner) {
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_RESUME) {
+                        notificationPermissionGranted = context.isNotificationPermissionGranted()
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+            }
+            SettingsScreen(
+                defaultMuted = defaultMuted,
+                onDefaultMutedChange = { muted ->
+                    coroutineScope.launch { defaultMuteStore.setDefaultMuted(muted) }
+                },
+                notificationPermissionGranted = notificationPermissionGranted,
+                onOpenNotificationSettings = { context.openNotificationSettings() },
+                // SCREEN-060: home's own trailing header action is settings' only entry point in
+                // v1, so popping the back stack always lands back on home — the same convention
+                // the preset editor's own onBack already uses.
+                onBack = { navController.popBackStack() },
+                modifier = Modifier,
+            )
         }
     }
 }
@@ -283,4 +338,18 @@ private fun Context.startWorkoutService(presetId: String) {
  * only ever fire from the running screen while the app itself is in the foreground. */
 private fun Context.sendWorkoutCommand(intent: Intent) {
     startService(intent)
+}
+
+/** `SCREEN-063`: the same `NotificationManagerCompat.areNotificationsEnabled()` check
+ * `WorkoutService.postNotification` already uses to decide whether to post at all — read here
+ * for the settings row's own display rather than a second mechanism for the same fact. */
+private fun Context.isNotificationPermissionGranted(): Boolean =
+    NotificationManagerCompat.from(this).areNotificationsEnabled()
+
+/** `SVC-033`: opens this app's own page in the system's notification settings, from the plain
+ * action/extra pair [com.derekwinters.intervaltrainer.settings.notificationSettingsDeepLink]
+ * resolves — the one place that plain value becomes a real `Intent`. */
+private fun Context.openNotificationSettings() {
+    val deepLink = notificationSettingsDeepLink(packageName)
+    startActivity(Intent(deepLink.action).putExtra(deepLink.extraKey, deepLink.packageName))
 }

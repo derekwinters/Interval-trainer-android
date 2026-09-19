@@ -22,10 +22,12 @@ Part of what is specified here does not exist in the build yet. `:designsystem` 
 tokens, the spacing scale and the three timer typographic roles, assembled into a root `AppTheme` —
 is implemented, and so is the component vocabulary in §1–3
 ([#73](https://github.com/derekwinters/Interval-trainer-android/issues/73) built the first ten;
-`#80` added `Toggle` and widened `AlertDialog` and `ScreenHeader`; `#82` added `StockListItem`, per
-§1–3 below): `PrimaryButton`, `SecondaryButton`, `DestructiveButton`, the three icon-button roles,
-`CountStepper`, `DurationScrollPicker`, `Toggle`, `StockListItem`, the `AlertDialog` wrapper, and
-`ScreenHeader`, each reading only the token layer and each with a `@Preview`. The closed set of
+`#80` added `Toggle` and widened `AlertDialog` and `ScreenHeader`; `#82` added `StockListItem`;
+`#83` widened `StockListItem` with a `trailingContent` slot (`DS-016`) and corrected `DS-014`'s and
+`DS-061`'s own text, per §1–3 and §7 below): `PrimaryButton`, `SecondaryButton`, `DestructiveButton`,
+the three icon-button roles, `CountStepper`, `DurationScrollPicker`, `Toggle`, `StockListItem`, the
+`AlertDialog` wrapper, and `ScreenHeader`, each reading only the token layer and each with a
+`@Preview`. The closed set of
 three screen layouts in §8 is now implemented
 too ([#76](https://github.com/derekwinters/Interval-trainer-android/issues/76)): `ListLayout`,
 `FullBleedLayout`, and `FormLayout`, each built from this component vocabulary and each with a
@@ -97,14 +99,22 @@ none of the six v1 screens exists yet. That remains
   and in [#40](https://github.com/derekwinters/Interval-trainer-android/issues/40)'s own original
   text, both of which predate this decision.
 - **DS-014** `Toggle` is a bespoke on/off switch — track and knob, never a Material `Switch` — for a
-  bespoke-vocabulary screen (`DS-060`) that needs to show and flip a boolean. The preset editor's
-  round generator (`docs/spec/screens.md` `SCREEN-017`, the trailing-recovery control) is the only
-  v1 caller; the stock-Material settings screen's own default-mute switch (`SCREEN-061`) uses
-  `androidx.compose.material3.Switch` directly, per `DS-061`, not this component. Numbered `DS-014`
-  rather than appended after `DS-013` inside its own family's `DS-001`–`009` block, for the same
-  reason `DS-013` itself sits ahead of `DS-020`: that block was already nine requirements deep, and
-  `014` was the next number free before the dialogs and scaffolding blocks that follow it — see this
-  pull request's Deviations section.
+  boolean value a screen needs to show and flip. The preset editor's round generator
+  (`docs/spec/screens.md` `SCREEN-017`, the trailing-recovery control) is the first v1 caller; the
+  settings screen's own default-mute switch (`SCREEN-061`) is its second, added by
+  [#83](https://github.com/derekwinters/Interval-trainer-android/issues/83) through `StockListItem`'s
+  own `trailingContent` slot (`DS-016`). **Corrected by `#83`:** an earlier version of this entry
+  claimed settings' own switch would use `androidx.compose.material3.Switch` "directly", per
+  `DS-061` — the same mistake `DS-015`'s own entry once made about `StockListItem`, and impossible
+  for the identical reason: `DS-090`'s module boundary makes a raw `androidx.compose.material3`
+  import inside `:app` a compile error, so no screen `:app` builds can reach for `Switch` itself.
+  There is no second, redundant switch component for settings to use instead — `Toggle` already
+  exists and settings composes it, the same component the round generator does, not a
+  `StockSwitch` wrapper `DS-015`'s own `StockListItem`-wrapping pattern might otherwise suggest.
+  Numbered `DS-014` rather than appended after `DS-013` inside its own family's `DS-001`–`009`
+  block, for the same reason `DS-013` itself sits ahead of `DS-020`: that block was already nine
+  requirements deep, and `014` was the next number free before the dialogs and scaffolding blocks
+  that follow it — see #80's own Deviations section.
 - **DS-015** `StockListItem` wraps `androidx.compose.material3.ListItem`, the stock component
   `DS-061` names for the three stock-vocabulary screens. `DS-090`'s module boundary is what makes
   this a wrapper rather than something a stock-vocabulary screen reaches for on its own: `material3`
@@ -113,13 +123,27 @@ none of the six v1 screens exists yet. That remains
   `FloatingActionButton` and `AlertDialog` wraps `androidx.compose.material3.AlertDialog` rather
   than either being reached for directly. This is what `DS-061`'s "directly" actually resolves to
   once that boundary is enforced by the build rather than only stated in prose — the same
-  correction this pull request's own summary screen needed of `DS-014`'s adjacent claim that
-  settings' own switch will use `androidx.compose.material3.Switch` "directly": that screen (`#83`)
-  will need its own such wrapper too, not stated here since it is not this pull request's own
-  screen to build. The summary screen (`docs/spec/screens.md` §4, `SCREEN-050`) is `StockListItem`'s
+  correction `#83` made of `DS-014`'s adjacent claim that settings' own switch would use
+  `androidx.compose.material3.Switch` "directly": settings' row does not need a *second* wrapper of
+  its own, it composes `StockListItem` with `Toggle` in its trailing slot (`DS-016`, immediately
+  below). The summary screen (`docs/spec/screens.md` §4, `SCREEN-050`) is `StockListItem`'s
   first caller. Numbered `DS-015` for the same reason `DS-014` sits ahead of the dialogs and
-  scaffolding blocks that follow it, rather than appended after `DS-021` — see this pull request's
-  Deviations section.
+  scaffolding blocks that follow it, rather than appended after `DS-021` — see #82's own Deviations
+  section.
+- **DS-016** `StockListItem` accepts an optional `trailingContent` composable slot, rendered at the
+  row's trailing edge exactly as `androidx.compose.material3.ListItem`'s own `trailingContent`
+  parameter is — added by `#83` for the settings screen's default-mute row (`SCREEN-061`), which
+  needs to show a boolean value's own control at the row's trailing edge, not only describe it in
+  text. `DS-015`'s own "a caller fills exactly the shape this component names, not an arbitrary
+  composable" still holds in spirit: this component has exactly one real v1 caller for the slot,
+  settings' default-mute row, and that caller always fills it with `Toggle` (`DS-014`) — never a
+  second, redundant switch of `StockListItem`'s own. It is one composable slot rather than a typed
+  `trailing: Boolean?` pair of parameters for the same reason `ListLayout`'s own `bottomSlot`
+  (`DS-071`) is one slot rather than two: `docs/spec/screens.md` names only one real shape for it in
+  v1, so a second, more specific parameter would be speculative generality this page's own
+  invariant on adding vocabulary would then have to justify. Numbered `DS-016` for the same reason
+  `DS-014`/`DS-015` sit ahead of the dialogs and scaffolding blocks that follow them, rather than
+  appended after `DS-021` — see this pull request's Deviations section.
 
 ## 2. Dialogs
 
@@ -190,8 +214,19 @@ none of the six v1 screens exists yet. That remains
 - **DS-060** Home, the preset editor and the running screen are built from the bespoke vocabulary in
   §1–6.
 - **DS-061** Summary, settings and first-run are built from stock Material 3 components —
-  `ListItem`, `Switch`, plain `Scaffold` body content — styled only by the tokens in §6. No bespoke
-  mockup was or will be commissioned for these three.
+  `ListItem`, plain `Scaffold` body content — styled only by the tokens in §6. No bespoke
+  mockup was or will be commissioned for these three. **Corrected by `#83`:** this entry used to
+  also name `Switch` as vocabulary these screens draw from directly; settings' own boolean row
+  (`SCREEN-061`) in fact uses `:designsystem`'s bespoke `Toggle` (`DS-014`), for the same `DS-090`
+  module-boundary reason `ListItem` itself is reached through `StockListItem` (`DS-015`) rather
+  than directly — a raw `androidx.compose.material3.Switch` import inside `:app` is as much a
+  compile error as `ListItem`'s would be. `DS-061`'s "stock Material 3 components" and "bespoke
+  vocabulary" (`DS-060`) are not, in the end, a strict per-screen split of which components a
+  screen may use — every v1 screen composes through `:designsystem`'s own wrappers regardless — only
+  of which *visual style* a screen's content follows: `ListItem`'s stock look for these three,
+  versus home/the preset editor/the running screen's own bespoke rows and controls. `Toggle` was
+  simply built once (`#80`, for the round generator) and settings reuses that same bespoke control
+  rather than a second, stock-styled one existing beside it.
 - **DS-062** All six screens still use `ScreenHeader` (`DS-020`–`021`) regardless of which side of
   this split they are on.
 
@@ -355,7 +390,7 @@ this decision:
 
 | Section | IDs | Tests |
 |---|---|---|
-| Buttons and actions | DS-001–009, DS-014, DS-015 | *(manual)* |
+| Buttons and actions | DS-001–009, DS-014–016 | *(manual)* |
 | Dialogs | DS-010–012 | *(manual)* |
 | Screen scaffolding | DS-013, DS-020–021 | *(manual)* |
 | Timer typography | DS-030–033 | *(manual)* |
@@ -367,9 +402,9 @@ this decision:
 | Enforcement — not adopted | DS-096–097 | *(manual)* |
 | Human judgement calls | DS-098–101 | *(manual)* |
 
-**50 requirements, 3 `auto` and 47 `manual`.** This table's "Tests" column is what a JVM test
+**51 requirements, 3 `auto` and 48 `manual`.** This table's "Tests" column is what a JVM test
 checks, and stays as written above whether or not the component itself has been built: `*(manual)*`
-means "no test", not "no code". `DS-001`–`DS-013`, `DS-014`, `DS-015` and `DS-020`–`021` (buttons
+means "no test", not "no code". `DS-001`–`DS-013`, `DS-014`–`016` and `DS-020`–`021` (buttons
 and actions, dialogs, screen scaffolding) are now implemented in `:designsystem`
 ([#73](https://github.com/derekwinters/Interval-trainer-android/issues/73) built the first ten;
 `DS-012`, `DS-013` and `DS-014` — `AlertDialog`'s content slot, `ScreenHeader`'s back action, and
@@ -377,7 +412,9 @@ and actions, dialogs, screen scaffolding) are now implemented in `:designsystem`
 [#80](https://github.com/derekwinters/Interval-trainer-android/issues/80)'s own addition, for the
 preset editor; `DS-015` — `StockListItem` — is
 [#82](https://github.com/derekwinters/Interval-trainer-android/issues/82)'s own addition, for the
-summary screen) — `PrimaryButton`, `SecondaryButton`, `DestructiveButton`, the three icon-button
+summary screen; `DS-016` — `StockListItem`'s own `trailingContent` slot — is
+[#83](https://github.com/derekwinters/Interval-trainer-android/issues/83)'s own addition, for the
+settings screen) — `PrimaryButton`, `SecondaryButton`, `DestructiveButton`, the three icon-button
 roles, `CountStepper`, `DurationScrollPicker`, `AlertDialog`, `ScreenHeader`, `Toggle`, and
 `StockListItem`, each with a `@Preview`. The closed set of
 three screen layouts (`DS-070`–`079`) is now implemented too
