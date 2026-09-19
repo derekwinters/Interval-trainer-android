@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.2.0](https://github.com/derekwinters/Interval-trainer-android/compare/v0.1.0...v0.2.0) (2026-09-19)
+
+
+### Features
+
+* **app:** add the first-run screen and permission-request flow ([65245e8](https://github.com/derekwinters/Interval-trainer-android/commit/65245e8494286245f015883edfc4310d892ba6e0))
+* **app:** add the home screen ([a0dc7f5](https://github.com/derekwinters/Interval-trainer-android/commit/a0dc7f55bedcee946fb5ada049ec4faa3af7b4d9))
+* **app:** add the preset editor screen ([c886b0f](https://github.com/derekwinters/Interval-trainer-android/commit/c886b0f24865a31541e3abd474af1011c9ca776e))
+* **app:** add the running screen ([6a514da](https://github.com/derekwinters/Interval-trainer-android/commit/6a514daa3129128b9c2ea2c5324e0aad293164c4))
+* **app:** add the settings screen ([fabfbaa](https://github.com/derekwinters/Interval-trainer-android/commit/fabfbaa577e10732e2a3b91d62771f2318686be7))
+* **app:** add the summary screen ([d48fe76](https://github.com/derekwinters/Interval-trainer-android/commit/d48fe76418176eaf74d24e1218c4bc96af1a42f9))
+* **build:** create :core module and move formatSeconds into it ([92346ac](https://github.com/derekwinters/Interval-trainer-android/commit/92346ac6f17466380a78e2b54703066025a255d7)), closes [#65](https://github.com/derekwinters/Interval-trainer-android/issues/65)
+* **build:** raise minSdk from 24 to 26 ([db015da](https://github.com/derekwinters/Interval-trainer-android/commit/db015da54919492d0b3c25a3cec456f5ff64f9d5)), closes [#64](https://github.com/derekwinters/Interval-trainer-android/issues/64)
+* **build:** wire up Compose, Material 3's placeholder-free shell, and Navigation in :app ([8620152](https://github.com/derekwinters/Interval-trainer-android/commit/8620152e50eb2200090f0027f6c2fb371b4e5790)), closes [#66](https://github.com/derekwinters/Interval-trainer-android/issues/66)
+* **core:** add preset/interval model and the schedule-copy function ([d9e3743](https://github.com/derekwinters/Interval-trainer-android/commit/d9e37431f1f3b22dd342accc322e5ace74196c4b))
+* **core:** implement cue selection ([c159219](https://github.com/derekwinters/Interval-trainer-android/commit/c159219547c5502a38411232772ae2292f6de961))
+* **core:** implement the round generator ([a549ec3](https://github.com/derekwinters/Interval-trainer-android/commit/a549ec324c2aa4b028d4fb9cf4c04a178d905f17))
+* **core:** implement the timer state machine ([0637a64](https://github.com/derekwinters/Interval-trainer-android/commit/0637a645505763b6758a3d386071ef754cd97ac1))
+* **database:** add the :database module and presets/intervals schema ([4c11ab6](https://github.com/derekwinters/Interval-trainer-android/commit/4c11ab62510eb9600fd4c28bdd31fe6fbcf47787))
+* **database:** add the schema upgrade-path contract-test harness ([b016c92](https://github.com/derekwinters/Interval-trainer-android/commit/b016c9275cd8677d1f38f79ea8d05e34ae1ea7e8))
+* **database:** seed the two endurance presets on first database creation ([1f55032](https://github.com/derekwinters/Interval-trainer-android/commit/1f5503225b3c2d6b863aab29c3be8d8a334213fb))
+* **designsystem:** add the closed set of three screen layouts ([e98311e](https://github.com/derekwinters/Interval-trainer-android/commit/e98311e9751ea02f2772b2cdedbadb9aeb7edf63))
+* **designsystem:** add the component gallery and Robolectric semantics-tree tests ([231bb0c](https://github.com/derekwinters/Interval-trainer-android/commit/231bb0c21dac4201f287e46382038beb67102016))
+* **designsystem:** add the component vocabulary from design-system.md ([e9c31e8](https://github.com/derekwinters/Interval-trainer-android/commit/e9c31e8851aef9ee55901f5d31d81881e3d46efd))
+* **designsystem:** stand up the :designsystem module and the token layer ([54ee3e8](https://github.com/derekwinters/Interval-trainer-android/commit/54ee3e8dc7c6d8fbe5d4ad7f8b40638894188e8e)), closes [#68](https://github.com/derekwinters/Interval-trainer-android/issues/68)
+* **service:** add the foreground service and its notification ([ce6a8f7](https://github.com/derekwinters/Interval-trainer-android/commit/ce6a8f75c358a6909245627ea670592352f8a29d))
+
 ## [0.1.0](https://github.com/derekwinters/Interval-trainer-android/compare/v0.0.1...v0.1.0) (2026-09-15)
 
 
