@@ -101,6 +101,13 @@ are separate work, and nothing in this repository builds a release artifact toda
   captured apksigner output, in both the verbose mode the gate asks for and the non-verbose mode it
   must reject, and each records where it came from. *(manual: provenance is a fact about how the
   file was made; a test can only assert its shape.)*
+- **SIGN-036** Every `MalformedApksignerOutput` the parser raises carries the raw apksigner output
+  verbatim, delimited, alongside its summary sentence. The format this parser reads belongs to
+  another tool and can change without notice (SIGN-032, SIGN-033); when it does, the summary alone
+  — "reported 1 signer(s) but 0 could be parsed" — names the symptom but not the cause, and the one
+  CI run that hits the drift is the only chance to capture the text that explains it. Issue #120 is
+  exactly that run: the real apksigner text that broke parsing was never in the log, and could not
+  be recovered afterwards.
 
 ## 5. The verdict
 
@@ -148,12 +155,12 @@ are separate work, and nothing in this repository builds a release artifact toda
 | The decision | SIGN-001–004 | *(manual)* |
 | The pinned fingerprint | SIGN-010–013 | `.github/scripts/tests/test_verify_release_signature.py` |
 | Reading a fingerprint | SIGN-020–022 | `.github/scripts/tests/test_verify_release_signature.py` |
-| Reading apksigner | SIGN-030–035 | `.github/scripts/tests/test_verify_release_signature.py` |
+| Reading apksigner | SIGN-030–036 | `.github/scripts/tests/test_verify_release_signature.py` |
 | The verdict | SIGN-040–045 | `.github/scripts/tests/test_verify_release_signature.py` |
 | Running the gate | SIGN-050–055 | `.github/scripts/tests/test_verify_release_signature.py` |
 | Continuous integration | SIGN-060–062 | `.github/scripts/tests/test_verify_release_signature.py` |
 
-**32 requirements, 27 `auto` and 5 `manual`.**
+**33 requirements, 28 `auto` and 5 `manual`.**
 
 The five manual ones are the decision itself, the handling of secrets whose values are deliberately
 absent from this repository, the scope boundary, the promise never to edit the pin, and the
