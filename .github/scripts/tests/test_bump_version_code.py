@@ -290,6 +290,91 @@ class WorkflowWiringTests(unittest.TestCase):
         self.assertIn("headBranchName", body)
         self.assertIn("steps.release.outputs.pr", body)
 
+    def _env_block(self, step_body):
+        """The YAML lines of a step's `env:` block alone, up to `run:`/`with:` at its indent."""
+        lines = step_body.splitlines()
+        start = None
+        indent = None
+        for index, line in enumerate(lines):
+            if line.strip() == "env:":
+                start = index
+                indent = len(line) - len(line.lstrip())
+                break
+        self.assertIsNotNone(start, "no 'env:' block in this step")
+        block = [lines[start]]
+        for line in lines[start + 1:]:
+            stripped = line.strip()
+            if stripped and (len(line) - len(line.lstrip())) <= indent:
+                break
+            block.append(line)
+        return "\n".join(block)
+
+    def test_the_bump_steps_env_block_never_calls_fromjson(self):
+        """Issue #114: GitHub Actions template-compiles a step's `env:` expressions before
+        checking that step's `if:`, so a `fromJSON()` call there over an empty
+        `steps.release.outputs.pr` (the ordinary state right after merging a release) fails the
+        whole job regardless of the `if:` gate. The JSON must never be parsed in `env:`."""
+        body = self._step_body(
+            _read(RELEASE_PLEASE_WORKFLOW), "Bump VERSION_CODE on the release pull request")
+        env_block = self._env_block(body)
+        self.assertNotIn("fromJSON(", env_block)
+
+    def test_the_bump_step_parses_the_pr_json_inside_its_run_script(self):
+        """The `baseBranchName`/`headBranchName` JSON is read in `run:`, where it is only
+        evaluated once the `if:` gate has already been checked (issue #114)."""
+        body = self._step_body(
+            _read(RELEASE_PLEASE_WORKFLOW), "Bump VERSION_CODE on the release pull request")
+        run_index = body.splitlines().index("        run: |") if "        run: |" in body else -1
+        self.assertNotEqual(run_index, -1, "no 'run: |' block in the bump step")
+        run_block = "\n".join(body.splitlines()[run_index:])
+        self.assertIn("jq", run_block)
+        self.assertIn("baseBranchName", run_block)
+        self.assertIn("headBranchName", run_block)
+
+
+class BackfillDispatchTests(unittest.TestCase):
+    """BUILD-066/067: a manual `workflow_dispatch` path that backfills a tag's missing signed
+    release APK without release-please needing to have just created that release in this run
+    (issue #114's follow-up: the v0.2.0 release shipped with no APK attached)."""
+
+    def _job_body(self, text, job_name):
+        lines = text.splitlines()
+        start = None
+        indent = None
+        pattern = "{0}:".format(job_name)
+        for index, line in enumerate(lines):
+            if line.strip() == pattern:
+                start = index
+                indent = len(line) - len(line.lstrip())
+                break
+        self.assertIsNotNone(start, "no '{0}' job in release-please.yml".format(job_name))
+        body = [lines[start]]
+        for line in lines[start + 1:]:
+            if line.strip() and (len(line) - len(line.lstrip())) <= indent:
+                break
+            body.append(line)
+        return "\n".join(body)
+
+    def test_workflow_dispatch_declares_a_backfill_tag_input(self):
+        text = _read(RELEASE_PLEASE_WORKFLOW)
+        self.assertRegex(text, r"workflow_dispatch:\s*\n\s*inputs:\s*\n\s*backfill_tag:")
+
+    def test_the_backfill_job_is_dispatch_only_and_independent_of_release_please(self):
+        text = _read(RELEASE_PLEASE_WORKFLOW)
+        body = self._job_body(text, "backfill-release-apk")
+        self.assertNotIn("needs:", body, "the backfill job must not depend on release-please")
+        self.assertIn("workflow_dispatch", body)
+        self.assertIn("backfill_tag", body)
+        # It builds and verifies a signed APK the same way build-and-attach does.
+        self.assertIn("assembleRelease", body)
+        self.assertIn("verify_release_signature.py", body)
+        self.assertIn("gh release upload", body)
+
+    def test_the_normal_release_please_job_is_skipped_during_a_backfill_dispatch(self):
+        text = _read(RELEASE_PLEASE_WORKFLOW)
+        body = self._job_body(text, "release-please")
+        self.assertIn("backfill_tag", body)
+
 
 if __name__ == "__main__":
     unittest.main()

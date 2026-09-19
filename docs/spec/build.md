@@ -40,6 +40,17 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
 > base branch last released rather than from whatever the release pull request's branch already
 > carries, so a workflow re-run that finds it already correct is a no-op, never a second bump.
 
+> **Invariant — a push that leaves no pending release pull request must not fail the release
+> workflow, or block the APK attach for a release that same push did create.**
+> `steps.release.outputs.pr` is empty exactly when a push needs no further release pull request —
+> the ordinary state immediately after merging one. GitHub Actions template-compiles a step's
+> `env:` expressions before checking that step's own `if:`, so parsing that empty string as JSON
+> inside an `env:` block fails the whole job regardless of the gate, even though the job's actual
+> release-creation work already succeeded
+> ([#114](https://github.com/derekwinters/Interval-trainer-android/issues/114), `BUILD-066`). The
+> JSON `steps.release.outputs.pr` carries is therefore only ever parsed inside a step's `run:`
+> script, never inside its `env:`.
+
 ---
 
 ## 1. Project layout
@@ -100,7 +111,16 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
   branch, sets the pull request's branch to one more than that, and pushes the change only if the
   value actually differs — recomputing from the base branch rather than incrementing whatever the
   pull request already carries, so a re-run the workflow makes while the pull request is still open
-  is a no-op instead of a second bump. *(auto:
+  is a no-op instead of a second bump. The step reads `steps.release.outputs.pr` — the JSON
+  `release-please-action` emits describing the pull request it opened or updated, carrying
+  `baseBranchName` and `headBranchName` — as a plain string into its `env:` and parses it with
+  `jq` inside its `run:` script; it never calls `fromJSON()` on that value inside `env:` itself,
+  since GitHub Actions template-compiles a step's `env:` expressions before checking that step's
+  `if:`, so a `fromJSON()` there would fail the whole job on the ordinary push that has no pull
+  request to bump (`steps.release.outputs.pr` empty), regardless of the `if:` gate meant to skip
+  it (see the invariant above and
+  [#114](https://github.com/derekwinters/Interval-trainer-android/issues/114), `BUILD-066`).
+  *(auto:
   `.github/scripts/tests/test_bump_version_code.py`, standard library only, no Android SDK, no
   release-please run.)*
 - **BUILD-016** The Compose compiler Gradle plugin (`org.jetbrains.kotlin.plugin.compose`) is
@@ -310,6 +330,43 @@ checked before the merge that tags it.
   workflow here uses yet, is a full 40-character commit SHA followed by a comment naming the
   version it pins, per `BUILD-043`. *(manual: as BUILD-043.)*
 
+## 8. Recovering a missed release APK
+
+[#114](https://github.com/derekwinters/Interval-trainer-android/issues/114): the `release-please`
+job failed on the push that tagged `v0.2.0`, because the "Bump VERSION_CODE" step's `env:` block
+called `fromJSON()` on `steps.release.outputs.pr`, which is empty on exactly the push that just
+tagged a release and needs no further release pull request. `build-and-attach` never ran as a
+result, so `v0.2.0`'s GitHub Release has no signed APK attached. This section describes the fix and
+the manual path that backfills what that failure skipped.
+
+- **BUILD-066** The "Bump VERSION_CODE on the release pull request" step's `env:` carries
+  `steps.release.outputs.pr` as a plain string (`PR_JSON`) and never calls `fromJSON()` on it; the
+  step's `run:` script parses `PR_JSON` with `jq` for `baseBranchName` and `headBranchName` instead.
+  A push with no release pull request to bump therefore leaves the step cleanly **skipped** by its
+  existing `if: ${{ steps.release.outputs.pr }}` gate rather than failing the job, and
+  `build-and-attach` runs normally whenever that same push's `release-please` step did create a
+  release. *(auto: `.github/scripts/tests/test_bump_version_code.py`'s `WorkflowWiringTests`,
+  which pins that the step's `env:` block never contains `fromJSON(` and that its `run:` script
+  parses `PR_JSON` with `jq`, standard library only, no Android SDK, no release-please run.)*
+- **BUILD-067** `release-please.yml` declares one `workflow_dispatch` input, `backfill_tag`,
+  optional and empty by default. When set, it names an existing tag whose GitHub Release exists
+  but is missing its signed APK — the state `BUILD-066`'s bug left `v0.2.0` in — and only the
+  `backfill-release-apk` job runs, against that tag: it checks out the tag, builds and signs the
+  release APK, verifies its signature (`SIGN-052`) and attaches it to that tag's existing Release,
+  the same way `build-and-attach` does (`BUILD-050`–`055`). It carries no `needs:` on
+  `release-please`, so it never depends on this same run having just created a release, and it runs
+  only when `github.event_name == 'workflow_dispatch' && inputs.backfill_tag != ''` — a condition a
+  `pull_request`-triggered run can never satisfy, so this does not weaken `docs/spec/signing.md`
+  `SIGN-062`. The ordinary `release-please` job's own `if:` excludes this same condition, so a
+  backfill dispatch runs only `backfill-release-apk` and never re-runs release-please or
+  build-and-attach. *(auto: `.github/scripts/tests/test_bump_version_code.py`'s
+  `BackfillDispatchTests` pins the `backfill_tag` input, that the job carries no `needs:`, and that
+  it builds, verifies and uploads an APK the same way `build-and-attach` does — standard library
+  only, no Android SDK, no release-please run. Actually running the job needs the release keystore
+  secrets and a real GitHub Actions run, which this sandbox has neither of: end-to-end use remains
+  manual, triggered once by a maintainer with repository Actions access via `workflow_dispatch`
+  with `backfill_tag: v0.2.0`, to attach `v0.2.0`'s still-missing APK.)*
+
 ---
 
 ## Traceability
@@ -323,8 +380,9 @@ checked before the merge that tags it.
 | Continuous integration | BUILD-040–044 | *(manual)* |
 | Release build and attach | BUILD-050–058 | *(manual)* |
 | Release candidate | BUILD-059–065 | *(manual)* |
+| Recovering a missed release APK | BUILD-066–067 | `.github/scripts/tests/test_bump_version_code.py` |
 
-**43 requirements, 5 `auto` and 38 `manual`.**
+**45 requirements, 7 `auto` and 38 `manual`.**
 
 The proportion is what a build skeleton looks like: almost every requirement here is a fact about
 configuration, verified by the build running at all, and the only executable behaviour outside
@@ -355,3 +413,12 @@ back to the first kind: a workflow's shape and a Gradle wiring decision, checked
 succeeding and by reading the diff, not by a unit test asserting YAML. The latter's trigger
 (`workflow_run` rather than `pull_request`, `BUILD-059`) is itself a fact `docs/spec/signing.md`
 `SIGN-062`'s test checks indirectly, by scanning every workflow file rather than naming this one.
+Recovering a missed release APK (`BUILD-066`–`067`) is `auto` like `BUILD-015`, for the same
+reason: what changed is a decision about *when* a step's YAML runs and what it parses, pinned by
+`WorkflowWiringTests` and `BackfillDispatchTests` reading `release-please.yml`'s text directly, the
+same technique `BUILD-015`'s own `WorkflowWiringTests` already used before this issue
+([#114](https://github.com/derekwinters/Interval-trainer-android/issues/114)) added to it. Neither
+test can exercise GitHub's actual template-compilation timing or run the backfill job for real —
+that needs a genuine Actions run and, for the backfill path, the release keystore secrets — so the
+fix's real proof is the next ordinary push to `main` succeeding end to end, and the backfill path's
+proof is a maintainer running it once against `v0.2.0`.
