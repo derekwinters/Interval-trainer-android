@@ -28,6 +28,7 @@ import com.derekwinters.intervaltrainer.screens.PlaceholderScreen
 import com.derekwinters.intervaltrainer.screens.editor.PresetEditorScreen
 import com.derekwinters.intervaltrainer.screens.home.HomeScreen
 import com.derekwinters.intervaltrainer.screens.running.RunningScreen
+import com.derekwinters.intervaltrainer.screens.summary.SummaryScreen
 import com.derekwinters.intervaltrainer.service.ElapsedRealtimeClock
 import com.derekwinters.intervaltrainer.service.WorkoutService
 import com.derekwinters.intervaltrainer.service.WorkoutServiceState
@@ -43,9 +44,9 @@ import kotlinx.coroutines.withContext
  *
  * Hosts a single Compose Navigation graph, wrapped in `:designsystem`'s [AppTheme] (`ADR 0007`):
  * `home` (`docs/spec/screens.md` §1, the home screen, `#79`), `editor/{presetId}` (§2, the
- * preset editor, `#80`), and `running` (§3, the running screen, `#81`), plus one placeholder
- * destination each for `summary` (§4) and `settings` (§5) — neither of which is built yet. See
- * [PlaceholderScreen]'s own doc comment, and this pull request's Deviations section, for why
+ * preset editor, `#80`), `running` (§3, the running screen, `#81`), and `summary` (§4, the summary
+ * screen, `#82`), plus one placeholder destination for `settings` (§5), which is not built yet.
+ * See [PlaceholderScreen]'s own doc comment, and this pull request's Deviations section, for why
  * registering routes ahead of the screen behind them is this project's own staging choice.
  *
  * `SCREEN-043`: opening the app while a workout exists lands on the running screen, on every
@@ -105,8 +106,8 @@ private fun editorRoute(presetId: String) = "editor/$presetId"
 
 /**
  * The navigation graph (`BUILD-018`): `home` is the start destination, unless a workout is
- * already running or paused (`SCREEN-043`, see below); `editor/{presetId}` (`#80`) and `running`
- * (`#81`) are real screens; `summary` and `settings` are registered routes still behind a
+ * already running or paused (`SCREEN-043`, see below); `editor/{presetId}` (`#80`), `running`
+ * (`#81`) and `summary` (`#82`) are real screens; `settings` is still a registered route behind a
  * [PlaceholderScreen], per `MainActivity`'s own doc comment.
  *
  * `SCREEN-043`: [startDestination] is read once, synchronously, from [WorkoutServiceState] — the
@@ -206,9 +207,7 @@ private fun IntervalTrainerNavHost(presetStore: PresetStore, openRunningRequests
             // running out on its own — goes to the summary, whichever way it got there. This one
             // effect is the only place that navigates away from `running` on outcome, so the two
             // causes reach the same destination by construction rather than two call sites having
-            // to agree. `#82` (the summary screen) is not built yet; this lands on the same
-            // interim-placeholder pattern `#79` used for `running` and `settings` themselves,
-            // named as such per this pull request's Deviations section.
+            // to agree.
             LaunchedEffect(cueState.timer) {
                 if (cueState.timer is TimerState.Ended) {
                     navController.navigate(ROUTE_SUMMARY) {
@@ -242,7 +241,23 @@ private fun IntervalTrainerNavHost(presetStore: PresetStore, openRunningRequests
             )
         }
         composable(ROUTE_SUMMARY) {
-            PlaceholderScreen(label = "Summary (#82)")
+            val cueState by WorkoutServiceState.current.collectAsState()
+            SummaryScreen(
+                state = cueState,
+                onDone = {
+                    // SCREEN-052: the summary's one action returns to home. The back stack beneath
+                    // `summary` varies with how it was reached (SCREEN-043's own cold-start-on-
+                    // `running` case never pushes `home` at all), so this clears the whole stack —
+                    // up to and including the graph's own root, which every back stack carries
+                    // regardless of its start destination — rather than popping a specific route
+                    // that might not be present, and lands on one fresh `home` entry either way.
+                    navController.navigate(ROUTE_HOME) {
+                        popUpTo(navController.graph.id) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                },
+                modifier = Modifier,
+            )
         }
         composable(ROUTE_SETTINGS) {
             PlaceholderScreen(label = "Settings")

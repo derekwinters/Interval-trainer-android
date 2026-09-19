@@ -41,7 +41,8 @@ internal const val CountStepperTag = "designsystem-gallery-count-stepper"
  * `docs/spec/design-system.md` ([#73](https://github.com/derekwinters/Interval-trainer-android/issues/73))
  * composed together, so `DesignSystemConsistencyTest.kt`'s semantics-tree assertions (`DS-091`) have
  * one screen to walk rather than one per component: every button variant, all three icon-button
- * roles, `CountStepper`, the duration picker, `ScreenHeader`, `Toggle`, and `AlertDialog`.
+ * roles, `CountStepper`, the duration picker, `ScreenHeader`, `Toggle`, `StockListItem`, and
+ * `AlertDialog`.
  *
  * This is not one of the six v1 screens (`DS-060`–`062`), and composing it proves nothing about
  * `DS-093` — there is no real screen yet for that assertion to compare against (`#33`). It still
@@ -119,6 +120,9 @@ fun ComponentGallery(modifier: Modifier = Modifier) {
                 contentDescription = "Trailing recovery",
                 modifier = Modifier.testTag(TouchTargetTag),
             )
+        }
+        gallerySection(title = "Stock list item (DS-015)") {
+            StockListItem(headline = "Rounds completed", supportingText = "3 of 5")
         }
         gallerySection(title = "Dialog (DS-010–012)") {
             SecondaryButton(

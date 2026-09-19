@@ -275,8 +275,8 @@ repeating a uniform pair, a new function rather than a new model.
 | The deadline model | TIMER-020–025 | `TimerStateTest.kt` |
 | The lead-in | TIMER-030–036 | `TimerStateTest.kt` (TIMER-030–032, 034–036); `CueSelectionTest.kt` (TIMER-033) |
 | Skip | TIMER-040–045 | `TimerStateTest.kt` (TIMER-040–043, 045); *(manual)* TIMER-044 |
-| Stop and the summary | TIMER-050–054 | `TimerStateTest.kt` (TIMER-050, 052, 054); *(manual)* TIMER-051, 053 |
-| Rounds completed | TIMER-060–061 | `TimerStateTest.kt` |
+| Stop and the summary | TIMER-050–054 | `TimerStateTest.kt` (TIMER-050, 052, 054); `SummaryContentTest.kt` (TIMER-052, again as `summaryContent()`'s packaged shape); *(manual)* TIMER-051, 053 |
+| Rounds completed | TIMER-060–061 | `TimerStateTest.kt`; `SummaryContentTest.kt` (again, via `summaryContent()`) |
 | The minimum interval | TIMER-070–073 | `ScheduleGeneratorTest.kt` (TIMER-070, 073); `CueSelectionTest.kt` (TIMER-071); *(manual)* TIMER-072 |
 | The generator | TIMER-080–085 | `ScheduleGeneratorTest.kt` (TIMER-080–083, 085); *(manual)* TIMER-084 |
 
