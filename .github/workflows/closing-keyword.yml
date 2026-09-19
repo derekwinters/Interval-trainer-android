@@ -23,6 +23,17 @@ permissions:
 
 jobs:
   closing-keyword:
+    # A release-please release pull request aggregates many already-closed issues into one
+    # changelog body and never itself closes anything new, so its body can only ever carry a
+    # compare-log bullet's markdown-linked `closes [#n](...)`, never the plain `closes #n` /
+    # `fixes #n` / `resolves #n` the shared action's pattern matches — this job cannot pass on
+    # one. release-please-action labels its own release pull requests `autorelease: pending` from
+    # the moment it opens or updates them, so that label is a reliable, structural stand-in for
+    # applying this repository's `no-closing-keyword` label by hand, which is what every release
+    # needed until now (#92, #116, docs/spec/build.md BUILD-045). This is a local addition to this
+    # caller workflow, not a change to the shared action itself, which lives in `derekwinters/ai-sdlc`
+    # and is out of this repository's reach.
+    if: "${{ !contains(github.event.pull_request.labels.*.name, 'autorelease: pending') }}"
     runs-on: ubuntu-latest
     steps:
       - uses: derekwinters/ai-sdlc/.github/actions/closing-keyword@cde337066fdce3b688d2f9cd83a992f048278784 # v0.4.22
