@@ -239,6 +239,29 @@ proper is not specified yet, and the first feature to need a real duration type 
   workflow files; see `VAL-050`–`VAL-056` in ai-sdlc.)*
 - **BUILD-044** The workflow provisions its own JDK and Android SDK rather than relying on what a
   runner image happens to carry. *(manual: as BUILD-040.)*
+- **BUILD-045** The `closing-keyword` job in `.github/workflows/closing-keyword.yml` — the caller
+  of the shared `derekwinters/ai-sdlc` closing-keyword action, itself out of this repository's
+  reach — is skipped for a pull request that already carries the `autorelease: pending` label:
+  `if: "${{ !contains(github.event.pull_request.labels.*.name, 'autorelease: pending') }}"`. The
+  whole expression is quoted because the label's own text contains a `: ` that would otherwise
+  read as a second YAML mapping key on the same line — an unquoted `if:` here is invalid YAML, not
+  merely unconventional. release-please-action applies that label to its own release pull requests
+  from the moment it opens or updates them. A release pull request aggregates many already-closed
+  issues into one
+  changelog body and never itself closes anything new, so its body can only ever carry a
+  compare-log bullet's markdown-linked `closes [#n](...)`, never the plain `closes #n` /
+  `fixes #n` / `resolves #n` the shared action's pattern matches — the gate was structurally
+  unable to pass on such a pull request. Before this, a human had to notice the failing check on
+  every release and apply this repository's own `no-closing-keyword` label by hand
+  ([#92](https://github.com/derekwinters/Interval-trainer-android/pull/92),
+  [#116](https://github.com/derekwinters/Interval-trainer-android/pull/116)); this requirement
+  automates exactly that manual step, keyed off the label release-please already applies for its
+  own purposes rather than a new one invented for this. This is a local, repo-specific addition to
+  the caller workflow, not a change to the shared action itself — `closing-keyword.yml` carries an
+  `adopt`-managed header (see this file's own comment) and is not touched by `adopt` while this
+  local edit stands, the same tradeoff a hand-edit to any `adopt`-managed file makes.
+  *(auto: `.github/scripts/tests/test_closing_keyword_workflow.py`, standard library only, no
+  Android SDK, no real pull request.)*
 
 ## 6. Release build and attach
 
@@ -377,12 +400,12 @@ the manual path that backfills what that failure skipped.
 | The app module, `:core` and `:designsystem` | BUILD-010–019 | `BUILD-015`: `.github/scripts/tests/test_bump_version_code.py`; the rest *(manual)* |
 | Tests | BUILD-020–023 | *(manual)* |
 | Duration formatting | BUILD-030–033 | `core/src/test/kotlin/com/derekwinters/intervaltrainer/FormatSecondsTest.kt` |
-| Continuous integration | BUILD-040–044 | *(manual)* |
+| Continuous integration | BUILD-040–045 | `BUILD-045`: `.github/scripts/tests/test_closing_keyword_workflow.py`; the rest *(manual)* |
 | Release build and attach | BUILD-050–058 | *(manual)* |
 | Release candidate | BUILD-059–065 | *(manual)* |
 | Recovering a missed release APK | BUILD-066–067 | `.github/scripts/tests/test_bump_version_code.py` |
 
-**45 requirements, 7 `auto` and 38 `manual`.**
+**46 requirements, 8 `auto` and 38 `manual`.**
 
 The proportion is what a build skeleton looks like: almost every requirement here is a fact about
 configuration, verified by the build running at all, and the only executable behaviour outside
@@ -422,3 +445,9 @@ test can exercise GitHub's actual template-compilation timing or run the backfil
 that needs a genuine Actions run and, for the backfill path, the release keystore secrets — so the
 fix's real proof is the next ordinary push to `main` succeeding end to end, and the backfill path's
 proof is a maintainer running it once against `v0.2.0`.
+`BUILD-045` is `auto` for the same reason again: `closing-keyword.yml`'s job-level `if:` is a text
+fact `test_closing_keyword_workflow.py` pins by reading the file directly, the same technique
+`BUILD-015`'s and `BUILD-066`/`067`'s own `WorkflowWiringTests` use for `release-please.yml`.
+Nothing here can exercise the shared `derekwinters/ai-sdlc` action itself — that logic, and its
+own test coverage, is out of this repository's reach — so the fix's real proof is release-please's
+next release pull request landing without anyone applying `no-closing-keyword` by hand.
