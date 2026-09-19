@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/derekwinters/Interval-trainer-android/compare/v0.2.0...v0.2.1) (2026-09-19)
+
+
+### Fixes
+
+* **ci:** stop release-please failing when no pending release PR exists ([c4e84cb](https://github.com/derekwinters/Interval-trainer-android/commit/c4e84cb65940855accfdbd56c15db8a8c9b1f6fb)), closes [#114](https://github.com/derekwinters/Interval-trainer-android/issues/114)
+
 ## [0.2.0](https://github.com/derekwinters/Interval-trainer-android/compare/v0.1.0...v0.2.0) (2026-09-19)
 
 
