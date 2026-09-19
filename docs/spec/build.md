@@ -139,12 +139,14 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
   [`docs/spec/screens.md`](screens.md) §1) became its first real one. `MainActivity` now wraps its
   `NavHost` in `:designsystem`'s `AppTheme` (`BUILD-017`) and the graph holds `home`, the preset
   editor ([#80](https://github.com/derekwinters/Interval-trainer-android/issues/80),
-  `docs/spec/screens.md` §2, `PresetEditorScreen`), and the running screen
+  `docs/spec/screens.md` §2, `PresetEditorScreen`), the running screen
   ([#81](https://github.com/derekwinters/Interval-trainer-android/issues/81), `docs/spec/screens.md`
-  §3, `RunningScreen`) as real destinations, plus a placeholder destination each for the summary and
-  settings — the two `docs/spec/screens.md` names that are not built yet — each replaced, unchanged
-  route, the moment its own issue lands. This remains the shell every later screen issue adds a real
-  destination to, not a screen itself: three of the six v1 screens still do not exist. Its start
+  §3, `RunningScreen`), and the summary screen
+  ([#82](https://github.com/derekwinters/Interval-trainer-android/issues/82), `docs/spec/screens.md`
+  §4, `SummaryScreen`) as real destinations, plus a placeholder destination for settings — the one
+  `docs/spec/screens.md` name that is not built yet — replaced, unchanged route, the moment its own
+  issue lands. This remains the shell every later screen issue adds a real destination to, not a
+  screen itself: one of the six v1 screens still does not exist. Its start
   destination is no longer always `home`: `#81` reads `WorkoutServiceState` once, synchronously, at
   composition (`docs/spec/screens.md` `SCREEN-043`), so a cold start with a workout already running
   or paused lands on `running` instead. *(manual: a build-configuration/UI-shell fact with no

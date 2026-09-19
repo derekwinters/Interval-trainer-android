@@ -330,7 +330,8 @@ Never mocked up (`DS-061`); this section is deliberately the whole of what is de
 - **SCREEN-050** The summary shows exactly three values: rounds completed against rounds planned
   (`TIMER-061`), total elapsed time (`TIMER-054`), and whether the workout completed or was stopped
   early (`TIMER-011`). There is no fourth value. *(manual: the screen's own rendering; the three
-  values themselves are already `:core`-tested via `TimerStateTest.kt`.)*
+  values themselves are already `:core`-tested via `TimerStateTest.kt`, and again as
+  `summaryContent()`'s own packaged shape below, via `SummaryContentTest.kt`.)*
 - **SCREEN-051** The summary is the terminal screen for every ended workout, reached the same way
   whether the workout completed or was stopped early (`TIMER-051`).
 - **SCREEN-052** One primary action returns to home. There is no other action on this screen in v1.
@@ -338,8 +339,23 @@ Never mocked up (`DS-061`); this section is deliberately the whole of what is de
   screen is shown and are not read from storage, since nothing about a finished workout is written
   down.
 
+`SCREEN-050`'s three values are one `:core` function together: `summaryContent()` on `TimerState`
+(`core/src/main/kotlin/com/derekwinters/intervaltrainer/SummaryContent.kt`), `null` outside
+`TimerState.Ended` — the same "a screen shows only what a `:core` reducer computed for it" split
+`runningScreenContent` (`SCREEN-020`–`022`) and `WorkoutNotificationContent`
+(`docs/spec/service.md` `SVC-025`) already give their own screens, so the summary reads one answer
+rather than reassembling `TimerState.Ended`'s fields ad hoc. Its rounds-completed pair is
+`List<ScheduleEntry>.roundsCompleted()` (`TIMER-060`–`061`) itself, read directly rather than a
+second copy of it — a skipped work interval never counts, however far skip has since moved the
+schedule past it. This is a different question from `SCREEN-022a`'s round *in progress*, which
+counts a skipped round as still under way until the next one begins: that question no longer
+applies once a workout has ended, which is exactly why the running screen and the summary never
+show the same number for it.
+
 *(All of §4 is manual: a summary screen's rendering is not reachable from a JVM runner; the three
-values it renders are `:core`-tested already, via `TIMER-011`, `TIMER-054` and `TIMER-061`.)*
+values it renders are `:core`-tested already, via `TIMER-011`, `TIMER-054` and `TIMER-061`
+(`TimerStateTest.kt`), and again as `summaryContent()`'s own packaged shape
+(`SummaryContentTest.kt`).)*
 
 ## 5. Settings
 
@@ -421,7 +437,7 @@ runner.)*
 | The running screen — content | SCREEN-020–024, SCREEN-022a | `RunningScreenContentTest.kt` (SCREEN-020's ring content, SCREEN-021's total-left value again, SCREEN-022's/SCREEN-022a's round in progress, SCREEN-024's distinct get-ready shape); *(manual)* SCREEN-020–024, SCREEN-022a |
 | The running screen — controls | SCREEN-030–033 | *(manual)* |
 | The running screen — navigation lock | SCREEN-040–046 | *(manual)* |
-| Summary | SCREEN-050–053 | *(manual)* |
+| Summary | SCREEN-050–053 | `SummaryContentTest.kt` (SCREEN-050's three values, again as `summaryContent()`'s packaged shape); *(manual)* SCREEN-050–053 |
 | Settings | SCREEN-060–063 | *(manual)* |
 | First-run | SCREEN-070–073 | *(manual)* |
 | Storage for settings and first-run state | SCREEN-080 | *(manual)* |
@@ -441,7 +457,11 @@ timer values the running screen and the summary read (`SCREEN-021`–`022`, `SCR
 function computing the value, not against the `SCREEN` requirement that a screen renders or wires it
 correctly, which is what stays `manual` here regardless. `SCREEN-021`–`022` and `SCREEN-050` cite
 `TIMER-025`, `TIMER-060`, `TIMER-061`, `TIMER-011` and `TIMER-054`, already covered in
-`TimerStateTest.kt`; `SCREEN-018` (the preset editor's own footer) cites `presetSummary`
+`TimerStateTest.kt`; `SCREEN-050` is additionally its own packaged `:core` shape, `summaryContent()`
+(`SummaryContent.kt`, this pull request's own new `:core`, following exactly the same "pure
+state-derivation function for its own display" split `runningScreenContent` and
+`WorkoutNotificationContent` already established), via `SummaryContentTest.kt`; `SCREEN-018` (the
+preset editor's own footer) cites `presetSummary`
 (`PresetSummary.kt`), the same reducer `SCREEN-003` already reads, via `PresetSummaryTest.kt`;
 `SCREEN-014a` cites `IntervalKind.next()` (`Interval.kt`), via `IntervalKindTest.kt`; `SCREEN-017`
 cites `appendGeneratedRounds` (`ScheduleGenerator.kt`), via `ScheduleGeneratorTest.kt` — all three
