@@ -13,11 +13,32 @@ name: release-please
 # its tag with the default GITHUB_TOKEN, and GitHub does not start workflow runs from events that
 # token itself initiated — and even if it did, that run would execute the workflow file frozen at
 # the tag, not whatever is on main today.
+#
+# A push that leaves nothing for release-please to propose a further release pull request for —
+# the ordinary state right after merging one — is not a failure: `steps.release.outputs.pr` is
+# simply empty. GitHub Actions template-compiles a step's `env:` expressions before checking that
+# step's `if:`, so a `fromJSON()` call over that empty string in an `env:` block fails the whole
+# job regardless of the gate, even though the job's actual release-creation work already
+# succeeded (issue #114, BUILD-066). The JSON `steps.release.outputs.pr` carries is therefore only
+# ever parsed inside a step's `run:` script below, never in a step's `env:`.
+#
+# `backfill_tag` (BUILD-067) lets a maintainer re-run build-and-attach's own steps by hand against
+# a tag whose GitHub Release already exists but is missing its signed APK — the situation issue
+# #114 left the v0.2.0 release in — without release-please needing to have just created that
+# release in this same run.
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      backfill_tag:
+        description: >-
+          Existing release tag (e.g. v0.2.0) whose GitHub Release exists but is missing its
+          signed APK. Leave empty for an ordinary run. When set, only the backfill-release-apk
+          job below runs, against this tag; release-please and build-and-attach are both skipped.
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -25,6 +46,9 @@ permissions:
 
 jobs:
   release-please:
+    # Skipped during a manual backfill dispatch (`backfill_tag` set): that path never needs
+    # release-please to run at all, since it targets a release that already exists.
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.backfill_tag != '') }}
     runs-on: ubuntu-latest
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
@@ -55,10 +79,15 @@ jobs:
       - name: Bump VERSION_CODE on the release pull request
         if: ${{ steps.release.outputs.pr }}
         env:
-          BASE_REF: ${{ fromJSON(steps.release.outputs.pr).baseBranchName }}
-          HEAD_REF: ${{ fromJSON(steps.release.outputs.pr).headBranchName }}
+          # The raw JSON string, never run through fromJSON here — see this workflow's header
+          # comment and BUILD-066. This `env:` is a plain string substitution, evaluated the same
+          # way whether or not `steps.release.outputs.pr` happens to be empty, so it can never
+          # fail template compilation the way parsing JSON in `env:` does.
+          PR_JSON: ${{ steps.release.outputs.pr }}
         run: |
           set -euo pipefail
+          BASE_REF=$(jq -r '.baseBranchName' <<<"${PR_JSON}")
+          HEAD_REF=$(jq -r '.headBranchName' <<<"${PR_JSON}")
           git fetch origin "${BASE_REF}"
           git show "origin/${BASE_REF}:gradle.properties" > /tmp/base-gradle.properties
           python3 .github/scripts/bump_version_code.py /tmp/base-gradle.properties gradle.properties
@@ -133,5 +162,74 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${{ needs.release-please.outputs.tag_name }}" \
+            app/build/outputs/apk/release/*.apk \
+            --repo "${{ github.repository }}"
+
+  # A manual, dispatch-only path (BUILD-067) that backfills a signed APK onto a tag whose GitHub
+  # Release already exists but never got one attached — exactly what issue #114 left v0.2.0 in.
+  # It never runs from a push and carries no `needs:` on release-please, so it never depends on
+  # this same run having just created a release: `if:` requires `workflow_dispatch` with
+  # `backfill_tag` set, which is a context only a maintainer triggering this workflow by hand (or
+  # `workflow_dispatch` via the API) can provide — never anything a `pull_request` could reach,
+  # so this does not weaken SIGN-062's invariant.
+  backfill-release-apk:
+    name: backfill the release APK onto an existing tag (manual)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.backfill_tag != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      # The tag named by the `backfill_tag` input, not a branch or the commit that triggered this
+      # dispatch: it must be the exact commit the existing GitHub Release already points at.
+      - name: Check out the tag to backfill
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ inputs.backfill_tag }}
+
+      # Provisioned the same way build-and-attach provisions them (BUILD-044, BUILD-054).
+      - name: Set up the JDK
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+
+      # Gradle needs a keystore file, not the base64 secret itself (BUILD-050). The decoded file
+      # lives only in the runner's temp directory for this job and is never logged.
+      - name: Decode the release keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          keystore_path="$RUNNER_TEMP/release.keystore"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$keystore_path"
+          echo "ANDROID_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
+
+      - name: Assemble the release APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_ALIAS_PASSWORD: ${{ secrets.ANDROID_KEY_ALIAS_PASSWORD }}
+        run: ./gradlew assembleRelease
+
+      - name: Remove the decoded keystore
+        if: always()
+        run: rm -f "$ANDROID_KEYSTORE_PATH"
+
+      # Refuses to publish anything not signed by the pinned release certificate (SIGN-052),
+      # before any asset reaches the release.
+      - name: Verify the release signature
+        run: python3 .github/scripts/verify_release_signature.py app/build/outputs/apk/release/*.apk
+
+      # Uses the runner's pre-installed gh CLI, the same as build-and-attach (BUILD-055).
+      - name: Attach the release APK to the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ inputs.backfill_tag }}" \
             app/build/outputs/apk/release/*.apk \
             --repo "${{ github.repository }}"
