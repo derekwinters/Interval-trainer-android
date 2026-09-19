@@ -7,7 +7,8 @@
     <!-- SVC-011: the wake lock the service holds for as long as a workout is running or paused. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- The notification's own runtime permission (SVC-020–024). Declaring it here is what makes
-         it requestable at all; the first-run request flow itself is SVC-030–033, issue #84 -->
+         it requestable at all; the first-run request flow itself is SVC-030–033, built in #84 as
+         MainActivity.kt's `first_run` route, the app's one call site for it. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application

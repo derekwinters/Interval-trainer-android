@@ -442,7 +442,16 @@ Never mocked up (`DS-061`); decided on
 scope the map did not originally carry.
 
 - **SCREEN-070** The app shows this screen exactly once: on the first run after install, before any
-  preset is ever started, tracked by a persisted first-run-seen flag.
+  preset is ever started, tracked by a persisted first-run-seen flag. Built (`#84`) as
+  `FirstRunStore`/`DataStoreFirstRunStore`
+  (`app/src/main/java/.../settings/FirstRunStore.kt`), the same interface-plus-one-DataStore-backed-
+  implementation shape `DefaultMuteStore` already gives its own value (`SCREEN-061`) — see
+  `SCREEN-080` below for where the flag actually lives. The flag is persisted the moment the
+  screen's primary action (`SCREEN-072`) is tapped, **before** the system permission prompt is
+  launched, not after it resolves: an app process interrupted in the gap between the tap and the
+  system's own callback must still never show this screen a second time, and the explanation's own
+  job — being shown and acted on — is already done the instant the button is pressed, regardless of
+  how the async permission request that follows it comes back.
 - **SCREEN-071** The screen explains, in plain language and before the system permission prompt
   appears, what the notification is for — status, pause/resume and skip while the screen is off or
   another app is in front — and that the app is about to ask the system for the notification
@@ -450,15 +459,56 @@ scope the map did not originally carry.
   [#31](https://github.com/derekwinters/Interval-trainer-android/issues/31): *"do you want to have
   a notification while a workout is running? we need the notification permission for that. we'll
   ask if you want it."* The exact wording shown is not fixed by this specification, the same way
-  [`docs/spec/cues.md`](cues.md) §9 leaves its numeric values tunable rather than pinned.
+  [`docs/spec/cues.md`](cues.md) §9 leaves its numeric values tunable rather than pinned. Built
+  (`#84`) as `FirstRunScreen`
+  (`app/src/main/java/.../screens/firstrun/FirstRunScreen.kt`), `DS-061`'s stock-Material-3
+  vocabulary, laid out with `FormLayout` (`DS-075`–`076`, no `ScreenHeader`: this screen has no back
+  action).
 - **SCREEN-072** A single primary action (`DS-075`'s one primary action) triggers the system
   `POST_NOTIFICATIONS` permission prompt (`SVC-030`) and, once it resolves either way, proceeds to
-  home. There is no way to skip past the explanation without triggering the prompt.
+  home. There is no way to skip past the explanation without triggering the prompt. Built (`#84`)
+  as `ActivityResultContracts.RequestPermission()` (`androidx.activity:activity-compose`), launched
+  from `MainActivity.kt`'s own `first_run` route the moment `FirstRunScreen`'s `onGetStarted` fires
+  — the explanation screen itself never calls an Android permission API directly, the same
+  "a screen shows only what it is handed, and only ever calls back out" split every other screen in
+  this app already follows (`ADR 0005`).
 - **SCREEN-073** Declining the permission does not block using the app: home is reached exactly the
   same way regardless of the answer (`SVC-031`).
 
-*(All of §6 is manual: an explanatory screen and a permission request are not reachable from a JVM
-runner.)*
+> **Invariant — the explanation is shown and acted on strictly before the system prompt, never
+> alongside or after it.** `SCREEN-071`–`072`'s own wording already implies this order; stated here
+> because "shown once" (`SCREEN-070`) and "asked once, automatically" (`docs/spec/service.md`
+> `SVC-032`) are two different guarantees a technically-plausible implementation could conflate.
+> `FirstRunScreen`'s primary action persists the first-run-seen flag synchronously, in the same
+> callback that then launches the system prompt — not a callback chained onto the prompt's own
+> result — so the flag's "shown once" guarantee never depends on how, or whether, the asynchronous
+> permission request happens to resolve.
+
+> **Invariant — declining or ignoring the notification permission changes nothing about a
+> workout.** `docs/spec/service.md` `SVC-031` states this in full; restated here because it is the
+> one property this whole screen, and the settings row it coexists with (`SCREEN-063`), must never
+> accidentally violate: what a "no" or an ignored prompt costs is the notification's own status,
+> pause/resume and skip, and its presence in the shade or on the lock screen — never workout timing
+> or cue firing, and never whether home, the preset editor or a workout itself is reachable.
+
+**Coexisting with `SCREEN-063`'s settings row (`#83`).** The first-run screen and the settings
+notification-permission row read the same underlying fact —
+`Context.isNotificationPermissionGranted()` (`MainActivity.kt`,
+`NotificationManagerCompat.from(context).areNotificationsEnabled()`) — but never call the same
+mutating API: this screen is the *only* call site in the app for
+`ActivityResultContracts.RequestPermission()` (`SVC-032`'s "requests the permission once... and
+does not prompt again automatically"), while the settings row (`SVC-033`) only ever reads that
+state and, when it is denied, deep-links to the system's own notification-settings page — it never
+re-invokes the in-app request API, which Android would not honour a second time regardless. The two
+surfaces cannot race or double-prompt because only one of them ever asks.
+
+*(All of §6 is manual — an explanatory screen and a permission request are not reachable from a JVM
+runner — except `SCREEN-070`'s own start-destination consequence: whether the app lands on
+`first_run`, `running` or `home` is computed by `startDestination()` in `:app`
+(`com/derekwinters/intervaltrainer/StartDestination.kt`), a pure function of two booleans with no
+`android.*` import, `:app`-tested via `StartDestinationTest.kt` — the same "pure function of state
+and nothing else" split `WorkoutSession.handle` (`docs/spec/service.md` `SVC-014`) and
+`notificationSettingsDeepLink` (`SVC-033`) already use for their own one isolatable piece.)*
 
 ## 7. Storage for settings and first-run state
 
@@ -471,7 +521,15 @@ runner.)*
   noted in the pull request's Deviations section. The default-mute half of this is real now
   (`#83`): `DefaultMuteStore`/`DataStoreDefaultMuteStore`
   (`app/src/main/java/.../settings/DefaultMuteStore.kt`), a single named preferences store
-  (`"settings"`). The first-run-seen flag remains undecided storage, `#84`'s own job.
+  (`"settings"`). The first-run-seen flag is real now too (`#84`):
+  `FirstRunStore`/`DataStoreFirstRunStore` (`app/src/main/java/.../settings/FirstRunStore.kt`),
+  reading and writing the same `"settings"` store — one file, two keys, not two files. The shared
+  `Context.settingsDataStore` property delegate that opens that one file is factored out into its
+  own `SettingsDataStore.kt` in this pull request, rather than left as `DefaultMuteStore.kt`'s own
+  private declaration: DataStore's `preferencesDataStore` delegate itself throws if two
+  independently declared top-level properties both name the same file, so one shared property is
+  what actually keeps this a single store rather than two that happen to agree on a name — see this
+  pull request's Deviations section.
 
 *(Manual: a storage-mechanism choice, visible in the dependency list.)*
 
@@ -488,7 +546,7 @@ runner.)*
 | The running screen — navigation lock | SCREEN-040–046 | *(manual)* |
 | Summary | SCREEN-050–053 | `SummaryContentTest.kt` (SCREEN-050's three values, again as `summaryContent()`'s packaged shape); *(manual)* SCREEN-050–053 |
 | Settings | SCREEN-060–063 | `NotificationSettingsDeepLinkTest.kt` (SCREEN-063's deep-link action/extra); *(manual)* SCREEN-060–063 |
-| First-run | SCREEN-070–073 | *(manual)* |
+| First-run | SCREEN-070–073 | `StartDestinationTest.kt` (SCREEN-070's start-destination consequence); *(manual)* SCREEN-070–073 |
 | Storage for settings and first-run state | SCREEN-080 | *(manual)* |
 
 **49 requirements, 0 `auto` and 49 `manual`.**
@@ -524,7 +582,14 @@ notification, applied here to the screen that motivated the pattern in the first
 `SCREEN-003` and `SCREEN-004` are this page's own first new `:core` test file, added alongside home
 itself ([#79](https://github.com/derekwinters/Interval-trainer-android/issues/79)):
 `PresetSummary.kt` and `PresetSummaryTest.kt`, cited directly in each requirement's own text above
-rather than only here. This page is honest that everything else — whether a screen's structure
-actually matches this page, whether a control does what it says, whether the lock actually holds —
-is a human reading the screen against this specification, the same proportion
-`docs/spec/design-system.md` reports for the same reason.
+rather than only here. `SCREEN-070`'s own consequence — which of `first_run`, `running` or `home`
+`MainActivity`'s `NavHost` starts on — is `startDestination()`
+(`com/derekwinters/intervaltrainer/StartDestination.kt`), this pull request's own new pure function
+in `:app` (not `:core`, since combining a workout's own liveness with the first-run flag is a
+concern of `:app`'s NavHost, not of `:core`'s domain), taking both facts as plain booleans its
+caller already resolved — the same "no `android.*` import" split `WorkoutSession.handle`
+(`SVC-014`) and `notificationSettingsDeepLink` (`SVC-033`) already use — via `StartDestinationTest.kt`.
+This page is honest that everything else — whether a screen's structure actually matches this page,
+whether a control does what it says, whether the lock actually holds — is a human reading the
+screen against this specification, the same proportion `docs/spec/design-system.md` reports for
+the same reason.

@@ -47,6 +47,14 @@ because this page is where their observable consequences are specified:
 > state (`SVC-026`), which is what makes `SVC-023` true by construction rather than by two
 > implementations agreeing to match.
 
+> **Invariant — declining or ignoring the notification permission never changes workout timing or
+> cue firing.** `SVC-031` states this in full; restated here as an invariant because it is the one
+> property `SVC-030`–`033`'s entire permission flow — the first-run prompt, and the settings row
+> that is the only way back in — must never accidentally violate: no branch in `:core`'s reducer,
+> in `WorkoutSession`, or in the timer's own scheduling ever reads notification-permission state.
+> What a declined or unanswered permission actually costs is scoped to `SVC-020`–`026` alone — the
+> notification's own content, its two actions, and its presence in the shade or on the lock screen.
+
 ---
 
 ## 1. What produces a workout's schedule, named accurately
@@ -144,6 +152,17 @@ zero.)*
   trace of the running workout in the shade or on the lock screen while the app is not in front.
 - **SVC-032** The app requests the permission **once**, at first run, and does not prompt again
   automatically at any later point in v1 — not at workout start, and not from settings.
+
+  Built (`#84`): `MainActivity.kt`'s `first_run` route is the one call site in the app for
+  `ActivityResultContracts.RequestPermission()` — no other route, and no code path reachable from
+  workout start or from settings, ever calls it. Whether the explanation has already been shown is
+  `FirstRunStore`/`DataStoreFirstRunStore`
+  (`app/src/main/java/.../settings/FirstRunStore.kt`), read once, synchronously, before the first
+  frame (the same `runBlocking`-in-`onCreate` convention `WorkoutService.onCreate`'s own read of
+  `DefaultMuteStore` already establishes), and written the moment the explanation's primary action
+  is tapped — before the permission request is launched, not after it resolves, so the "once"
+  `SVC-032` requires holds even if the app process is interrupted while the system's own prompt is
+  outstanding (`docs/spec/screens.md` `SCREEN-070`'s own paragraph on this ordering).
 - **SVC-033** v1 does provide a way back in, and it lives in settings
   ([`docs/spec/screens.md`](screens.md) `SCREEN-063`), not as a second automatic prompt.
   Android gives an app no way to re-trigger its own system permission dialog once the user has

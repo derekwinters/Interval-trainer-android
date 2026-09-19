@@ -5,7 +5,6 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -33,9 +32,10 @@ interface DefaultMuteStore {
 
 /**
  * The real [DefaultMuteStore], backed by Jetpack DataStore Preferences (`SCREEN-080`):
- * `context.settingsDataStore`, a single named preferences store this app's only other
- * persistence, `:database`'s Room store (`SCHEMA-001`), never touches — so the two never contend
- * for the same file and neither needs the other's migration story.
+ * [settingsDataStore] (`SettingsDataStore.kt`), a single named preferences store this app's only
+ * other persistence, `:database`'s Room store (`SCHEMA-001`), never touches — so the two never
+ * contend for the same file and neither needs the other's migration story. [DataStoreFirstRunStore]
+ * (`FirstRunStore.kt`) reads and writes the same store, one file with two keys, not two files.
  *
  * This class is Android-only (`Context`, `Context.preferencesDataStore`) and is not unit-tested on
  * the JVM here, per ADR 0005: it has no branching logic of its own to isolate — it is a single
@@ -58,7 +58,3 @@ class DataStoreDefaultMuteStore(context: Context) : DefaultMuteStore {
         val KEY_DEFAULT_MUTED = booleanPreferencesKey("default_muted")
     }
 }
-
-private const val SETTINGS_DATASTORE_NAME = "settings"
-
-private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = SETTINGS_DATASTORE_NAME)
