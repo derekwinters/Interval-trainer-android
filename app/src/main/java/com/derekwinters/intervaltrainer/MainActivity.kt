@@ -1,10 +1,13 @@
 package com.derekwinters.intervaltrainer
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -30,6 +33,7 @@ import com.derekwinters.intervaltrainer.database.IntervalTrainerDatabase
 import com.derekwinters.intervaltrainer.database.RoomPresetStore
 import com.derekwinters.intervaltrainer.designsystem.AppTheme
 import com.derekwinters.intervaltrainer.screens.editor.PresetEditorScreen
+import com.derekwinters.intervaltrainer.screens.firstrun.FirstRunScreen
 import com.derekwinters.intervaltrainer.screens.home.HomeScreen
 import com.derekwinters.intervaltrainer.screens.running.RunningScreen
 import com.derekwinters.intervaltrainer.screens.settings.SettingsScreen
@@ -38,13 +42,17 @@ import com.derekwinters.intervaltrainer.service.ElapsedRealtimeClock
 import com.derekwinters.intervaltrainer.service.WorkoutService
 import com.derekwinters.intervaltrainer.service.WorkoutServiceState
 import com.derekwinters.intervaltrainer.settings.DataStoreDefaultMuteStore
+import com.derekwinters.intervaltrainer.settings.DataStoreFirstRunStore
 import com.derekwinters.intervaltrainer.settings.DefaultMuteStore
+import com.derekwinters.intervaltrainer.settings.FirstRunStore
 import com.derekwinters.intervaltrainer.settings.notificationSettingsDeepLink
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
 /**
@@ -53,9 +61,9 @@ import kotlinx.coroutines.withContext
  * Hosts a single Compose Navigation graph, wrapped in `:designsystem`'s [AppTheme] (`ADR 0007`):
  * `home` (`docs/spec/screens.md` §1, the home screen, `#79`), `editor/{presetId}` (§2, the
  * preset editor, `#80`), `running` (§3, the running screen, `#81`), `summary` (§4, the summary
- * screen, `#82`), and `settings` (§5, `#83`) — every v1 screen but the first-run explanation (§6,
- * not yet built). `docs/spec/build.md` `BUILD-018` documents the staging convention that let each
- * of these land ahead of the screen behind its own route, back when one still would have.
+ * screen, `#82`), `settings` (§5, `#83`), and `first_run` (§6, `#84`) — every v1 screen.
+ * `docs/spec/build.md` `BUILD-018` documents the staging convention that let each of these land
+ * ahead of the screen behind its own route, back when one still would have.
  *
  * `SCREEN-043`: opening the app while a workout exists lands on the running screen, on every
  * entry. [onNewIntent] carries the one entry point a start destination computed once at
@@ -87,11 +95,20 @@ class MainActivity : ComponentActivity() {
         // database (`AppDatabase.open`) independently rather than sharing one instance across
         // process components that do not share a lifecycle.
         val defaultMuteStore = DataStoreDefaultMuteStore(applicationContext)
+        val firstRunStore = DataStoreFirstRunStore(applicationContext)
+        // SCREEN-043, SCREEN-070: the NavHost's start destination needs this value synchronously,
+        // before the first frame — the same blocking-in-onCreate convention AppDatabase.open
+        // above and WorkoutService.onCreate's own read of DefaultMuteStore already use, rather
+        // than a collectAsState default that would show the first-run screen again, every launch,
+        // until DataStore's own async read completed (FirstRunStore.kt's own doc comment).
+        val firstRunSeenAtLaunch = runBlocking { firstRunStore.firstRunSeen.first() }
         setContent {
             AppTheme {
                 IntervalTrainerNavHost(
                     presetStore = presetStore,
                     defaultMuteStore = defaultMuteStore,
+                    firstRunStore = firstRunStore,
+                    firstRunSeenAtLaunch = firstRunSeenAtLaunch,
                     openRunningRequests = openRunningRequests,
                 )
             }
@@ -118,6 +135,7 @@ private const val ROUTE_EDITOR = "editor/{$ARG_PRESET_ID}"
 private const val ROUTE_RUNNING = "running"
 private const val ROUTE_SUMMARY = "summary"
 private const val ROUTE_SETTINGS = "settings"
+private const val ROUTE_FIRST_RUN = "first_run"
 
 /** `SCREEN-008`'s "new, empty preset": not a real preset id, so `PresetEditorScreen`'s own
  * `NavHost` entry below can tell the two cases — a new preset versus one already saved — apart. */
@@ -126,15 +144,17 @@ private const val NEW_PRESET_ID = "new"
 private fun editorRoute(presetId: String) = "editor/$presetId"
 
 /**
- * The navigation graph (`BUILD-018`): `home` is the start destination, unless a workout is
- * already running or paused (`SCREEN-043`, see below); `editor/{presetId}` (`#80`), `running`
- * (`#81`), `summary` (`#82`) and `settings` (`#83`) are all real screens now — every v1 screen but
- * the first-run explanation (§6), which has no route registered yet.
+ * The navigation graph (`BUILD-018`): `home` is the start destination, unless a workout is already
+ * running or paused, or first run has never been seen (`SCREEN-043`, `SCREEN-070`, see below);
+ * `editor/{presetId}` (`#80`), `running` (`#81`), `summary` (`#82`), `settings` (`#83`) and
+ * `first_run` (`#84`) are all real screens now — every v1 screen.
  *
- * `SCREEN-043`: [startDestination] is read once, synchronously, from [WorkoutServiceState] — the
- * running screen's own observation channel — rather than from [MainActivity]'s intent, so a cold
- * start lands on `running` regardless of what opened the app: the launcher, the notification, or
- * any other entry point holding a live or paused workout. [openRunningRequests] is the one case
+ * `SCREEN-043`, `SCREEN-070`: [startRoute] is read once, synchronously, from [WorkoutServiceState]
+ * — the running screen's own observation channel — and [firstRunSeenAtLaunch], rather than from
+ * [MainActivity]'s intent, so a cold start lands on `running` or `first_run` regardless of what
+ * opened the app: the launcher, the notification, or any other entry point. The two facts are
+ * combined by [startDestination] (`StartDestination.kt`), a pure function tested on its own in
+ * `StartDestinationTest.kt`, not reassembled ad hoc here. [openRunningRequests] is the one case
  * that reaches an *already-composed* `NavHost` instead — [MainActivity.onNewIntent]'s own doc
  * comment says why a start destination alone cannot cover it.
  */
@@ -142,21 +162,57 @@ private fun editorRoute(presetId: String) = "editor/$presetId"
 private fun IntervalTrainerNavHost(
     presetStore: PresetStore,
     defaultMuteStore: DefaultMuteStore,
+    firstRunStore: FirstRunStore,
+    firstRunSeenAtLaunch: Boolean,
     openRunningRequests: SharedFlow<Unit>,
 ) {
     val navController = rememberNavController()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val clock = remember { ElapsedRealtimeClock() }
-    val startDestination = remember {
-        if (WorkoutServiceState.current.value.timer.isActiveWorkout()) ROUTE_RUNNING else ROUTE_HOME
+    val startRoute = remember {
+        when (
+            startDestination(
+                firstRunSeen = firstRunSeenAtLaunch,
+                workoutActive = WorkoutServiceState.current.value.timer.isActiveWorkout(),
+            )
+        ) {
+            StartDestination.FIRST_RUN -> ROUTE_FIRST_RUN
+            StartDestination.RUNNING -> ROUTE_RUNNING
+            StartDestination.HOME -> ROUTE_HOME
+        }
     }
     LaunchedEffect(Unit) {
         openRunningRequests.collect {
             navController.navigate(ROUTE_RUNNING) { launchSingleTop = true }
         }
     }
-    NavHost(navController = navController, startDestination = startDestination) {
+    NavHost(navController = navController, startDestination = startRoute) {
+        composable(ROUTE_FIRST_RUN) {
+            // SCREEN-072, SVC-030: the permission prompt is requested at most once, ever
+            // (SVC-032), from this one call site — no other screen in the app requests it.
+            val permissionLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestPermission(),
+            ) {
+                // SCREEN-072, SCREEN-073: whatever the answer, proceed to home — this screen's
+                // only job is done either way, and a declined answer never gates reaching it.
+                navController.navigate(ROUTE_HOME) {
+                    popUpTo(ROUTE_FIRST_RUN) { inclusive = true }
+                }
+            }
+            FirstRunScreen(
+                onGetStarted = {
+                    // SCREEN-070, SCREEN-080: the flag is persisted the moment this action is
+                    // taken — before the system prompt is launched, not after it resolves — so
+                    // an app process interrupted between this tap and the system's own callback
+                    // still never shows this screen a second time (docs/spec/screens.md §6's own
+                    // ordering invariant).
+                    coroutineScope.launch { firstRunStore.setFirstRunSeen(true) }
+                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                },
+                modifier = Modifier,
+            )
+        }
         composable(ROUTE_HOME) {
             var presets by remember { mutableStateOf<List<Preset>>(emptyList()) }
             // SCHEMA-004: presetStore.presets() is a blocking Room call (PresetDao.kt), read off
