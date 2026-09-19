@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.2](https://github.com/derekwinters/Interval-trainer-android/compare/v0.2.1...v0.2.2) (2026-09-19)
+
+
+### Fixes
+
+* **ci:** capture the raw apksigner output when signature parsing fails ([915f8ee](https://github.com/derekwinters/Interval-trainer-android/commit/915f8ee7fef874f28b7f429f2531dc1dbba0661f)), closes [#120](https://github.com/derekwinters/Interval-trainer-android/issues/120)
+* **ci:** skip closing-keyword for release-please's own pull requests ([1772270](https://github.com/derekwinters/Interval-trainer-android/commit/1772270945ea107f5221e00660bff66aff4fca6b)), closes [#117](https://github.com/derekwinters/Interval-trainer-android/issues/117)
+
 ## [0.2.1](https://github.com/derekwinters/Interval-trainer-android/compare/v0.2.0...v0.2.1) (2026-09-19)
 
 
