@@ -124,25 +124,32 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
   the home screen, the first screen that needed its vocabulary) and gains its exposed vocabulary —
   `AppTheme`, `ScreenHeader`, `ListLayout`, the button and icon-button set — through that dependency,
   never through a `material3` import of its own; and, separately from `material3`,
-  `androidx.compose.material:material-icons-core`, which `:designsystem`'s own `build.gradle.kts`
-  already notes ships icon data rather than a Material *component*, so `:app` depending on it
-  directly does not touch this requirement's own module boundary. *(manual: a build-configuration
-  fact; the workflow's build is the check.)*
+  `androidx.compose.material:material-icons-extended`, which `:designsystem`'s own
+  `build.gradle.kts` already notes ships icon data rather than a Material *component*, so `:app`
+  depending on it directly does not touch this requirement's own module boundary. `:app` needs the
+  `-extended` artifact rather than `:designsystem`'s `-core` one because the running screen's
+  transport controls ([#81](https://github.com/derekwinters/Interval-trainer-android/issues/81))
+  use `Pause`, `SkipNext`, `Stop`, `VolumeOff` and `VolumeUp`, none of which are in `-core`'s small
+  curated icon set; `-extended` is a strict superset of `-core`; a module declares one or the
+  other, never both. *(manual: a build-configuration fact; the workflow's build is the check.)*
 - **BUILD-018** `:app` had exactly one activity, `MainActivity`, a `ComponentActivity` whose
   `onCreate` called `setContent` with a single Compose `NavHost` holding exactly one destination — a
   placeholder with no behaviour of its own and no `MaterialTheme` wrapper — until the home screen
   ([#79](https://github.com/derekwinters/Interval-trainer-android/issues/79),
   [`docs/spec/screens.md`](screens.md) §1) became its first real one. `MainActivity` now wraps its
-  `NavHost` in `:designsystem`'s `AppTheme` (`BUILD-017`) and the graph holds `home` alongside the
-  preset editor ([#80](https://github.com/derekwinters/Interval-trainer-android/issues/80),
-  `docs/spec/screens.md` §2, `PresetEditorScreen`) and a placeholder destination each for the
-  running screen and settings — the two `docs/spec/screens.md` §1 names that are not built yet
-  (`SCREEN-006`, `SCREEN-008`,
-  [#81](https://github.com/derekwinters/Interval-trainer-android/issues/81)) — each replaced,
-  unchanged route, the moment its own issue lands. This remains the shell every later screen issue
-  adds a real destination to, not a screen itself: four of the six v1 screens still do not exist.
-  *(manual: a build-configuration/UI-shell fact with no computable behaviour to unit test;
-  `assembleDebug` producing an APK that launches it is the check, the same as `BUILD-012`.)*
+  `NavHost` in `:designsystem`'s `AppTheme` (`BUILD-017`) and the graph holds `home`, the preset
+  editor ([#80](https://github.com/derekwinters/Interval-trainer-android/issues/80),
+  `docs/spec/screens.md` §2, `PresetEditorScreen`), and the running screen
+  ([#81](https://github.com/derekwinters/Interval-trainer-android/issues/81), `docs/spec/screens.md`
+  §3, `RunningScreen`) as real destinations, plus a placeholder destination each for the summary and
+  settings — the two `docs/spec/screens.md` names that are not built yet — each replaced, unchanged
+  route, the moment its own issue lands. This remains the shell every later screen issue adds a real
+  destination to, not a screen itself: three of the six v1 screens still do not exist. Its start
+  destination is no longer always `home`: `#81` reads `WorkoutServiceState` once, synchronously, at
+  composition (`docs/spec/screens.md` `SCREEN-043`), so a cold start with a workout already running
+  or paused lands on `running` instead. *(manual: a build-configuration/UI-shell fact with no
+  computable behaviour to unit test; `assembleDebug` producing an APK that launches it is the check,
+  the same as `BUILD-012`.)*
 - **BUILD-019** `:designsystem` applies the Android library plugin, the Kotlin Android plugin and
   the Compose compiler plugin (`BUILD-016`) — an Android library rather than pure Kotlin like
   `:core` (`BUILD-014`), since it hosts Compose UI, per

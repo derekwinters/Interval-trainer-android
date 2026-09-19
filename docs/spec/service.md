@@ -192,6 +192,15 @@ zero.)*
   ([`docs/spec/screens.md`](screens.md) §3). It does **not** fire on a back press while a workout is
   paused, since the rest of the app is reachable then and back behaves normally.
 
+Confirming (`SVC-051`) sends `WorkoutCommand.Stop` the same way every other command reaches the
+service (`SVC-013`, `SVC-014`) — the running screen's own `onConfirm` callback has no separate "stop
+the service" step of its own. `WorkoutService.onStateChanged` already tears down the foreground
+state and releases the wake lock the moment the command's own `TimerState.Ended` result comes back,
+exactly as it does for the workout completing on its own. The running screen does not navigate to
+the summary itself on confirm, either: it observes `TimerState.Ended` the same way regardless of
+cause, so a confirmed stop and a natural finish reach the summary through the one code path
+(`docs/spec/screens.md` §3.3's own note on `SCREEN-044`), not two call sites that have to agree.
+
 *(All of §7 is manual: a dialog's presence and a service's shutdown are not reachable from a JVM
 runner.)*
 
