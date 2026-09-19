@@ -20,16 +20,28 @@ import androidx.compose.ui.Modifier
  * [headline] and [supportingText] are plain strings, the same typed-slot reasoning
  * `ScreenLayouts.kt`'s own doc comment gives for [ListLayout]'s and [FormLayout]'s slots: a caller
  * fills exactly the shape this component names, not an arbitrary composable.
+ *
+ * `DS-016`: [trailingContent] is the one addition to that rule, added for the settings screen's
+ * own default-mute row (`docs/spec/screens.md` `SCREEN-061`) — a row that needs to show a boolean
+ * value's own control at its trailing edge, not only describe it in text. It stays one composable
+ * slot rather than a typed `trailing: Boolean?` pair of parameters, the same reasoning
+ * [ListLayout]'s own `bottomSlot` already gives for a slot two call sites would otherwise fill two
+ * different ways: this component has exactly one real caller for it, settings' default-mute row,
+ * which composes `Toggle` (`DS-014`) into it — never a second, redundant switch of `StockListItem`'s
+ * own — but nothing here hard-codes that composition, since a component's own file is not the
+ * place a specific screen's call site belongs.
  */
 @Composable
 fun StockListItem(
     headline: String,
     modifier: Modifier = Modifier,
     supportingText: String? = null,
+    trailingContent: (@Composable () -> Unit)? = null,
 ) {
     Material3ListItem(
         headlineContent = { Text(text = headline) },
         supportingContent = supportingText?.let { { Text(text = it) } },
+        trailingContent = trailingContent,
         modifier = modifier,
     )
 }

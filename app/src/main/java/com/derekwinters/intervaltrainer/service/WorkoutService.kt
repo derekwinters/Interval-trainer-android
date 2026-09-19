@@ -25,6 +25,8 @@ import com.derekwinters.intervaltrainer.database.IntervalTrainerDatabase
 import com.derekwinters.intervaltrainer.database.RoomPresetStore
 import com.derekwinters.intervaltrainer.formatSeconds
 import com.derekwinters.intervaltrainer.notificationContent
+import com.derekwinters.intervaltrainer.settings.DataStoreDefaultMuteStore
+import com.derekwinters.intervaltrainer.settings.DefaultMuteStore
 import com.derekwinters.intervaltrainer.toggleEvent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,8 +37,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 /**
  * The foreground service that owns the running workout (`docs/spec/service.md` `SVC-010`–`024`,
@@ -49,6 +53,12 @@ import kotlinx.coroutines.launch
  * this class [WorkoutSessionTest] does not already cover, and it is a single `when` over an
  * `Intent`'s action string with no branching worth a JVM test of its own.
  *
+ * `docs/spec/screens.md` `SCREEN-061`: it also collects [DefaultMuteStore]'s own `Flow` into
+ * [currentDefaultMuted], the value it passes to every [WorkoutSession.handle] call —
+ * `reduceAndFireCues`'s own already-tested `TimerEvent.Start`-only branch (`CUE-051`–`053`,
+ * `CueSelectionTest.kt`) is what keeps this from ever reaching into a workout already running,
+ * not a second check written here.
+ *
  * *(This class itself is manual: a foreground service, a wake lock and the Android notification
  * APIs are not reachable from a JVM runner, per ADR 0005 — see this pull request's body for
  * exactly what is and is not verified.)*
@@ -58,11 +68,21 @@ class WorkoutService : Service() {
     private lateinit var database: IntervalTrainerDatabase
     private lateinit var presetStore: PresetStore
     private lateinit var session: WorkoutSession
+    private lateinit var defaultMuteStore: DefaultMuteStore
 
     private val clock = ElapsedRealtimeClock()
     private var wakeLock: PowerManager.WakeLock? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var tickJob: Job? = null
+
+    // SCREEN-061: the settings screen's own persisted default-mute value, cached from
+    // defaultMuteStore's Flow rather than read fresh (suspending) on every command, so applying a
+    // command never blocks on DataStore's own I/O. Read by applyCommand below for every command,
+    // not only Start — :core's own reduceAndFireCues (CueSelection.kt) already ignores this
+    // argument for every event but TimerEvent.Start (CUE-051–053), so passing it unconditionally
+    // does not risk it reaching into an already-running workout.
+    @Volatile
+    private var currentDefaultMuted: Boolean = false
 
     override fun onCreate() {
         super.onCreate()
@@ -73,6 +93,16 @@ class WorkoutService : Service() {
         database = AppDatabase.open(applicationContext)
         presetStore = RoomPresetStore(database.presetDao())
         session = WorkoutSession(presetStore, clock, NoOpCueSink)
+        defaultMuteStore = DataStoreDefaultMuteStore(applicationContext)
+        // SCREEN-061: read once, synchronously, matching AppDatabase.open's own blocking-on-
+        // onCreate convention just above — onStartCommand can process a Start command (the
+        // common case: this service is usually created by starting a fresh workout) immediately
+        // after this method returns, before an async collector's first emission would necessarily
+        // have landed, and a stale `false` default would be silently wrong rather than loudly so.
+        currentDefaultMuted = runBlocking { defaultMuteStore.defaultMuted.first() }
+        serviceScope.launch {
+            defaultMuteStore.defaultMuted.collect { currentDefaultMuted = it }
+        }
         createNotificationChannel()
     }
 
@@ -100,7 +130,7 @@ class WorkoutService : Service() {
 
     private fun applyCommand(command: WorkoutCommand) {
         val wasEnded = session.state.timer is TimerState.Ended
-        val next = session.handle(command)
+        val next = session.handle(command, defaultMuted = currentDefaultMuted)
         WorkoutServiceState.publish(next)
         onStateChanged(next, wasEnded)
     }

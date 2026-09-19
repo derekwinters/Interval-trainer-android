@@ -41,8 +41,8 @@ internal const val CountStepperTag = "designsystem-gallery-count-stepper"
  * `docs/spec/design-system.md` ([#73](https://github.com/derekwinters/Interval-trainer-android/issues/73))
  * composed together, so `DesignSystemConsistencyTest.kt`'s semantics-tree assertions (`DS-091`) have
  * one screen to walk rather than one per component: every button variant, all three icon-button
- * roles, `CountStepper`, the duration picker, `ScreenHeader`, `Toggle`, `StockListItem`, and
- * `AlertDialog`.
+ * roles, `CountStepper`, the duration picker, `ScreenHeader`, `Toggle`, `StockListItem` (plain and
+ * with a trailing `Toggle`, `DS-016`), and `AlertDialog`.
  *
  * This is not one of the six v1 screens (`DS-060`–`062`), and composing it proves nothing about
  * `DS-093` — there is no real screen yet for that assertion to compare against (`#33`). It still
@@ -58,6 +58,7 @@ fun ComponentGallery(modifier: Modifier = Modifier) {
     var minutes by remember { mutableIntStateOf(1) }
     var seconds by remember { mutableIntStateOf(30) }
     var toggleChecked by remember { mutableStateOf(false) }
+    var trailingToggleChecked by remember { mutableStateOf(false) }
     var showDialog by remember { mutableStateOf(true) }
 
     ListLayout(
@@ -123,6 +124,19 @@ fun ComponentGallery(modifier: Modifier = Modifier) {
         }
         gallerySection(title = "Stock list item (DS-015)") {
             StockListItem(headline = "Rounds completed", supportingText = "3 of 5")
+        }
+        gallerySection(title = "Stock list item with a trailing toggle (DS-016)") {
+            StockListItem(
+                headline = "Default mute",
+                trailingContent = {
+                    Toggle(
+                        checked = trailingToggleChecked,
+                        onCheckedChange = { trailingToggleChecked = it },
+                        contentDescription = "Default mute",
+                        modifier = Modifier.testTag(TouchTargetTag),
+                    )
+                },
+            )
         }
         gallerySection(title = "Dialog (DS-010–012)") {
             SecondaryButton(

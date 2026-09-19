@@ -366,26 +366,72 @@ needs a default to come from, and nothing else has been decided to belong here
 ([#30](https://github.com/derekwinters/Interval-trainer-android/issues/30), 2026-09-11:
 "a settings screen with one item is a perfectly good v1").
 
-- **SCREEN-060** Settings is reached from home's trailing header action (§1, `SCREEN-001`).
+- **SCREEN-060** Settings is reached from home's trailing header action (§1, `SCREEN-001`), and its
+  own back action returns to home (`SettingsScreen.kt`'s `onBack`, wired in `MainActivity.kt` to
+  `navController.popBackStack()` — settings has no other entry point in v1, so popping the back
+  stack always lands there, the same convention the preset editor's own `onBack` already uses).
 - **SCREEN-061** Settings contains exactly one item in v1: a switch for the **default mute
   state** — the value a new workout's effective mute starts from (`CUE-051`). Toggling it changes
-  the default; it never affects a workout already running (`CUE-052`).
+  the default; it never affects a workout already running (`CUE-052`). The switch is
+  `:designsystem`'s own `Toggle` (`design-system.md` `DS-014`), not
+  `androidx.compose.material3.Switch` — see this page's own new invariant below, and this pull
+  request's correction of `DS-014`'s previously-wrong claim about which component this row uses.
 - **SCREEN-062** Settings is reachable while a workout is paused, as part of the rest of the app
-  being reachable then (`SCREEN-041`); it is not reachable while a workout is running.
+  being reachable then (`SCREEN-041`); it is not reachable while a workout is running. This needs
+  no code of its own: `SCREEN-040`'s own lock (§3.3) already makes `running` the only reachable
+  screen while a workout runs, and settings is reached the same way every other screen is,
+  through home's own navigation.
 - **SCREEN-063** Settings contains a second item: a `ListItem` row for the notification
-  permission. Its secondary text shows the permission's current state (granted or denied). A
-  `Switch` is not used here — unlike `SCREEN-061`'s default-mute value, this row does not hold a
-  value the app owns and can flip on tap; it reflects a system permission the app cannot itself
-  grant. When the state is denied, tapping the row opens the app's page in the system settings app
-  (`SVC-033`); when it is granted, the row is present but inert, since there is nothing left to do
-  from here.
+  permission. Its secondary text shows the permission's current state (granted or denied),
+  re-read on every resume of this screen — `Context.isNotificationPermissionGranted()`
+  (`MainActivity.kt`), the same `NotificationManagerCompat.from(context).areNotificationsEnabled()`
+  check `WorkoutService.postNotification` (`docs/spec/service.md` `SVC-020`–`024`) already uses to
+  decide whether to post at all, read again here rather than through a second mechanism for the
+  same fact. Re-reading on resume, rather than once at composition, is what keeps the row current
+  after the user returns from the system settings page `SVC-033`'s deep link opens — the one place
+  this value can actually change while the app is not in front. A `Switch` (or `Toggle`) is not
+  used here — unlike `SCREEN-061`'s default-mute value, this row does not hold a value the app owns
+  and can flip on tap; it reflects a system permission the app cannot itself grant. When the state
+  is denied, tapping the row opens the app's page in the system settings app (`SVC-033`); when it
+  is granted, the row is present but inert (no `clickable` modifier at all), since there is nothing
+  left to do from here.
+
+> **Invariant — the default-mute value is read only at the moment a new workout starts; a running
+> workout never observes it changing.** `WorkoutSession.handle`'s own `defaultMuted` parameter
+> (`docs/spec/service.md` `SVC-014`) is consulted by `:core`'s `reduceAndFireCues` only for a fresh
+> `TimerEvent.Start` (`CueSelection.kt`, `CUE-051`–`053`, already covered by `CueSelectionTest.kt`
+> before this screen existed to read or write it); every other event keeps whatever effective mute
+> the running workout already has. `WorkoutService` (`docs/spec/service.md` §3) passes its own
+> cached `DefaultMuteStore` value into every `WorkoutSession.handle` call, not only `Start`'s, and
+> this is what makes that safe rather than merely convenient: the branch inside `:core` that would
+> ignore it for every other event already existed and was already tested, so this screen's own new
+> code (`SettingsScreen.kt`, `DefaultMuteStore.kt`) never needed to re-decide, or re-test, when the
+> value takes effect — only to supply a real one.
+
+**Storage and wiring, concretely.** `docs/spec/screens.md` `SCREEN-080` names Jetpack DataStore
+Preferences; `DefaultMuteStore` (`app/src/main/java/.../settings/DefaultMuteStore.kt`) is that
+seam, and `DataStoreDefaultMuteStore` its one real implementation — a single named preferences
+store (`"settings"`) `:database`'s own Room store never touches. `WorkoutService` reads it once,
+synchronously, in `onCreate` (matching `AppDatabase.open`'s own blocking-on-`onCreate` convention),
+then keeps a cached value current via a background collector, so applying a command never blocks
+on storage I/O. `MainActivity.kt` reads the same store's `Flow` directly for the switch's own live
+value, and writes to it from `onDefaultMutedChange`.
 
 **Not specified.** Nothing beyond the default-mute switch and the notification-permission row is
 decided for v1 settings. Candidates raised while deciding cues — a default vibration toggle, the
 countdown length — are explicitly not built, and this specification does not anticipate them with
 unused structure.
 
-*(All of §5 is manual: two rows and one navigation fact.)*
+*(All of §5 is manual: two rows and one navigation fact, not reachable from a JVM runner without a
+simulated Android runtime, the same as every other screen on this page. One small piece of new
+logic this issue's own settings screen needed — the deep link `SCREEN-063` opens (`SVC-033`) —
+factors out cleanly as a plain function with no `android.*` on its classpath
+(`notificationSettingsDeepLink`, `app/src/main/java/.../settings/NotificationSettingsDeepLink.kt`)
+and is `:core`-adjacent tested via `NotificationSettingsDeepLinkTest.kt`; everything else here —
+the switch, the row, the resume-triggered re-check, and `DefaultMuteStore`'s own DataStore-backed
+implementation — has no branching logic of its own to isolate from the Android APIs it calls, and
+stays manual for the same reason `WorkoutService` and every other screen's own Android-only code
+already does.)*
 
 ## 6. First-run
 
@@ -422,7 +468,10 @@ runner.)*
   to need a schema; DataStore's typed key-value store is the ordinary shape for exactly this, and
   keeping it out of Room means it needs no exported schema and no contract-test policy of its own.
   This is this page's own small engineering call, not a decision recovered from an issue thread —
-  noted in the pull request's Deviations section.
+  noted in the pull request's Deviations section. The default-mute half of this is real now
+  (`#83`): `DefaultMuteStore`/`DataStoreDefaultMuteStore`
+  (`app/src/main/java/.../settings/DefaultMuteStore.kt`), a single named preferences store
+  (`"settings"`). The first-run-seen flag remains undecided storage, `#84`'s own job.
 
 *(Manual: a storage-mechanism choice, visible in the dependency list.)*
 
@@ -438,7 +487,7 @@ runner.)*
 | The running screen — controls | SCREEN-030–033 | *(manual)* |
 | The running screen — navigation lock | SCREEN-040–046 | *(manual)* |
 | Summary | SCREEN-050–053 | `SummaryContentTest.kt` (SCREEN-050's three values, again as `summaryContent()`'s packaged shape); *(manual)* SCREEN-050–053 |
-| Settings | SCREEN-060–063 | *(manual)* |
+| Settings | SCREEN-060–063 | `NotificationSettingsDeepLinkTest.kt` (SCREEN-063's deep-link action/extra); *(manual)* SCREEN-060–063 |
 | First-run | SCREEN-070–073 | *(manual)* |
 | Storage for settings and first-run state | SCREEN-080 | *(manual)* |
 

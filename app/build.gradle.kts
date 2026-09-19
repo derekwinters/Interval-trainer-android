@@ -146,6 +146,11 @@ dependencies {
     implementation("androidx.room:room-runtime:2.7.0")
     implementation("androidx.sqlite:sqlite-bundled:2.5.0")
 
+    // The settings screen's default-mute value (docs/spec/screens.md SCREEN-080, DefaultMuteStore.kt):
+    // Jetpack DataStore Preferences, kept separate from :database's own Room store — this one
+    // value has no query, relation or migration story complex enough to need a schema.
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+
     // The unit tests run on the JVM alone (BUILD-021), so nothing here needs a device.
     testImplementation("junit:junit:4.13.2")
 }
