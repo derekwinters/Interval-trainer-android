@@ -108,6 +108,21 @@ are separate work, and nothing in this repository builds a release artifact toda
   CI run that hits the drift is the only chance to capture the text that explains it. Issue #120 is
   exactly that run: the real apksigner text that broke parsing was never in the log, and could not
   be recovered afterwards.
+- **SIGN-037** The parser also reads a signer block labelled by which signature scheme verified it —
+  `V2 Signer: certificate DN: ...` — rather than by a numeric index, alongside the `Signer #<N>`
+  shape SIGN-031 already covers; neither shape's support comes at the other's expense. build-tools
+  35.0.0 emits this shape instead of `Signer #1` for the same `--print-certs --verbose` command line
+  when exactly one signature scheme verifies, so a numeric index is not always present to read: one
+  is assigned per distinct scheme label instead, in the order first seen. This is what issue #120's
+  diagnostic logging (SIGN-036) captured verbatim when it fired for real on v0.2.2's CI run,
+  confirming that every one of v0.2.0, v0.2.1 and v0.2.2 shipped with no APK attached because the
+  parser of the day recognised only the numeric shape and matched none of this real, validly-signed
+  APK's output. `.github/scripts/tests/fixtures/apksigner-verify-print-certs-verbose-scheme-signer.txt`
+  is that captured text (SIGN-035), and its certificate is verified to be this repository's actual
+  release certificate — unlike the other two fixtures, which use a throwaway key. Whether two
+  *simultaneously* verifying schemes for one physical signer should collapse into a single entry is
+  not addressed here: no captured output has shown that case, so it is left unhandled rather than
+  guessed at.
 
 ## 5. The verdict
 
@@ -155,7 +170,7 @@ are separate work, and nothing in this repository builds a release artifact toda
 | The decision | SIGN-001–004 | *(manual)* |
 | The pinned fingerprint | SIGN-010–013 | `.github/scripts/tests/test_verify_release_signature.py` |
 | Reading a fingerprint | SIGN-020–022 | `.github/scripts/tests/test_verify_release_signature.py` |
-| Reading apksigner | SIGN-030–036 | `.github/scripts/tests/test_verify_release_signature.py` |
+| Reading apksigner | SIGN-030–037 | `.github/scripts/tests/test_verify_release_signature.py` |
 | The verdict | SIGN-040–045 | `.github/scripts/tests/test_verify_release_signature.py` |
 | Running the gate | SIGN-050–055 | `.github/scripts/tests/test_verify_release_signature.py` |
 | Continuous integration | SIGN-060–062 | `.github/scripts/tests/test_verify_release_signature.py` |
