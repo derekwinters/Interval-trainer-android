@@ -72,6 +72,7 @@ FIXTURES = os.path.join(HERE, "fixtures")
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 PIN_FILE = os.path.join(REPO_ROOT, ".github", "release-cert-sha256.txt")
 WORKFLOWS = os.path.join(REPO_ROOT, ".github", "workflows")
+RELEASE_PLEASE_WORKFLOW = os.path.join(WORKFLOWS, "release-please.yml")
 
 
 def _captured(name):
@@ -644,6 +645,118 @@ class PullRequestWorkflowTests(unittest.TestCase):
                         secret, text,
                         "{0} is pull_request-triggered and must never reach the "
                         "release keystore".format(os.path.basename(path)))
+
+
+class IndependentVerificationScriptTests(unittest.TestCase):
+    """SIGN-063 / `docs/spec/build.md` BUILD-068.
+
+    Issue #125: `backfill-release-apk`'s only checkout is `ref: ${{ inputs.backfill_tag }}`, which
+    brings back that historical tag's own copy of `verify_release_signature.py` — never a later
+    fix to the gate itself. Confirmed for real: after #122/#123's parser fix landed on `main`, all
+    three pending `backfill_tag` dispatches (v0.2.0, v0.2.1, v0.2.2) still failed identically,
+    because each tag predates that fix and re-ran its own broken copy. `build-and-attach` checks
+    out its release tag the same way and has the same structural gap.
+
+    Both jobs must check out `main` a second time, to a path distinct from the job's primary
+    (tag/commit) checkout, and invoke `verify_release_signature.py` from that second checkout —
+    never the copy the primary checkout's own tree carries — regardless of which tag or commit the
+    APK itself is built from.
+    """
+
+    JOBS = ("build-and-attach", "backfill-release-apk")
+
+    def _job_body(self, text, job_name):
+        lines = text.splitlines()
+        start = None
+        indent = None
+        pattern = "{0}:".format(job_name)
+        for index, line in enumerate(lines):
+            if line.strip() == pattern:
+                start = index
+                indent = len(line) - len(line.lstrip())
+                break
+        self.assertIsNotNone(start, "no '{0}' job in release-please.yml".format(job_name))
+        body = [lines[start]]
+        for line in lines[start + 1:]:
+            if line.strip() and (len(line) - len(line.lstrip())) <= indent:
+                break
+            body.append(line)
+        return "\n".join(body)
+
+    def _step_body(self, text, step_name):
+        """The YAML lines of one named step, up to the next step at its indent."""
+        lines = text.splitlines()
+        start = None
+        indent = None
+        for index, line in enumerate(lines):
+            if line.strip() == "- name: {0}".format(step_name):
+                start = index
+                indent = len(line) - len(line.lstrip())
+                break
+        self.assertIsNotNone(start, "no '{0}' step".format(step_name))
+        body = [lines[start]]
+        for line in lines[start + 1:]:
+            if line.strip().startswith("- ") and (len(line) - len(line.lstrip())) == indent:
+                break
+            body.append(line)
+        return "\n".join(body)
+
+    def _verification_checkout_path(self, job_body, job_name):
+        """The `path:` of the job's second checkout, the one pinned to `ref: main`."""
+        match = re.search(
+            r"- name:[^\n]*\n\s*uses:\s*actions/checkout@[0-9a-f]{40}[^\n]*\n"
+            r"\s*with:\s*\n\s*ref:\s*main\s*\n\s*path:\s*(\S+)",
+            job_body)
+        self.assertIsNotNone(
+            match,
+            "{0} has no second `actions/checkout` step pinned to `ref: main` with its own "
+            "`path:`".format(job_name))
+        return match.group(1).strip()
+
+    def test_each_job_checks_out_main_to_a_distinct_path(self):
+        text = _read(RELEASE_PLEASE_WORKFLOW)
+        for job_name in self.JOBS:
+            with self.subTest(job=job_name):
+                job_body = self._job_body(text, job_name)
+                verification_path = self._verification_checkout_path(job_body, job_name)
+                self.assertNotIn(
+                    verification_path, ("", ".", "./"),
+                    "the `main` checkout must land outside the job's primary checkout, which "
+                    "uses the default path")
+
+    def test_each_job_verifies_against_the_second_checkouts_copy_of_the_script(self):
+        text = _read(RELEASE_PLEASE_WORKFLOW)
+        for job_name in self.JOBS:
+            with self.subTest(job=job_name):
+                job_body = self._job_body(text, job_name)
+                verification_path = self._verification_checkout_path(job_body, job_name)
+                verify_step = self._step_body(job_body, "Verify the release signature")
+                expected_script = "{0}/.github/scripts/verify_release_signature.py".format(
+                    verification_path)
+                self.assertIn(
+                    expected_script, verify_step,
+                    "the verification step must invoke the script from the `main` checkout, "
+                    "not the copy the release tag/commit checkout itself carries")
+                # And never the bare, tag-relative copy of the script.
+                self.assertNotRegex(
+                    verify_step, r"(?<!\S)\.github/scripts/verify_release_signature\.py",
+                    "the verification step must not fall back to the primary checkout's own "
+                    "copy of the script")
+
+    def test_the_main_checkout_does_not_depend_on_the_tag_being_built(self):
+        """The second checkout is pinned to the literal `main`, never `inputs.backfill_tag` or
+        `needs.release-please.outputs.tag_name` — the whole point is that it is independent of
+        whichever tag/commit the APK is built from."""
+        text = _read(RELEASE_PLEASE_WORKFLOW)
+        for job_name in self.JOBS:
+            with self.subTest(job=job_name):
+                job_body = self._job_body(text, job_name)
+                match = re.search(
+                    r"- name:[^\n]*\n\s*uses:\s*actions/checkout@[0-9a-f]{40}[^\n]*\n"
+                    r"\s*with:\s*\n\s*ref:\s*(\S+)\s*\n\s*path:",
+                    job_body)
+                self.assertIsNotNone(match)
+                self.assertEqual(match.group(1).strip(), "main")
 
 
 if __name__ == "__main__":

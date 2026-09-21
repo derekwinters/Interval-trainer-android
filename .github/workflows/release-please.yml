@@ -26,6 +26,15 @@ name: release-please
 # a tag whose GitHub Release already exists but is missing its signed APK — the situation issue
 # #114 left the v0.2.0 release in — without release-please needing to have just created that
 # release in this same run.
+#
+# Both build-and-attach and backfill-release-apk check out `main` a second time, to its own path,
+# and run the release-signature gate from that checkout rather than from the tag/commit being
+# built (BUILD-068, docs/spec/signing.md SIGN-063). The APK is still built from the exact tagged
+# commit, but a tag's own tree otherwise carries whatever copy of verify_release_signature.py
+# existed when it was cut — never a later fix to the gate itself. Issue #125: after #122/#123's
+# real apksigner-parsing fix landed on main, re-running the backfill_tag dispatch against v0.2.0,
+# v0.2.1 and v0.2.2 still failed identically, because each of those tags predates the fix and each
+# backfill run re-executed its own tag's already-superseded copy of the script.
 
 on:
   push:
@@ -113,6 +122,17 @@ jobs:
         with:
           ref: ${{ needs.release-please.outputs.tag_name }}
 
+      # The verification gate itself is sourced from `main`, never from the tag above, into a
+      # distinct path so it never overlaps the checkout that builds the APK (BUILD-068,
+      # docs/spec/signing.md SIGN-063). A tag's own tree carries whatever copy of
+      # verify_release_signature.py existed when it was cut; a fix to the gate must still catch a
+      # bad signature in an APK built from a tag that predates the fix.
+      - name: Check out main for the release-signature gate
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: main
+          path: verification-gate
+
       # Provisioned the same way pr.yml provisions them (BUILD-044).
       - name: Set up the JDK
         uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
@@ -150,9 +170,12 @@ jobs:
         run: rm -f "$ANDROID_KEYSTORE_PATH"
 
       # Refuses to publish anything not signed by the pinned release certificate (SIGN-052),
-      # before any asset reaches the release.
+      # before any asset reaches the release. Runs the copy of the script checked out from `main`
+      # above, not the one the release-tag checkout itself carries (BUILD-068, SIGN-063).
       - name: Verify the release signature
-        run: python3 .github/scripts/verify_release_signature.py app/build/outputs/apk/release/*.apk
+        run: >-
+          python3 verification-gate/.github/scripts/verify_release_signature.py
+          app/build/outputs/apk/release/*.apk
 
       # Uses the runner's pre-installed gh CLI rather than a dedicated upload action: nothing a
       # new action would do here that `gh release upload` does not, and every action added is
@@ -183,6 +206,18 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ inputs.backfill_tag }}
+
+      # The verification gate itself is sourced from `main`, never from the backfilled tag above,
+      # into a distinct path (BUILD-068, docs/spec/signing.md SIGN-063). Issue #125: every one of
+      # the v0.2.0/v0.2.1/v0.2.2 backfill dispatches re-ran its own tag's already-superseded copy
+      # of verify_release_signature.py and failed identically even after #122/#123's real parser
+      # fix landed on `main` — the entire reason this job exists is to recover a release older
+      # than the current gate, so the gate it runs must always be the current one.
+      - name: Check out main for the release-signature gate
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: main
+          path: verification-gate
 
       # Provisioned the same way build-and-attach provisions them (BUILD-044, BUILD-054).
       - name: Set up the JDK
@@ -221,9 +256,12 @@ jobs:
         run: rm -f "$ANDROID_KEYSTORE_PATH"
 
       # Refuses to publish anything not signed by the pinned release certificate (SIGN-052),
-      # before any asset reaches the release.
+      # before any asset reaches the release. Runs the copy of the script checked out from `main`
+      # above, not the one the backfilled tag's own checkout carries (BUILD-068, SIGN-063).
       - name: Verify the release signature
-        run: python3 .github/scripts/verify_release_signature.py app/build/outputs/apk/release/*.apk
+        run: >-
+          python3 verification-gate/.github/scripts/verify_release_signature.py
+          app/build/outputs/apk/release/*.apk
 
       # Uses the runner's pre-installed gh CLI, the same as build-and-attach (BUILD-055).
       - name: Attach the release APK to the GitHub Release
