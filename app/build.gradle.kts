@@ -67,7 +67,40 @@ android {
                 storePassword = releaseKeystorePassword
                 keyAlias = releaseKeyAlias
                 keyPassword = releaseKeyAliasPassword
+
+                // Every signature scheme, stated rather than defaulted (SIGN-071, #127).
+                //
+                // With none of these set, AGP picks: it disables v1 whenever minSdk is 24 or
+                // above, because v2 covers every device from Android 7.0 and a JAR signature is
+                // then dead weight. That reasoning is correct, and the v0.2.x artifacts it
+                // produced are provably sound — the published v0.2.2 APK's v2 signature was
+                // verified twice independently while diagnosing #127, and its packaging checked
+                // byte by byte. Android 16 requires neither v1 nor v3, so **this does not fix
+                // that issue's install failure and is not claimed to**.
+                //
+                // The reason to write them out is narrower. This app is sideloaded, so it passes
+                // through installers AGP knows nothing about, and — more to the point — a scheme
+                // set that nothing states is one a toolchain upgrade can change without anything
+                // reporting it. Stated here, verify_release_package.py can check the artifact
+                // against an intention instead of against whatever AGP chose this week.
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
             }
+        }
+    }
+
+    // Native libraries are stored uncompressed and page-aligned inside the APK, and mapped from
+    // it rather than unpacked at install (BUILD-071). This is already AGP's default for
+    // targetSdk 30 and above — the published v0.2.2 APK has `extractNativeLibs="false"` and all
+    // twelve of its `.so` entries sit on 16 KB boundaries — so this states the requirement
+    // rather than changing behaviour. It is written down because the requirement is the
+    // device's, not AGP's: a 16 KB-page device cannot map a library that is compressed or
+    // misaligned, and refuses to install the package. A default that happens to be right is
+    // still a default, and nothing would have failed if it changed.
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
         }
     }
 

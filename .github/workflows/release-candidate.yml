@@ -14,10 +14,32 @@ name: release-candidate
 # secrets in a job whose timing is driven by PR activity. `workflows:` below matches by the other
 # workflow's `name:` field ("pr"), not its filename (pr.yml).
 
+# `workflow_dispatch` (BUILD-074) exists because, before it, a signed APK could be obtained in
+# exactly two ways: merge a release pull request and tag, or wait for release-please to open one.
+# Neither is available to someone holding a candidate fix who needs to put it on a device — the
+# situation issue #127 created, and made permanent when the reporter turned out to have no PC and
+# therefore no `adb`. It is safe to let the keystore in here for the same reason release-please.yml's
+# own `backfill_tag` dispatch is: `workflow_dispatch` can only be started by someone who already
+# has write access to this repository. SIGN-062 forbids the keystore to `pull_request`-triggered
+# workflows, where the trigger is whatever an outside contributor pushed; a dispatch is not that,
+# and nothing here becomes reachable from a fork.
+#
+# GitHub reads this trigger only from the default branch's copy of the file, so the first dispatch
+# is necessarily after the change adding it has merged — never on the branch that adds it.
+
 on:
   workflow_run:
     workflows: ["pr"]
     types: [completed]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: >-
+          Branch, tag or commit to build a signed release APK from. Leave empty to build the ref
+          this workflow was dispatched against. The APK is uploaded as the `app-release-candidate`
+          workflow artifact; it is never attached to a release.
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -28,18 +50,25 @@ jobs:
     runs-on: ubuntu-latest
     # Only a successful `pr` run on release-please's own branch produces a candidate; every other
     # branch's `pr` completion (including a fork's, since workflow_run still fires for those)
-    # leaves this skipped outright rather than merely non-required (BUILD-060).
+    # leaves this skipped outright rather than merely non-required (BUILD-060). A manual dispatch
+    # is admitted unconditionally — it carries no `workflow_run` context to test, and whoever
+    # started it already has write access (BUILD-074).
     if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      startsWith(github.event.workflow_run.head_branch, 'release-please--')
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'release-please--'))
     steps:
       # The exact commit `pr` just validated, not a ref name that can move between that run
       # finishing and this one starting: workflow_run does not check out the triggering commit the
-      # way pull_request does (BUILD-061).
-      - name: Check out the validated commit
+      # way pull_request does (BUILD-061). On a dispatch there is no such commit, so the requested
+      # ref is used; leaving both empty falls through to checkout's own default, the dispatched
+      # ref, which is the behaviour the input's description promises.
+      - name: Check out the commit to build
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: >-
+            ${{ github.event_name == 'workflow_dispatch' && inputs.ref
+            || github.event.workflow_run.head_sha }}
 
       # Provisioned the same way pr.yml and release-please.yml's build-and-attach job provision
       # them (BUILD-044, BUILD-063).
@@ -104,12 +133,29 @@ jobs:
         if: always()
         run: rm -f "$ANDROID_KEYSTORE_PATH"
 
+      # A candidate exists to be installed on a real device, so it is the artifact where a
+      # malformed package matters most — catching it here is the whole point of building one
+      # before the tag (BUILD-073, issue #127). Run from the checkout being built rather than
+      # from a second `main` checkout, unlike the two jobs in release-please.yml: BUILD-068 has
+      # those read the gate from `main` because a *tag* is frozen at the moment it was cut and
+      # carries a gate that may since have been fixed. A candidate is not frozen — it is a branch
+      # head someone chose, and the gate on it is under test along with everything else. It also
+      # writes each APK's SHA-256 beside it, which the upload below then carries (BUILD-075).
+      - name: Verify the release package is installable
+        run: >-
+          python3 .github/scripts/verify_release_package.py
+          app/build/outputs/apk/release/*.apk
+
       # Named interval-trainer-<versionName>-release.apk by BUILD-051; uploaded as a workflow
       # artifact rather than attached anywhere, since this workflow publishes nothing else
-      # (BUILD-062, BUILD-064).
+      # (BUILD-062, BUILD-064). The `.sha256` sidecar goes with it (BUILD-075) so that whoever
+      # installs the candidate can check the file they received is the file that was built —
+      # which, for a reporter with no PC, is the one diagnostic still within reach.
       - name: Upload the release candidate
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: app-release-candidate
-          path: app/build/outputs/apk/release/*.apk
+          path: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/apk/release/*.apk.sha256
           if-no-files-found: error

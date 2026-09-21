@@ -503,14 +503,24 @@ class WorkflowWiring(unittest.TestCase):
         self.assertIn("ref:", dispatch)
 
     def test_both_release_jobs_upload_the_digest_beside_the_apk(self):
-        """BUILD-075: the digest is only useful where the download happens."""
-        text = self._read("release-please.yml")
-        uploads = [
-            block for block in text.split("gh release upload")[1:]
-        ]
-        self.assertEqual(len(uploads), 2, "expected two `gh release upload` invocations")
-        for block in uploads:
-            command = block.split("--repo", 1)[0]
+        """BUILD-075: the digest is only useful where the download happens.
+
+        Commands, not mentions: the rationale comment above each upload step
+        names `gh release upload` too, and counting those would let a step that
+        publishes only the APK pass on the strength of a comment.
+        """
+        lines = self._read("release-please.yml").splitlines()
+        uploads = []
+        for index, line in enumerate(lines):
+            if not line.strip().startswith("gh release upload"):
+                continue
+            command = [line]
+            while command[-1].rstrip().endswith("\\"):
+                index += 1
+                command.append(lines[index])
+            uploads.append("\n".join(command))
+        self.assertEqual(len(uploads), 2, "expected two `gh release upload` commands")
+        for command in uploads:
             self.assertIn(".apk.sha256", command,
                           "the release asset must be published with its digest")
 
