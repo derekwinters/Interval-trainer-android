@@ -177,15 +177,31 @@ jobs:
           python3 verification-gate/.github/scripts/verify_release_signature.py
           app/build/outputs/apk/release/*.apk
 
+      # The second half of "may this be published": the signature gate above proves the artifact
+      # carries the right identity, this one proves the package itself is well-formed (BUILD-073,
+      # issue #127). Sourced from the same `main` checkout and for the same reason (BUILD-068,
+      # SIGN-063) — a tag's own tree carries whatever copy of a gate existed when it was cut,
+      # never a later fix to the gate itself, which is precisely how #125 went. Needs no Android
+      # SDK: it reads the zip directory, the APK Signing Block and the ELF program headers
+      # straight out of the file, and writes each APK's SHA-256 beside it (BUILD-075).
+      - name: Verify the release package is installable
+        run: >-
+          python3 verification-gate/.github/scripts/verify_release_package.py
+          app/build/outputs/apk/release/*.apk
+
       # Uses the runner's pre-installed gh CLI rather than a dedicated upload action: nothing a
       # new action would do here that `gh release upload` does not, and every action added is
-      # another uses: reference to pin for no gain (BUILD-055).
-      - name: Attach the release APK to the GitHub Release
+      # another uses: reference to pin for no gain (BUILD-055). The APK and its digest go up
+      # together (BUILD-075): a release page showing a SHA-256 next to the file is what lets
+      # someone check a download arrived intact without a PC, which is one of the few live
+      # explanations left for #127.
+      - name: Attach the release APK and its digest to the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${{ needs.release-please.outputs.tag_name }}" \
             app/build/outputs/apk/release/*.apk \
+            app/build/outputs/apk/release/*.apk.sha256 \
             --repo "${{ github.repository }}"
 
   # A manual, dispatch-only path (BUILD-067) that backfills a signed APK onto a tag whose GitHub
@@ -263,11 +279,25 @@ jobs:
           python3 verification-gate/.github/scripts/verify_release_signature.py
           app/build/outputs/apk/release/*.apk
 
-      # Uses the runner's pre-installed gh CLI, the same as build-and-attach (BUILD-055).
-      - name: Attach the release APK to the GitHub Release
+      # The second half of "may this be published": the signature gate above proves the artifact
+      # carries the right identity, this one proves the package itself is well-formed (BUILD-073,
+      # issue #127). Sourced from the same `main` checkout and for the same reason (BUILD-068,
+      # SIGN-063) — a tag's own tree carries whatever copy of a gate existed when it was cut,
+      # never a later fix to the gate itself, which is precisely how #125 went. Needs no Android
+      # SDK: it reads the zip directory, the APK Signing Block and the ELF program headers
+      # straight out of the file, and writes each APK's SHA-256 beside it (BUILD-075).
+      - name: Verify the release package is installable
+        run: >-
+          python3 verification-gate/.github/scripts/verify_release_package.py
+          app/build/outputs/apk/release/*.apk
+
+      # Uses the runner's pre-installed gh CLI, the same as build-and-attach (BUILD-055), and
+      # uploads the digest beside the APK for the same reason (BUILD-075).
+      - name: Attach the release APK and its digest to the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${{ inputs.backfill_tag }}" \
             app/build/outputs/apk/release/*.apk \
+            app/build/outputs/apk/release/*.apk.sha256 \
             --repo "${{ github.repository }}"
