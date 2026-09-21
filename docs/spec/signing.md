@@ -9,7 +9,7 @@ recovery for a sideloaded app, so the signing key is a one-way decision, taken o
 revisited.
 
 This page specifies the decision, the pinned certificate, the signature schemes a release
-artifact carries, and the gates that enforce both. It does **not** specify how a release APK is
+artifact carries, and the gates that enforce them. It does **not** specify how a release APK is
 produced: Gradle's `signingConfigs`, the release workflows and the uploaded artifact are
 specified in [`build.md`](build.md) (`BUILD-050`–`075`).
 

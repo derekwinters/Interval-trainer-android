@@ -434,8 +434,9 @@ not installed as the package seems invalid" — Android's single message for eve
 failure, which names no cause.
 
 **The published artifact turned out to be sound, and this section does not claim to cure that
-install failure.** The published `interval-trainer-0.2.2-release.apk` was taken apart twice, by
-two readers independently, with nothing but the standard library. `resources.arsc` is `STORED`
+install failure.** The published `interval-trainer-0.2.2-release.apk` was taken apart three
+times — twice by hand, by two readers independently, and once by the gate this section
+specifies — with nothing but the standard library. `resources.arsc` is `STORED`
 and 4-byte aligned. All twelve `lib/**/*.so` entries are `STORED` and land on 16384-byte
 boundaries. Every `PT_LOAD` segment in all twelve carries `p_align` 16384, 32- and 64-bit alike.
 The manifest is valid, declaring `minSdk` 26 and `targetSdk` 35 — both clear Android 16's floors.
