@@ -243,7 +243,12 @@ def assess(entries, present, required_schemes, native_lib_alignments):
     **The scheme reason says less than the others on purpose.** A missing
     scheme is a departure from what the build states, not a package a device
     refuses, and wording it like the alignment failures beside it would state
-    something untrue (`docs/spec/build.md` section 10, second invariant).
+    something untrue (`docs/spec/build.md` section 10, second invariant). The
+    verdict's `blocking` field carries that distinction, set as each reason is
+    collected: true when something here would actually stop an install — every
+    packaging fault, and an artifact carrying no signature at all, which is
+    refused outright and is not a mere shortfall. A caller that re-derived this
+    by reading the messages back would be recovering two facts from one string.
     """
     reasons = []
     notes = []
