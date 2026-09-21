@@ -424,6 +424,103 @@ the workflow YAML.
 
 ---
 
+## 10. An artifact a device will install
+
+`BUILD-050`–`068` get a signed APK built and attached. Nothing in them asks whether the thing
+attached can be *installed*. Issue
+[#127](https://github.com/derekwinters/Interval-trainer-android/issues/127) is that gap: a
+`v0.2.x` release APK passed the release-signature gate and a device still refused it, with "App
+not installed as the package seems invalid" — Android's single message for every parse-or-verify
+failure, which names no cause.
+
+**The published artifact turned out to be sound, and this section does not claim to cure that
+install failure.** The published `interval-trainer-0.2.2-release.apk` was taken apart twice, by
+two readers independently, with nothing but the standard library. `resources.arsc` is `STORED`
+and 4-byte aligned. All twelve `lib/**/*.so` entries are `STORED` and land on 16384-byte
+boundaries. Every `PT_LOAD` segment in all twelve carries `p_align` 16384, 32- and 64-bit alike.
+The manifest is valid, declaring `minSdk` 26 and `targetSdk` 35 — both clear Android 16's floors.
+The APK Signing Block is well-formed and its v2 signature verifies against the pinned certificate,
+digest recomputed from scratch. The file's SHA-256 matches what the release page advertises. Every
+packaging hypothesis in #127 is therefore **disproved** for that artifact, and the reporter's
+install failure remains unexplained. That matters because three plausible fixes — forcing
+zipalign, forcing 16 KB alignment, replacing the native libraries — would each have changed
+something already correct and reported success.
+
+What the investigation did find is a requirement nobody had written down: the properties a device
+checks at install are checkable *here*, cheaply, with no Android SDK, and were not being checked
+at all. This section writes them down and gates them. The gate is worth having whether or not a
+packaging defect ever existed — it is the machinery that cleared the artifact above — and it is
+this issue's own second acceptance criterion. It also makes the one remaining difference between
+the artifact and a maximally-installable one, its signature-scheme set
+([`signing.md`](signing.md) `SIGN-070`–`071`), a stated intention rather than a default.
+
+> **Invariant — this gate reads the artifact, never a tool's report of it.** The zip central
+> directory, the APK Signing Block and the ELF program headers are published binary formats; a
+> gate that reads them needs no Android SDK, so its tests run anywhere and a maintainer can point
+> it at a downloaded release asset on a laptop. That property is not a cost saving. It is what
+> made #127's diagnosis possible at all, and adding a check that needs `aapt2`, `apksigner` or
+> `zipalign` would spend it.
+
+> **Invariant — a failure message says only what is true of the failure it reports.** A gate that
+> overstates a consequence teaches its reader to discount it. A missing signature scheme is not
+> an uninstallable package: an APK carrying v2 alone is accepted by every Android from 7.0, which
+> is below this app's own `minSdk` floor. That check reports a departure from stated intent, and
+> must say so rather than borrowing the installer's language from the checks next to it.
+
+- **BUILD-070** A release APK's `resources.arsc` is stored uncompressed and begins on a 4-byte
+  boundary. An app targeting SDK 30 or later whose `resources.arsc` is compressed is refused at
+  install with `INSTALL_PARSE_FAILED_RESOURCES_ARSC_COMPRESSED`; the table is memory-mapped, so
+  an unaligned one cannot be read. *(auto:
+  `.github/scripts/tests/test_verify_release_package.py`.)*
+- **BUILD-071** A release APK's native libraries are stored uncompressed and each begins on a
+  16 KB boundary. `:app`'s `packaging { jniLibs { useLegacyPackaging = false } }` states the
+  first, which is also AGP's default at this `targetSdk`; the alignment is AGP's to produce. A
+  device with 16 KB memory pages maps these libraries straight out of the APK and cannot do so if
+  either fails, so the package is refused. The gate asserts this from the build's stated intent
+  rather than from the manifest: reading `extractNativeLibs` would need `aapt2` and therefore the
+  Android SDK, which this section's first invariant declines to spend. *(auto: as `BUILD-070`.)*
+- **BUILD-072** Every 64-bit native library in a release APK has ELF `PT_LOAD` segments whose
+  `p_align` is at least 16384. This is a distinct property from `BUILD-071` and fails differently:
+  zip misalignment refuses the install, while ELF misalignment installs cleanly and crashes at the
+  first call into the library — the worse of the two, because it ships. 32-bit ABIs are exempt (a
+  16 KB-page device runs 64-bit code) and must not be failed for it. These libraries arrive as
+  AndroidX prebuilts, so the remedy for a failure here is a dependency version, not a build
+  setting; the gate reports it rather than fixing it. *(auto: as `BUILD-070`.)*
+- **BUILD-073** `.github/scripts/verify_release_package.py` checks `BUILD-070`–`072` and
+  [`signing.md`](signing.md) `SIGN-070` against each built APK, and runs in every job that
+  produces one: `release-please.yml`'s `build-and-attach` and `backfill-release-apk` — in both
+  cases sourced from the second `main` checkout, exactly as `BUILD-068` requires of the signature
+  gate and for the same reason — and `release-candidate.yml`, sourced from the checkout being
+  built, since a candidate is a branch head someone chose rather than a frozen tag, and the gate
+  on it is under test along with the rest of it. It uses the standard library only and needs no
+  Android SDK, which is what lets its tests run in `pr.yml` alongside the signature gate's.
+  *(auto: as `BUILD-070`, whose `WorkflowWiring` tests read all three workflow files directly.)*
+- **BUILD-074** `release-candidate.yml` declares a `workflow_dispatch` input, `ref`, building a
+  signed release APK from any branch, tag or commit and uploading it as the `app-release-candidate`
+  artifact. Before it, a signed APK could only be had by merging a release pull request or waiting
+  for release-please to open one, so a candidate fix and the only means of trying it sat on
+  opposite sides of a release — the position #127 created, made permanent by the reporter having
+  no `adb` and no PC. The keystore is safe here on the same grounds as `release-please.yml`'s
+  `backfill_tag` dispatch: only someone with write access can start a `workflow_dispatch`, which
+  is not the untrusted trigger [`signing.md`](signing.md) `SIGN-062` forbids the keystore to.
+  *(manual: a maintainer dispatching it once and receiving an installable APK. GitHub reads
+  `workflow_dispatch` only from the default branch's copy of a workflow file — "this event will
+  only trigger a workflow run if the workflow file exists on the default branch" — so the first
+  dispatch is necessarily **after** this merges, never on the branch that adds it.)*
+- **BUILD-075** Each release APK is published with its SHA-256 beside it.
+  `verify_release_package.py` writes `<apk>.sha256` next to every APK it reads, in `sha256sum`
+  format, whether the verdict passes or fails; `build-and-attach` and `backfill-release-apk`
+  upload that file to the same GitHub Release as the APK, and `release-candidate.yml` includes it
+  in the `app-release-candidate` artifact. This costs one line and removes the candidate cause
+  that is not a build defect at all: a download that arrived truncated or rewritten produces
+  exactly #127's symptom, and a digest published beside the file is what lets someone with no PC
+  settle it on the device. *(auto: `.github/scripts/tests/test_verify_release_package.py` covers
+  both halves — that the gate writes the sidecar, and that all three workflows publish it, read
+  from the workflow files directly. That a *published* release actually carries the file is
+  observable only after the next tag is cut, and is not claimed here.)*
+
+---
+
 ## Traceability
 
 | Section | IDs | Tests |
@@ -437,8 +534,9 @@ the workflow YAML.
 | Release candidate | BUILD-059–065 | *(manual)* |
 | Recovering a missed release APK | BUILD-066–067 | `.github/scripts/tests/test_bump_version_code.py` |
 | Keeping the verification gate current | BUILD-068 | `.github/scripts/tests/test_verify_release_signature.py` |
+| An artifact a device will install | BUILD-070–075 | `BUILD-070`–`073`, `BUILD-075`: `.github/scripts/tests/test_verify_release_package.py`; `BUILD-074` *(manual)* |
 
-**47 requirements, 9 `auto` and 38 `manual`.**
+**53 requirements, 14 `auto` and 39 `manual`.**
 
 The proportion is what a build skeleton looks like: almost every requirement here is a fact about
 configuration, verified by the build running at all, and the only executable behaviour outside
@@ -491,3 +589,17 @@ behaviour. As with `BUILD-066`–`067`, no test here can run the backfill job fo
 GitHub's actual checkout behaviour, so the fix's real proof is a maintainer re-running
 `backfill_tag: v0.2.0`, `v0.2.1` and `v0.2.2` after this merges and confirming each now attaches a
 signed APK.
+An artifact a device will install (`BUILD-070`–`075`) is the first section here that is mostly
+`auto` for the ordinary reason rather than the YAML-reading one: `BUILD-070`–`072` are properties
+of a file, so a test constructs a file with each property broken and asserts the gate says so.
+`BUILD-073` and `BUILD-075` are half of each kind — the gate's own behaviour is exercised
+directly, and where it runs and what it publishes are pinned by reading the three workflow files,
+the same technique `BUILD-066`–`068` use. `BUILD-074` stays `manual` because GitHub reads the
+`workflow_dispatch` trigger only from the default branch's copy of a workflow, so the dispatch
+cannot be exercised until after the change adding it has merged. Two things in this section are
+deliberately *not* claimed by any test: that a published release carries the `.sha256` sidecar,
+which is observable only once the next tag is cut, and that any of this makes the APK install on
+the device in
+[#127](https://github.com/derekwinters/Interval-trainer-android/issues/127) — that needs a
+physical device, and the published artifact this section examined was already sound on every axis
+the gate checks.

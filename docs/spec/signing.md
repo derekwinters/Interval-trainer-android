@@ -8,9 +8,20 @@ first — which destroys the app's data. There is no Play Store here to re-sign 
 recovery for a sideloaded app, so the signing key is a one-way decision, taken once and never
 revisited.
 
-This page specifies the decision, the pinned certificate, and the gate that enforces it. It does
-**not** specify how a release APK is produced: Gradle's `signingConfigs` and the release workflow
-are separate work, and nothing in this repository builds a release artifact today.
+This page specifies the decision, the pinned certificate, the signature schemes a release
+artifact carries, and the gates that enforce both. It does **not** specify how a release APK is
+produced: Gradle's `signingConfigs`, the release workflows and the uploaded artifact are
+specified in [`build.md`](build.md) (`BUILD-050`–`075`).
+
+*This paragraph previously ended "and nothing in this repository builds a release artifact
+today". That was true when it was written and stopped being true when `BUILD-050`–`068` landed
+and `v0.2.0`–`v0.2.2` shipped signed APKs. It is corrected here, alongside `SIGN-004` which said
+the same thing, because issue
+[#127](https://github.com/derekwinters/Interval-trainer-android/issues/127) turned on reading
+this page for what it says about a release artifact, and a reader following either sentence would
+have concluded no release artifact existed — the opposite of the situation under investigation.
+Correcting the requirement while leaving the preamble contradicting it would be worse than
+leaving both.*
 
 ---
 
@@ -62,8 +73,9 @@ are separate work, and nothing in this repository builds a release artifact toda
   `.github/release-cert-sha256.txt`, with comments saying that it is public and why it is not a
   secret.
 - **SIGN-004** Wiring a release build — Gradle's `signingConfigs`, a release workflow, an
-  uploaded artifact — is outside this page. Until that exists, no release artifact is produced at
-  all, so there is no unsigned release in the meantime. *(manual: a scope statement.)*
+  uploaded artifact — is specified in [`build.md`](build.md) (`BUILD-050`–`075`), not here. This
+  page owns two things about a release artifact: which certificate signed it (`SIGN-010`–`055`),
+  and which signature schemes it carries (`SIGN-070`–`071`). *(manual: a scope statement.)*
 
 ## 2. The pinned fingerprint
 
@@ -189,6 +201,43 @@ are separate work, and nothing in this repository builds a release artifact toda
   maintainer re-running `backfill_tag: v0.2.0`/`v0.2.1`/`v0.2.2` after this merges and confirming
   each now attaches a signed APK.)*
 
+## 8. Which signature schemes a release carries
+
+The certificate is only half of what an installer asks. The other half is *which scheme* the
+signature is in, and a package is accepted only under a scheme the installer handling it
+implements. Nothing here stated an intention about that, so AGP's default stood: with `minSdk` at
+26 it disables v1 (JAR) signing, because v2 covers every device from Android 7.0 and a JAR
+signature is then redundant. The `v0.2.x` artifacts carry v2 and nothing else.
+
+**That default is correct and the artifacts it produced are sound.** The published `v0.2.2` APK's
+v2 signature was verified twice, independently, while diagnosing issue
+[#127](https://github.com/derekwinters/Interval-trainer-android/issues/127) — digest recomputed
+from the signed sections and the RSA signature checked against the pinned certificate. Android 16
+imposes no requirement for v1 or v3, so **there is no known mechanism by which stating all three
+cures that issue's install failure**, and this section does not claim one. The reason to state
+them anyway is narrower: this app is *sideloaded*, reaching a device through a file manager, a
+browser's download handler or a vendor's package installer rather than through Play, and the
+scheme set is the one property of the artifact that varies with whatever chose it. Writing it
+down costs a few hundred kilobytes of `META-INF` digests and converts a toolchain default into
+something a gate can check.
+
+- **SIGN-070** A release APK carries the v1, v2 and v3 signature schemes. v1 is detected from the
+  `META-INF/*.SF` entry JAR signing leaves in the zip; v2 and v3 from their pair IDs in the APK
+  Signing Block. v3.1 counts as v3 — it is an additional rotation-aware block, not a replacement.
+  Checked by `.github/scripts/verify_release_package.py` ([`build.md`](build.md) `BUILD-073`),
+  which reads the APK directly and needs no Android SDK. This is a distinct question from
+  `SIGN-040`–`045`, which ask *whose* certificate signed it. A shortfall here is a departure from
+  the build's stated intent, and the gate reports it as that: an APK missing v1 or v3 is not an
+  uninstallable one, and a message claiming otherwise would be false
+  ([`build.md`](build.md)'s second invariant in section 10). *(auto:
+  `.github/scripts/tests/test_verify_release_package.py`.)*
+- **SIGN-071** `:app`'s `release` signing config sets `enableV1Signing`, `enableV2Signing` and
+  `enableV3Signing` explicitly rather than leaving AGP to choose. The gate then checks the
+  artifact against a stated intention instead of against whatever the toolchain chose this week —
+  a scheme silently dropped by an AGP upgrade is exactly the kind of change that ships unnoticed,
+  because nothing else reports it. *(manual: a Gradle configuration fact, proved by `SIGN-070`'s
+  gate passing on a real signed build, which needs the Android SDK and the release keystore.)*
+
 ---
 
 ## Traceability
@@ -202,9 +251,14 @@ are separate work, and nothing in this repository builds a release artifact toda
 | The verdict | SIGN-040–045 | `.github/scripts/tests/test_verify_release_signature.py` |
 | Running the gate | SIGN-050–055 | `.github/scripts/tests/test_verify_release_signature.py` |
 | Continuous integration | SIGN-060–063 | `.github/scripts/tests/test_verify_release_signature.py` |
+| Which signature schemes a release carries | SIGN-070–071 | `SIGN-070`: `.github/scripts/tests/test_verify_release_package.py`; `SIGN-071` *(manual)* |
 
-**35 requirements, 30 `auto` and 5 `manual`.**
+**37 requirements, 31 `auto` and 6 `manual`.**
 
-The five manual ones are the decision itself, the handling of secrets whose values are deliberately
-absent from this repository, the scope boundary, the promise never to edit the pin, and the
-provenance of the captured fixtures. Everything the gate actually decides is executable.
+The six manual ones are the decision itself, the handling of secrets whose values are deliberately
+absent from this repository, the scope boundary, the promise never to edit the pin, the provenance
+of the captured fixtures, and `SIGN-071`'s Gradle configuration — which cannot be proved here,
+because proving it means building and signing a release APK, and that needs both the Android SDK
+and the release keystore. Everything the gates actually decide is executable, including
+`SIGN-070`: which schemes an artifact carries is read out of the file itself, so it is checked
+with no Android SDK at all, the same property that let #127's artifact be cleared on a laptop.
