@@ -449,12 +449,35 @@ class ApkOnDisk(unittest.TestCase):
     # --- What the summary is allowed to claim (BUILD-070, invariant) -------
 
     def test_the_summary_for_a_scheme_shortfall_claims_no_install_failure(self):
-        """A v2-only APK installs from Android 7.0; saying otherwise is false."""
+        """A v2-only APK installs from Android 7.0; saying otherwise is false.
+
+        Asserted in both directions. Checking only that the old overstatement
+        is absent would pass against a gate that had merely reworded it, so
+        this also requires the summary the scheme shortfall should produce —
+        which is the assertion that fails if every failure is classed as
+        blocking.
+        """
         path = self._write(_apk([GOOD_ARSC], block_ids=(gate.V2_BLOCK_ID,)))
         code, output = self._run([path, "--require-schemes", "v1,v2,v3"])
         self.assertEqual(code, 1)
         self.assertNotIn("would be refused by the Android installer", output)
         self.assertNotIn("would crash once installed", output)
+        self.assertNotIn("install-time packaging requirements", output)
+        self.assertIn("departure from stated intent", output)
+
+    def test_an_unsigned_apk_is_not_excused_as_a_mere_intent_shortfall(self):
+        """The other half of the same invariant, in the other direction.
+
+        A package carrying *no* signature at all genuinely is refused, so the
+        summary must not tell its reader the schemes it does carry "may well be
+        accepted everywhere this app is installed" — there are none. Saying too
+        little is as wrong as saying too much when what is said is untrue.
+        """
+        path = self._write(_apk([GOOD_ARSC]))
+        code, output = self._run([path, "--require-schemes", "v1,v2,v3"])
+        self.assertEqual(code, 1)
+        self.assertNotIn("may well be accepted", output)
+        self.assertIn("refusing to publish", output)
 
 
 class WorkflowWiring(unittest.TestCase):

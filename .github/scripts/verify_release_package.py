@@ -61,7 +61,7 @@ import zipfile
 from collections import namedtuple
 
 EntryFacts = namedtuple("EntryFacts", "name stored size offset")
-Verdict = namedtuple("Verdict", "ok reasons notes")
+Verdict = namedtuple("Verdict", "ok reasons notes blocking")
 
 # APK Signing Block pair IDs. The block is a sequence of length-prefixed
 # id/value pairs sitting between the last zip entry and the central directory;
@@ -247,9 +247,16 @@ def assess(entries, present, required_schemes, native_lib_alignments):
     """
     reasons = []
     notes = []
+    # Whether anything found here would actually stop an install, as opposed to
+    # departing from what the build states. The two are reported differently and
+    # the caller must not have to guess which it has, so the decision is made
+    # here, where the facts are, rather than by reading the messages back.
+    blocking = False
 
     missing = sorted(set(required_schemes) - present)
     if missing and not present:
+        # Not merely a shortfall: an unsigned package is refused outright.
+        blocking = True
         reasons.append(
             "carries no signature at all; a release artifact must be signed with {0}".format(
                 ", ".join(missing)))
@@ -264,16 +271,19 @@ def assess(entries, present, required_schemes, native_lib_alignments):
 
     arsc = [entry for entry in entries if entry.name == RESOURCES_ARSC]
     if not arsc:
+        blocking = True
         reasons.append(
             "no {0} — every APK built from Android resources carries one".format(
                 RESOURCES_ARSC))
     for entry in arsc:
         if not entry.stored:
+            blocking = True
             reasons.append(
                 "{0} is compressed; an app targeting SDK 30 or later is refused at "
                 "install with INSTALL_PARSE_FAILED_RESOURCES_ARSC_COMPRESSED".format(
                     entry.name))
         if entry.offset % RESOURCES_ARSC_ALIGNMENT:
+            blocking = True
             reasons.append(
                 "{0} starts at offset {1}, which is not {2}-byte aligned; it is mapped "
                 "directly and cannot be read unaligned".format(
@@ -285,12 +295,14 @@ def assess(entries, present, required_schemes, native_lib_alignments):
     ]
     for entry in native:
         if not entry.stored:
+            blocking = True
             reasons.append(
                 "{0} is compressed; a library mapped from the APK "
                 "(extractNativeLibs=\"false\") must be stored uncompressed".format(
                     entry.name))
             continue
         if entry.offset % NATIVE_LIB_ALIGNMENT:
+            blocking = True
             reasons.append(
                 "{0} starts at offset {1}, which is not {2}-byte aligned; a device with "
                 "16 KB memory pages cannot map it and refuses the install".format(
@@ -301,9 +313,11 @@ def assess(entries, present, required_schemes, native_lib_alignments):
             continue
         is_64, alignments = shape
         if not alignments:
+            blocking = True
             reasons.append("{0} has no PT_LOAD segment — it is not a loadable "
                            "library".format(entry.name))
         elif is_64 and min(alignments) < NATIVE_LIB_ALIGNMENT:
+            blocking = True
             reasons.append(
                 "{0} has ELF LOAD segments aligned to {1}, below the {2} a 16 KB-page "
                 "device requires; it installs and then crashes when first "
@@ -313,7 +327,7 @@ def assess(entries, present, required_schemes, native_lib_alignments):
         notes.append("{0} native librar{1} checked".format(
             len(native), "y" if len(native) == 1 else "ies"))
 
-    return Verdict(ok=not reasons, reasons=reasons, notes=notes)
+    return Verdict(ok=not reasons, reasons=reasons, notes=notes, blocking=blocking)
 
 
 # --- Wiring -----------------------------------------------------------------
@@ -402,8 +416,7 @@ def main(argv=None):
             continue
 
         failed = True
-        if len(verdict.reasons) > 1 or not verdict.reasons[0].startswith("carries"):
-            packaging_failed = True
+        packaging_failed = packaging_failed or verdict.blocking
         for reason in verdict.reasons:
             print("::error title=Release package::{0}: {1}".format(name, reason))
 
