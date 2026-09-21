@@ -67,7 +67,43 @@ android {
                 storePassword = releaseKeystorePassword
                 keyAlias = releaseKeyAlias
                 keyPassword = releaseKeyAliasPassword
+
+                // Every signature scheme, stated rather than defaulted (SIGN-071, #127).
+                //
+                // With none of these set, AGP picks: it disables v1 whenever minSdk is 24 or
+                // above, because v2 covers every device from Android 7.0 and a JAR signature is
+                // then dead weight. That reasoning is sound and the v0.2.x artifacts it produced
+                // are provably well-formed — the published v0.2.2 APK verifies under v2, and its
+                // packaging was checked byte by byte while diagnosing #127. But an artifact this
+                // app can only deliver by sideload passes through installers AGP knows nothing
+                // about: a file manager, a browser's download handler, a vendor's package
+                // installer, an OEM ROM with its own verification path. Carrying all three
+                // schemes costs a few hundred kilobytes of META-INF digests and removes a class
+                // of refusal that is invisible from here, since the only symptom any of them
+                // reports is Android's single generic "package seems invalid".
+                //
+                // The point of writing them out is not that AGP's defaults were wrong. It is
+                // that `verify_release_package.py` can then check the artifact against a stated
+                // intention instead of against whatever the toolchain chose this week — a scheme
+                // silently dropped by an AGP upgrade is exactly the kind of change that ships.
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
             }
+        }
+    }
+
+    // Native libraries are stored uncompressed and page-aligned inside the APK, and mapped from
+    // it rather than unpacked at install (BUILD-071). This is already AGP's default for
+    // targetSdk 30 and above — the published v0.2.2 APK has `extractNativeLibs="false"` and all
+    // twelve of its `.so` entries sit on 16 KB boundaries — so this states the requirement
+    // rather than changing behaviour. It is written down because the requirement is the
+    // device's, not AGP's: a 16 KB-page device cannot map a library that is compressed or
+    // misaligned, and refuses to install the package. A default that happens to be right is
+    // still a default, and nothing failed if it changed.
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
         }
     }
 

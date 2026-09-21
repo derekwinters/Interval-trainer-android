@@ -424,6 +424,72 @@ the workflow YAML.
 
 ---
 
+## 10. An artifact a device will install
+
+`BUILD-050`–`068` get a signed APK built and attached. Nothing in them asks whether the thing
+attached can be *installed*. Issue
+[#127](https://github.com/derekwinters/Interval-trainer-android/issues/127) is that gap: three
+`v0.2.x` releases shipped an APK that passed the release-signature gate and that a device still
+refused, with "App not installed as the package seems invalid" — Android's single message for
+every parse-or-verify failure, which names no cause.
+
+Diagnosing it established that the published `v0.2.2` artifact is, in fact, sound. Read directly
+from the file: `resources.arsc` stored uncompressed and 4-byte aligned; all twelve `lib/**/*.so`
+entries stored uncompressed and on 16 KB boundaries, each with ELF LOAD segments already aligned
+to 16384; a valid manifest declaring `minSdk` 26 and `targetSdk` 35; and a v2 signature whose
+chunked digest recomputes and whose RSA signature verifies against the pinned release
+certificate. Its SHA-256 matches what the release page advertises. **The packaging hypotheses in
+#127 are therefore all disproved for that artifact**, which is worth stating because three
+plausible fixes — forcing zipalign, forcing 16 KB alignment, replacing the native libraries —
+would each have changed something already correct and reported success.
+
+What that leaves is a requirement no one had written down: the properties a device checks at
+install are checkable *here*, cheaply, and were not being checked at all. This section writes
+them down and gates them. It does not claim to have found #127's cause; it removes the
+possibility that a future release fails for one of these reasons undetected, and it makes the one
+remaining difference between the artifact and a maximally-installable one — its signature scheme
+set, `docs/spec/signing.md` `SIGN-070`–`071` — a stated intention rather than a default.
+
+- **BUILD-070** A release APK's `resources.arsc` is stored uncompressed and begins on a 4-byte
+  boundary. An app targeting SDK 30 or later whose `resources.arsc` is compressed is refused at
+  install with `INSTALL_PARSE_FAILED_RESOURCES_ARSC_COMPRESSED`; the table is memory-mapped, so an
+  unaligned one cannot be read. *(auto:
+  `.github/scripts/tests/test_verify_release_package.py`.)*
+- **BUILD-071** A release APK's native libraries are stored uncompressed and each begins on a
+  16 KB boundary. `:app`'s `packaging { jniLibs { useLegacyPackaging = false } }` states the
+  first, which is also AGP's default at this `targetSdk`; the alignment is AGP's to produce. A
+  device with 16 KB memory pages maps these libraries straight out of the APK and cannot do so if
+  either holds, so the package is refused. *(auto: as `BUILD-070`.)*
+- **BUILD-072** Every 64-bit native library in a release APK has ELF `PT_LOAD` segments whose
+  `p_align` is at least 16384. This is a distinct property from `BUILD-071` and fails differently:
+  zip misalignment refuses the install, while ELF misalignment installs cleanly and crashes at
+  the first call into the library. 32-bit ABIs are exempt — a 16 KB-page device runs 64-bit
+  code — and must not be failed for it. These libraries arrive as AndroidX prebuilts, so the
+  remedy for a failure here is a dependency version, not a build setting; the gate reports it
+  rather than fixing it. *(auto: as `BUILD-070`.)*
+- **BUILD-073** `.github/scripts/verify_release_package.py` checks `BUILD-070`–`072` and
+  `SIGN-070` against each built APK, and runs in every job that produces one:
+  `release-please.yml`'s `build-and-attach` and `backfill-release-apk` — in both cases sourced
+  from the second `main` checkout, exactly as `BUILD-068` requires of the signature gate and for
+  the same reason — and `release-candidate.yml`, sourced from the checkout being built, since a
+  candidate is a branch head someone chose rather than a frozen tag and its gate is under test
+  along with the rest of it. It reads the zip central directory, the APK Signing Block and the ELF
+  program headers directly and needs no Android SDK, which is what lets its tests run in `pr.yml`
+  alongside the signature gate's and lets a maintainer run it against a downloaded release asset.
+  It prints each artifact's SHA-256 whether or not it passes. *(auto: as `BUILD-070`, whose
+  `WorkflowWiringTests` read all three workflow files directly.)*
+- **BUILD-074** `release-candidate.yml` declares a `workflow_dispatch` input, `ref`, building a
+  signed release APK from any branch, tag or commit and uploading it as the `app-release-candidate`
+  artifact. Before it, a signed APK could only be obtained by merging a release pull request or by
+  waiting for release-please to open one, so a candidate fix and the only means of trying it sat
+  on opposite sides of a release — the position #127 created. The keystore is safe here on the
+  same grounds as `release-please.yml`'s `backfill_tag` dispatch: only someone with write access
+  can start a `workflow_dispatch`, which is not the untrusted trigger `docs/spec/signing.md`
+  `SIGN-062` forbids the keystore to. *(manual: a maintainer dispatching it once and receiving an
+  installable APK. The workflow must be on `main` before GitHub will offer the dispatch at all.)*
+
+---
+
 ## Traceability
 
 | Section | IDs | Tests |
@@ -437,8 +503,9 @@ the workflow YAML.
 | Release candidate | BUILD-059–065 | *(manual)* |
 | Recovering a missed release APK | BUILD-066–067 | `.github/scripts/tests/test_bump_version_code.py` |
 | Keeping the verification gate current | BUILD-068 | `.github/scripts/tests/test_verify_release_signature.py` |
+| An artifact a device will install | BUILD-070–074 | `BUILD-070`–`073`: `.github/scripts/tests/test_verify_release_package.py`; `BUILD-074` *(manual)* |
 
-**47 requirements, 9 `auto` and 38 `manual`.**
+**52 requirements, 13 `auto` and 39 `manual`.**
 
 The proportion is what a build skeleton looks like: almost every requirement here is a fact about
 configuration, verified by the build running at all, and the only executable behaviour outside

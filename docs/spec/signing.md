@@ -62,8 +62,19 @@ are separate work, and nothing in this repository builds a release artifact toda
   `.github/release-cert-sha256.txt`, with comments saying that it is public and why it is not a
   secret.
 - **SIGN-004** Wiring a release build — Gradle's `signingConfigs`, a release workflow, an
-  uploaded artifact — is outside this page. Until that exists, no release artifact is produced at
-  all, so there is no unsigned release in the meantime. *(manual: a scope statement.)*
+  uploaded artifact — is specified in [`build.md`](build.md) (`BUILD-050`–`074`), not here. This
+  page owns two things about a release artifact: which certificate signed it (`SIGN-010`–`055`),
+  and which signature schemes it carries (`SIGN-070`–`071`). *(manual: a scope statement.)*
+
+  *This requirement previously read that release-build wiring did not exist yet, and that
+  "until that exists, no release artifact is produced at all, so there is no unsigned release in
+  the meantime." That was true when it was written and has not been true since `BUILD-050`–`068`
+  landed and `v0.2.0`–`v0.2.2` shipped signed APKs. It is corrected here rather than in its own
+  change because issue
+  [#127](https://github.com/derekwinters/Interval-trainer-android/issues/127) turned on reading
+  this page for what it says about a release artifact, and a reader following the old text would
+  have concluded no release artifact existed — the opposite of the situation under
+  investigation.*
 
 ## 2. The pinned fingerprint
 
@@ -189,6 +200,38 @@ are separate work, and nothing in this repository builds a release artifact toda
   maintainer re-running `backfill_tag: v0.2.0`/`v0.2.1`/`v0.2.2` after this merges and confirming
   each now attaches a signed APK.)*
 
+## 8. Which signature schemes a release carries
+
+The certificate is only half of what a device asks. The other half is *which scheme* the signature
+is in, and Android accepts a package only under a scheme its own installer implements. Nothing in
+this repository stated an intention about that, so AGP's default stood: with `minSdk` at 26 it
+disables v1 (JAR) signing, because v2 covers every device from Android 7.0 and a JAR signature is
+then redundant. The `v0.2.x` artifacts carry v2 and nothing else.
+
+That default is defensible and the artifacts it produced are sound — the published `v0.2.2` APK's
+v2 signature was verified independently while diagnosing issue
+[#127](https://github.com/derekwinters/Interval-trainer-android/issues/127), digest recomputed and
+signature checked against the pinned certificate. The reason to state all three anyway is that
+this app is *sideloaded*: it reaches a device through a file manager, a browser's download
+handler, or a vendor's package installer, none of which AGP knows about, and each of which reports
+a refusal only as Android's generic "package seems invalid". Carrying every scheme costs a few
+hundred kilobytes of `META-INF` digests and removes a class of refusal that cannot be observed
+from here.
+
+- **SIGN-070** A release APK carries the v1, v2 and v3 signature schemes. v1 is detected from the
+  `META-INF/*.SF` entry JAR signing leaves in the zip; v2 and v3 from their pair IDs in the APK
+  Signing Block. v3.1 counts as v3 — it is an additional rotation-aware block, not a replacement.
+  Checked by `.github/scripts/verify_release_package.py` (`BUILD-073`), which reads the APK
+  directly and needs no Android SDK; this is a distinct question from `SIGN-040`–`045`, which ask
+  *whose* certificate signed it. *(auto:
+  `.github/scripts/tests/test_verify_release_package.py`.)*
+- **SIGN-071** `:app`'s `release` signing config sets `enableV1Signing`, `enableV2Signing` and
+  `enableV3Signing` explicitly rather than leaving AGP to choose. The gate then checks the
+  artifact against a stated intention instead of against whatever the toolchain chose this week —
+  a scheme silently dropped by an AGP upgrade is exactly the kind of change that ships unnoticed,
+  because nothing else reports it. *(manual: a Gradle configuration fact, proved by `SIGN-070`'s
+  gate passing on a real signed build.)*
+
 ---
 
 ## Traceability
@@ -202,8 +245,9 @@ are separate work, and nothing in this repository builds a release artifact toda
 | The verdict | SIGN-040–045 | `.github/scripts/tests/test_verify_release_signature.py` |
 | Running the gate | SIGN-050–055 | `.github/scripts/tests/test_verify_release_signature.py` |
 | Continuous integration | SIGN-060–063 | `.github/scripts/tests/test_verify_release_signature.py` |
+| Which signature schemes a release carries | SIGN-070–071 | `SIGN-070`: `.github/scripts/tests/test_verify_release_package.py`; `SIGN-071` *(manual)* |
 
-**35 requirements, 30 `auto` and 5 `manual`.**
+**37 requirements, 31 `auto` and 6 `manual`.**
 
 The five manual ones are the decision itself, the handling of secrets whose values are deliberately
 absent from this repository, the scope boundary, the promise never to edit the pin, and the
