@@ -60,9 +60,17 @@ _SHA256_HEX_DIGITS = 64
 
 # apksigner prints "Signer #1 certificate DN: ..." and, when signers differ per
 # SDK range, "Signer (minSdkVersion=24, maxSdkVersion=32) #1 certificate DN:".
-# Both shapes carry the signer index, which is what identifies the block.
+# Both shapes carry a numeric signer index, which is what identifies the block.
+#
+# build-tools 35.0.0 instead labels a signer block by which signature scheme
+# verified it — "V2 Signer: certificate DN: ..." — rather than by a numeric
+# index, at least when exactly one scheme verifies (SIGN-037). It carries no
+# index at all, so the "index" group is absent for this shape and a synthetic
+# one is assigned per distinct scheme label as blocks are found.
 _SIGNER_LINE = re.compile(
-    r"^Signer\s*(?:\([^)]*\)\s*)?#(\d+)\s+certificate\s+(DN|SHA-256 digest):\s*(.*)$")
+    r"^(?:Signer\s*(?:\([^)]*\)\s*)?#(?P<index>\d+)\s+"
+    r"|(?P<scheme>[A-Za-z0-9.]+)\s+Signer:\s+)"
+    r"certificate\s+(?P<field>DN|SHA-256 digest):\s*(?P<value>.*)$")
 _SIGNER_COUNT_LINE = re.compile(r"^Number of signers:\s*(\d+)\s*$")
 
 _FINGERPRINT_LABEL = re.compile(r"^\s*SHA-?256\s*:", re.IGNORECASE)
@@ -132,6 +140,19 @@ def parse_apksigner_certs(text):
     apksigner emit the `Number of signers:` header this parser requires
     (SIGN-030). Read `print_certs` before changing either.
 
+    Recognizes two shapes for a signer block's `certificate DN:` and
+    `certificate SHA-256 digest:` lines (SIGN-031, SIGN-037): apksigner's
+    numeric `Signer #<N>` (and its per-SDK-range variant), and build-tools
+    35.0.0's `<Scheme> Signer:` — labelled by which signature scheme verified
+    it (e.g. `V2 Signer:`) rather than by index, at least when exactly one
+    scheme verifies. The latter carries no index of its own, so one is
+    assigned per distinct scheme label in the order first seen; nothing
+    downstream depends on its specific value beyond grouping a block's DN and
+    SHA-256 pairs together and this count check. Whether two *simultaneously*
+    verifying schemes for one physical signer should collapse into a single
+    entry is not something any captured output has shown yet, so it is left
+    unhandled rather than guessed at.
+
     Raises `MalformedApksignerOutput` when the declared signer count disagrees
     with the blocks actually parsed (SIGN-032). That check is the point: this
     parser reads a human-readable format that could change under us, and a
@@ -147,6 +168,10 @@ def parse_apksigner_certs(text):
     """
     declared = None
     by_index = {}
+    # Scheme label ("V2", "V3.1", ...) -> the synthetic index assigned to it,
+    # in order of first appearance. Only used for the scheme-labelled shape,
+    # which carries no index of its own (SIGN-037).
+    scheme_indices = {}
 
     for line in text.splitlines():
         count_match = _SIGNER_COUNT_LINE.match(line.strip())
@@ -158,9 +183,13 @@ def parse_apksigner_certs(text):
         if not signer_match:
             continue
 
-        index = int(signer_match.group(1))
-        field = signer_match.group(2)
-        value = signer_match.group(3).strip()
+        if signer_match.group("index") is not None:
+            index = int(signer_match.group("index"))
+        else:
+            label = signer_match.group("scheme")
+            index = scheme_indices.setdefault(label, len(scheme_indices) + 1)
+        field = signer_match.group("field")
+        value = signer_match.group("value").strip()
         signer = by_index.setdefault(index, {"dn": "", "sha256": ""})
 
         if field == "DN":

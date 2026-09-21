@@ -36,6 +36,13 @@ apksigner's output shape, and `CommittedFingerprintTests` pins the real one.
 `TWO_SIGNER_OUTPUT` and `DEBUG_OUTPUT` remain hand-authored — neither a
 two-key APK nor a debug-signed one is something this environment can produce —
 and are used only for the multi-signer and debug-fallback cases.
+
+A second real capture, `fixtures/apksigner-verify-print-certs-verbose-scheme-signer.txt`
+(`SCHEME_SIGNER_OUTPUT`), is issue #122's: build-tools 35.0.0 apksigner labelling its one
+signer block `V2 Signer:` — by which scheme verified it — rather than `Signer #1`, which
+issue #120's diagnostic logging (SIGN-036) captured verbatim from a real, validly-signed
+v0.2.2 release APK that the old parser wrongly rejected. Unlike the other captures, its
+certificate *is* this repository's real release certificate; see fixtures/README.md.
 """
 
 import os
@@ -74,6 +81,7 @@ def _captured(name):
 
 CAPTURED_VERBOSE_OUTPUT = _captured("apksigner-verify-print-certs-verbose.txt")
 CAPTURED_NON_VERBOSE_OUTPUT = _captured("apksigner-verify-print-certs-nonverbose.txt")
+SCHEME_SIGNER_OUTPUT = _captured("apksigner-verify-print-certs-verbose-scheme-signer.txt")
 
 # The certificate inside those captures: a throwaway key, NOT this repository's
 # release certificate (which no keystore in this environment holds).
@@ -86,6 +94,10 @@ CAPTURED_DN = "CN=Doggiehood Release, O=Derek Winters, L=Somewhere, C=US"
 # This repository's release certificate, as the owner reported it. Public data
 # (SIGN-003); the keystore and its passwords are the secrets.
 RELEASE_SHA256 = "2f596b227b890f5fcec72c176f0e325623e6261f00ddb102c4f936e9da108e09"
+
+# The DN inside SCHEME_SIGNER_OUTPUT — this repository's own release certificate,
+# not a throwaway one. See fixtures/README.md for provenance.
+SCHEME_SIGNER_DN = "CN=Interval-Trainer, O=Derek Winters, C=US"
 
 OTHER_SHA256 = "0123456789abcdef" * 4
 
@@ -188,6 +200,20 @@ class ParseApksignerCertsTests(unittest.TestCase):
         self.assertEqual(signers[0].dn, CAPTURED_DN)
         self.assertEqual(signers[0].sha256, CAPTURED_SHA256)
 
+    def test_reads_the_scheme_labelled_signer_form(self):
+        """SIGN-037, against issue #122's real capture.
+
+        build-tools 35.0.0 labels a signer block by which scheme verified it
+        (`V2 Signer:`) instead of by a numeric index, at least when exactly
+        one scheme verifies. This is the exact text that made every one of
+        v0.2.0, v0.2.1 and v0.2.2 ship with no APK attached: `Number of
+        signers: 1` was declared and the old parser matched none of it.
+        """
+        signers = parse_apksigner_certs(SCHEME_SIGNER_OUTPUT)
+        self.assertEqual(len(signers), 1)
+        self.assertEqual(signers[0].dn, SCHEME_SIGNER_DN)
+        self.assertEqual(signers[0].sha256, RELEASE_SHA256)
+
     def test_reads_every_signer(self):
         """SIGN-031."""
         signers = parse_apksigner_certs(TWO_SIGNER_OUTPUT)
@@ -217,14 +243,21 @@ class ParseApksignerCertsTests(unittest.TestCase):
     def test_a_signer_count_mismatch_carries_the_raw_output_verbatim(self):
         """SIGN-036.
 
-        This is the exact shape of the real failure in issue #120: apksigner
+        This is the shape of the real failure in issue #120: apksigner
         declared one signer and the parser matched none of its lines, and the
         only thing the CI log showed was the summary sentence — never the
         actual text that failed to match, leaving the real format a mystery.
         The raw output belongs in the exception so the next occurrence is
         diagnosable without waiting for a third failure.
+
+        (Before issue #122, this text was literally `V2 Signer: certificate
+        DN: CN=Nobody` — issue #120's best guess at the real format, made
+        before it had been captured. #122 fixed the parser to read exactly
+        that shape, so that text now parses; this uses a still-unrecognized
+        one instead, to keep exercising the same "format drift" failure mode
+        rather than a since-fixed bug.)
         """
-        undecodable = "Number of signers: 1\nV2 Signer: certificate DN: CN=Nobody\n"
+        undecodable = "Number of signers: 1\nSigner: certificate DN: CN=Nobody\n"
         with self.assertRaises(MalformedApksignerOutput) as raised:
             parse_apksigner_certs(undecodable)
         self.assertIn(undecodable, str(raised.exception))
@@ -401,6 +434,18 @@ class AssessTests(unittest.TestCase):
             parse_apksigner_certs(CAPTURED_VERBOSE_OUTPUT), CAPTURED_KEYTOOL_FORM)
         self.assertTrue(verdict.ok, verdict.reasons)
 
+    def test_the_scheme_labelled_capture_passes_against_the_pinned_fingerprint(self):
+        """SIGN-037, SIGN-040, end to end against the pin file.
+
+        This is what v0.2.0, v0.2.1 and v0.2.2 should each have gotten: a
+        validly-signed release APK, correctly recognised as carrying the
+        pinned release certificate.
+        """
+        verdict = assess(
+            parse_apksigner_certs(SCHEME_SIGNER_OUTPUT), read_expected_fingerprint(PIN_FILE))
+        self.assertTrue(verdict.ok, verdict.reasons)
+        self.assertEqual(verdict.reasons, [])
+
 
 class CommittedFingerprintTests(unittest.TestCase):
     """SIGN-003 and SIGN-010–012: the pin is repo content, so a bad paste fails here.
@@ -506,8 +551,12 @@ class GateExitCodeTests(unittest.TestCase):
         signer(s) but 0 could be parsed" — surfaced only that summary
         sentence. The next occurrence of the same drift must not repeat that:
         the actual apksigner text has to reach the job log.
+
+        (See `ParseApksignerCertsTests.test_a_signer_count_mismatch_carries_the_raw_output_verbatim`
+        for why this uses a still-unrecognized shape rather than issue #120's
+        original guess, which issue #122 taught the parser to read.)
         """
-        undecodable = "Number of signers: 1\nV2 Signer: certificate DN: CN=Nobody\n"
+        undecodable = "Number of signers: 1\nSigner: certificate DN: CN=Nobody\n"
         code, output = self._main([undecodable])
         self.assertEqual(code, 1)
         self.assertIn(undecodable, output)
