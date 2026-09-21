@@ -37,6 +37,14 @@ are separate work, and nothing in this repository builds a release artifact toda
 > from documentation tests the parser against this repository's beliefs about the tool; only a
 > captured one tests it against the tool.
 
+> **Invariant — the release-signature gate that checks a build is always the current one, never
+> the one contemporaneous with the code being checked.** The gate is CI-side machinery, not part of
+> the app being shipped: a bug fixed in the gate must protect every release it is asked to verify,
+> including one built or backfilled from a tag cut before the fix existed. A workflow step that
+> checks out the tag or commit under test and then runs *that* checkout's own copy of the gate
+> re-enacts whatever bug the gate had on the day that commit was made, no matter how long ago the
+> real fix landed on `main`.
+
 ---
 
 ## 1. The decision
@@ -160,6 +168,26 @@ are separate work, and nothing in this repository builds a release artifact toda
   (BUILD-043) for no gain.
 - **SIGN-062** No `pull_request`-triggered workflow references the release keystore secrets. A
   pull request from anywhere must not be able to reach the release key.
+- **SIGN-063** In `release-please.yml`, both `build-and-attach` and `backfill-release-apk` check
+  out `main` in a second `actions/checkout` step, to a path distinct from the job's primary
+  checkout of the release tag or commit, and the job's "Verify the release signature" step invokes
+  `.github/scripts/verify_release_signature.py` from that second checkout — never the copy the
+  primary checkout's own tree carries. The APK is still built and signed from the exact tagged
+  commit; only the script that checks it is sourced independently, regardless of which tag or
+  commit that is (see the invariant above). Issue #125: `backfill-release-apk`'s only checkout was
+  `ref: ${{ inputs.backfill_tag }}`, so re-running the pending `backfill_tag` dispatches for
+  `v0.2.0`, `v0.2.1` and `v0.2.2` after issue #122/#123's real apksigner-parsing fix (`SIGN-037`)
+  landed on `main` still failed identically to before — each tag predates that fix and re-ran its
+  own already-superseded copy of the gate. `build-and-attach` checks out its release tag the same
+  way and has the same structural gap, though it has not caused a real failure yet: every ordinary
+  release so far has been built from a commit at or after whatever fix was current on `main` at
+  release time. *(auto: `.github/scripts/tests/test_verify_release_signature.py`'s
+  `IndependentVerificationScriptTests`, which reads `release-please.yml` directly and pins, for
+  both jobs, that the verification step's script path resolves under a checkout step whose `ref:`
+  is the literal `main` and whose `path:` differs from the job's own tag/commit checkout —
+  standard library only, no Android SDK, no Actions run. The end-to-end proof remains manual: a
+  maintainer re-running `backfill_tag: v0.2.0`/`v0.2.1`/`v0.2.2` after this merges and confirming
+  each now attaches a signed APK.)*
 
 ---
 
@@ -173,9 +201,9 @@ are separate work, and nothing in this repository builds a release artifact toda
 | Reading apksigner | SIGN-030–037 | `.github/scripts/tests/test_verify_release_signature.py` |
 | The verdict | SIGN-040–045 | `.github/scripts/tests/test_verify_release_signature.py` |
 | Running the gate | SIGN-050–055 | `.github/scripts/tests/test_verify_release_signature.py` |
-| Continuous integration | SIGN-060–062 | `.github/scripts/tests/test_verify_release_signature.py` |
+| Continuous integration | SIGN-060–063 | `.github/scripts/tests/test_verify_release_signature.py` |
 
-**33 requirements, 28 `auto` and 5 `manual`.**
+**35 requirements, 30 `auto` and 5 `manual`.**
 
 The five manual ones are the decision itself, the handling of secrets whose values are deliberately
 absent from this repository, the scope boundary, the promise never to edit the pin, and the

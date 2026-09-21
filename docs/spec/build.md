@@ -390,6 +390,38 @@ the manual path that backfills what that failure skipped.
   manual, triggered once by a maintainer with repository Actions access via `workflow_dispatch`
   with `backfill_tag: v0.2.0`, to attach `v0.2.0`'s still-missing APK.)*
 
+## 9. Keeping the verification gate current
+
+[#125](https://github.com/derekwinters/Interval-trainer-android/issues/125): `backfill-release-apk`
+checks out only the tag being backfilled (`BUILD-067`), which brings back that tag's entire
+historical tree — including whatever copy of `.github/scripts/verify_release_signature.py` existed
+when it was cut, never the copy on `main` today. This was proven for real: after issue
+[#122](https://github.com/derekwinters/Interval-trainer-android/issues/122)/[#123](https://github.com/derekwinters/Interval-trainer-android/issues/123)'s
+apksigner-parsing fix (`docs/spec/signing.md` `SIGN-037`) merged to `main`, a maintainer re-ran all
+three pending `backfill_tag` dispatches — `v0.2.0`, `v0.2.1` and `v0.2.2` — and every one failed
+identically to before, because each of those tags predates the fix and re-ran its own already-
+superseded copy of the script. `build-and-attach` checks out its own release tag the same way
+(`BUILD-053`) and has the same structural gap, though it has not caused a real failure yet: every
+ordinary release so far has been built from a commit at or after whatever fix was current on `main`
+at release time. This section states the fix as an invariant (`docs/spec/signing.md`, "the
+release-signature gate that checks a build is always the current one") rather than only patching
+the workflow YAML.
+
+- **BUILD-068** Both `build-and-attach` and `backfill-release-apk` check out `main` in a second,
+  named `actions/checkout` step, to a `path:` distinct from the job's primary checkout of the
+  release tag or commit, and the "Verify the release signature" step in each job invokes
+  `.github/scripts/verify_release_signature.py` from that second checkout — never the copy the
+  primary checkout's own tree carries. The APK is still assembled and signed from the exact tagged
+  commit (`BUILD-053`, `BUILD-067`); only the script that checks it is sourced independently of
+  which tag or commit that is, per `docs/spec/signing.md` `SIGN-063`. *(auto:
+  `.github/scripts/tests/test_verify_release_signature.py`'s `IndependentVerificationScriptTests`,
+  which reads `release-please.yml` directly and pins, for both jobs, that the verification step's
+  script path resolves under a checkout step whose `ref:` is the literal `main` and whose `path:`
+  differs from the job's own tag/commit checkout — standard library only, no Android SDK, no
+  Actions run. Actually proving the fix needs a maintainer re-running
+  `backfill_tag: v0.2.0`/`v0.2.1`/`v0.2.2` after this merges and confirming each now attaches a
+  signed APK; this sandbox can prove only the workflow's structure.)*
+
 ---
 
 ## Traceability
@@ -404,8 +436,9 @@ the manual path that backfills what that failure skipped.
 | Release build and attach | BUILD-050–058 | *(manual)* |
 | Release candidate | BUILD-059–065 | *(manual)* |
 | Recovering a missed release APK | BUILD-066–067 | `.github/scripts/tests/test_bump_version_code.py` |
+| Keeping the verification gate current | BUILD-068 | `.github/scripts/tests/test_verify_release_signature.py` |
 
-**46 requirements, 8 `auto` and 38 `manual`.**
+**47 requirements, 9 `auto` and 38 `manual`.**
 
 The proportion is what a build skeleton looks like: almost every requirement here is a fact about
 configuration, verified by the build running at all, and the only executable behaviour outside
@@ -451,3 +484,10 @@ fact `test_closing_keyword_workflow.py` pins by reading the file directly, the s
 Nothing here can exercise the shared `derekwinters/ai-sdlc` action itself — that logic, and its
 own test coverage, is out of this repository's reach — so the fix's real proof is release-please's
 next release pull request landing without anyone applying `no-closing-keyword` by hand.
+Keeping the verification gate current (`BUILD-068`) is the same kind of fact yet again: which
+checkout a step's script comes from, pinned by `IndependentVerificationScriptTests` reading
+`release-please.yml`'s text directly rather than by a unit test asserting Gradle or Kotlin
+behaviour. As with `BUILD-066`–`067`, no test here can run the backfill job for real or exercise
+GitHub's actual checkout behaviour, so the fix's real proof is a maintainer re-running
+`backfill_tag: v0.2.0`, `v0.2.1` and `v0.2.2` after this merges and confirming each now attaches a
+signed APK.
