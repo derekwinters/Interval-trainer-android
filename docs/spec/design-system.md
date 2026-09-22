@@ -82,6 +82,15 @@ none of the six v1 screens exists yet. That remains
 > the theme itself, whatever parent it takes — the parent stays an implementation choice, the
 > property does not.
 
+> **Invariant — the system bars are inset by the layout, never by a screen.** A screen that fixes
+> its own overlap with the status or navigation bar — `Modifier.systemBarsPadding()`,
+> `Modifier.safeDrawingPadding()`, or a hand-computed offset at its own call site — has treated the
+> symptom and is arranging its own spacing, against this page's first invariant. The screen looks
+> right and the rule is broken: the next screen written without that line brings
+> [#131](https://github.com/derekwinters/Interval-trainer-android/issues/131) straight back, and the
+> layout that should have carried the inset still does not. The inset belongs to `ListLayout`,
+> `FullBleedLayout` and `FormLayout` in `ScreenLayouts.kt` (`DS-080`) and to nothing else.
+
 ---
 
 ## 1. Buttons and actions
@@ -277,6 +286,22 @@ placement, per this page's first invariant.
   Every screen's root composable is one of these three, and the structural check in `DS-101` asserts
   it directly rather than through a hard-coded list, so a legitimate future addition under `DS-074`
   does not fight the tooling.
+- **DS-080** Each of the three layouts insets its own content by the window's system-bar insets —
+  the status bar and the navigation bar both — so that no part of any screen is laid out beneath
+  either bar. The window itself stays edge-to-edge (`DS-023`) and a layout's background (`DS-050`)
+  still fills it corner to corner: what is inset is the content inside, not the surface behind it.
+  This holds for the full-bleed layout too, with no exception for the running screen's countdown
+  (`DS-073`–`074`). Applying it in these three layouts, and only there, is this page's sixth
+  invariant. `DS-080` is numbered after `DS-071`–`079` rather than inserted beside `DS-070`,
+  because those numbers were already fixed by
+  [#76](https://github.com/derekwinters/Interval-trainer-android/issues/76) before this page had a
+  reason to state a property shared by all three layouts — the same reason `DS-013` sits where it
+  does in §3. *(auto: `ScreenLayoutInsetsTest.kt`, at
+  `designsystem/src/test/java/com/derekwinters/intervaltrainer/designsystem/ScreenLayoutInsetsTest.kt`
+  — a Robolectric Compose test that dispatches known system-bar insets to the composition's own
+  view and asserts each layout's top-most and bottom-most content is laid out clear of them. It
+  observes the insets the test supplies, not a device's, and it cannot see whether a screen applies
+  an inset modifier of its own; see the traceability note below for both narrowings.)*
 
 ### 8.1 List layout
 
@@ -297,10 +322,15 @@ placement, per this page's first invariant.
 
 ### 8.2 Full-bleed layout
 
-- **DS-073** Slots: a free composition, with no standard list scaffold.
+- **DS-073** Slots: a free composition, with no standard list scaffold. "Full-bleed" names the
+  absence of that scaffold and nothing else: the layout still applies the system-bar insets
+  `DS-080` requires, so the composition is free *within* the window's insets, never over them.
 - **DS-074** Use it when the screen's whole purpose is one focal element that a header-and-list frame
   would compete with rather than support — a running countdown occupying most of the screen. Screen:
-  the running screen.
+  the running screen. The countdown gives up the status and navigation bars' worth of space like
+  every other screen (`DS-080`): decided on
+  [#131](https://github.com/derekwinters/Interval-trainer-android/issues/131), which found this
+  layout — and its own doc comment — naming that overlap as an intended property.
 
 ### 8.3 Form layout
 
@@ -434,12 +464,12 @@ this decision:
 | Spacing | DS-040 | *(manual)* |
 | Colour tokens | DS-050–052 | `ColorSchemeMappingTest.kt` (DS-051's `ColorScheme` mapping); `TokenContrastTest.kt` (DS-050–051, via DS-094, not yet written); *(manual)* DS-050, DS-052 |
 | Screen split | DS-060–062 | *(manual)* |
-| Screen layouts | DS-070–079 | `ListLayout`, `FullBleedLayout`, `FormLayout` in `:designsystem` (`#76`); `DesignSystemConsistencyTest.kt` (DS-070, via DS-093, not yet written); *(manual)* DS-071–079 |
+| Screen layouts | DS-070–080 | `ListLayout`, `FullBleedLayout`, `FormLayout` in `:designsystem` (`#76`); `ScreenLayoutInsetsTest.kt` (DS-080); `DesignSystemConsistencyTest.kt` (DS-070, via DS-093, not yet written); *(manual)* DS-071–079 |
 | Enforcement — adopted | DS-090–095 | `DesignSystemConsistencyTest.kt` (DS-091); `TokenContrastTest.kt` (DS-094, not yet written); *(manual)* DS-090 (real now, per `BUILD-017`/`#79`, but still a compile-time boundary, not a unit test), DS-092, DS-093 (a real screen exists, `#79`, but nothing in `:designsystem` reaches into `:app` to assert it against one), DS-095 |
 | Enforcement — not adopted | DS-096–097 | *(manual)* |
 | Human judgement calls | DS-098–101 | *(manual)* |
 
-**53 requirements, 4 `auto` and 49 `manual`.** This table's "Tests" column is what a JVM test
+**54 requirements, 5 `auto` and 49 `manual`.** This table's "Tests" column is what a JVM test
 checks, and stays as written above whether or not the component itself has been built: `*(manual)*`
 means "no test", not "no code". `DS-001`–`DS-013`, `DS-014`–`016` and `DS-020`–`021` (buttons
 and actions, dialogs, screen scaffolding) are now implemented in `:designsystem`
@@ -505,6 +535,20 @@ resolved-theme one, and deliberately: resolving a theme needs a simulated Androi
 [#132](https://github.com/derekwinters/Interval-trainer-android/issues/132) had no reason to widen,
 since a theme nothing declares is exactly what that defect was. `DS-023`'s own window call stays
 `manual`, for the reason its entry gives.
+
+**`DS-080` is this page's fifth `auto` requirement, and its test is deliberately narrower than the
+requirement.** `ScreenLayoutInsetsTest.kt` sits beside `DesignSystemConsistencyTest.kt` rather than
+inside it: that file is scoped to the component gallery (`DS-095`) and `DS-091`, and these
+assertions need a different fixture — one layout at a time, and system-bar insets dispatched to
+the composition's own view, because Robolectric's simulated window reports none of its own. Two
+narrowings are worth stating rather than implying. It asserts against the insets the test itself
+supplies, at one density and one window size, with one representative arrangement of content per
+layout; whether a real device's bars are actually clear stays `DS-100`'s manual verification, the
+same as every other on-device judgement here. And it cannot see whether a *screen* applies an inset
+modifier of its own — the half of this requirement that this page's sixth invariant carries —
+because the screens live in `:app`, which
+[ADR 0007](../adr/0007-a-designsystem-module-with-bespoke-colour-tokens.md)'s dependency direction
+keeps out of this module's test source set, the same reason `DS-093` still has no test.
 
 Robolectric's `android-all` jar is what a live `./gradlew test` would otherwise fetch from Maven
 Central the first time a Robolectric test runs (`DS-092`); pre-fetching and caching it in `pr.yml`
