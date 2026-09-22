@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.3.0](https://github.com/derekwinters/Interval-trainer-android/compare/v0.2.2...v0.3.0) (2026-09-22)
+
+
+### Features
+
+* **app:** emit real tones and vibration for every cue ([#141](https://github.com/derekwinters/Interval-trainer-android/issues/141)) ([3f76ee1](https://github.com/derekwinters/Interval-trainer-android/commit/3f76ee17790c93b7c338f0800f785873affe3c9b)), closes [#130](https://github.com/derekwinters/Interval-trainer-android/issues/130)
+* **release:** gate release APKs on their packaging and publish their digests ([9becefd](https://github.com/derekwinters/Interval-trainer-android/commit/9becefd3e0d0eeda2d64f468a09c02155d066ba9)), closes [#127](https://github.com/derekwinters/Interval-trainer-android/issues/127)
+
+
+### Fixes
+
+* **app:** declare an app theme with no platform action bar ([#139](https://github.com/derekwinters/Interval-trainer-android/issues/139)) ([941ba8e](https://github.com/derekwinters/Interval-trainer-android/commit/941ba8e71db04a785d47c513f87497cc429d9001)), closes [#132](https://github.com/derekwinters/Interval-trainer-android/issues/132)
+* **ci:** recognize apksigner's scheme-labelled signer block ([78aedde](https://github.com/derekwinters/Interval-trainer-android/commit/78aeddee2b6f2c5253ded1d630514b7b20612911)), closes [#122](https://github.com/derekwinters/Interval-trainer-android/issues/122)
+* **ci:** source the release-signature gate from main, not the tag it checks ([36b70fd](https://github.com/derekwinters/Interval-trainer-android/commit/36b70fdf644a744605fbe03ff61adcc3ce73988e)), closes [#125](https://github.com/derekwinters/Interval-trainer-android/issues/125)
+* **designsystem:** inset the three shared layouts by the system bars ([#140](https://github.com/derekwinters/Interval-trainer-android/issues/140)) ([e845e7a](https://github.com/derekwinters/Interval-trainer-android/commit/e845e7a9b5c6ce545a5baa92bd19245ac280477d)), closes [#131](https://github.com/derekwinters/Interval-trainer-android/issues/131)
+
+
+### Documentation
+
+* **adr:** adopt OKF v0.2 frontmatter for the non-specification documents ([#138](https://github.com/derekwinters/Interval-trainer-android/issues/138)) ([460bd1b](https://github.com/derekwinters/Interval-trainer-android/commit/460bd1bca2a013f4d8517549b633e3eb442e5567)), closes [#48](https://github.com/derekwinters/Interval-trainer-android/issues/48)
+
 ## [0.2.2](https://github.com/derekwinters/Interval-trainer-android/compare/v0.2.1...v0.2.2) (2026-09-19)
 
 
