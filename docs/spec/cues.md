@@ -266,7 +266,10 @@ script rather than committed as binaries nobody can reason about.
 
 The script is standard-library Python and deterministic, so re-running it reproduces the committed
 files byte for byte: a `.wav` here that its own generator does not reproduce is one somebody edited
-by hand, and the script has stopped describing what ships. It writes mono 16-bit PCM at 44.1 kHz —
+by hand, and the script has stopped describing what ships. `--check` is how to find that out —
+`python3 tools/cues/generate_tone_assets.py --check` regenerates each tone in memory, compares it
+with the committed file and exits non-zero on any difference, writing nothing, so verifying the
+claim does not mean overwriting the working tree first. It writes mono 16-bit PCM at 44.1 kHz —
 22 KB for a 250 ms boundary tone, 32 KB for the 360 ms finish, 81 KB for all four — and each note is
 windowed with a 5 ms raised-cosine fade at both ends, because a sine truncated mid-cycle clicks and a
 click reads as a glitch rather than as a signal. Uncompressed, because `SoundPool` pre-decodes

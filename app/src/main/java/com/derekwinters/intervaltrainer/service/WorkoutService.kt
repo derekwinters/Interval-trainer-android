@@ -46,12 +46,13 @@ import kotlinx.coroutines.runBlocking
  * The foreground service that owns the running workout (`docs/spec/service.md` `SVC-010`–`024`,
  * `SVC-040`–`042`; `docs/adr/0002-the-foreground-service-owns-the-running-workout.md`).
  *
- * It holds a [WorkoutSession] — `:core`'s reducer plus the preset lookup `SVC-014` describes — a
- * `PARTIAL_WAKE_LOCK` (`SVC-011`), and the notification (`SVC-020`–`026`). Every command a screen
- * or the notification sends arrives as an `Intent` this service's own `onStartCommand` decodes
- * into a [WorkoutCommand] and hands to [WorkoutSession.handle] — the decoding is the only part of
- * this class [WorkoutSessionTest] does not already cover, and it is a single `when` over an
- * `Intent`'s action string with no branching worth a JVM test of its own.
+ * It holds a [WorkoutSession] — `:core`'s reducer plus the preset lookup `SVC-014` describes — an
+ * [AndroidCueSink] (`docs/spec/cues.md`, issue #130), a `PARTIAL_WAKE_LOCK` (`SVC-011`), and the
+ * notification (`SVC-020`–`026`). Every command a screen or the notification sends arrives as an
+ * `Intent` this service's own `onStartCommand` decodes into a [WorkoutCommand] and hands to
+ * [WorkoutSession.handle] — the decoding is the only part of this class [WorkoutSessionTest] does
+ * not already cover, and it is a single `when` over an `Intent`'s action string with no branching
+ * worth a JVM test of its own.
  *
  * `docs/spec/screens.md` `SCREEN-061`: it also collects [DefaultMuteStore]'s own `Flow` into
  * [currentDefaultMuted], the value it passes to every [WorkoutSession.handle] call —
@@ -69,6 +70,7 @@ class WorkoutService : Service() {
     private lateinit var presetStore: PresetStore
     private lateinit var session: WorkoutSession
     private lateinit var defaultMuteStore: DefaultMuteStore
+    private lateinit var cueSink: AndroidCueSink
 
     private val clock = ElapsedRealtimeClock()
     private var wakeLock: PowerManager.WakeLock? = null
@@ -92,7 +94,11 @@ class WorkoutService : Service() {
         // (SCREEN-002, #79) can never open two different database files.
         database = AppDatabase.open(applicationContext)
         presetStore = RoomPresetStore(database.presetDao())
-        session = WorkoutSession(presetStore, clock, NoOpCueSink)
+        // CUE-001–002, #130: the real sink, built here so SoundPool has decoded the four assets
+        // before the first cue is due, and released in onDestroy with everything else this
+        // service owns.
+        cueSink = AndroidCueSink(applicationContext)
+        session = WorkoutSession(presetStore, clock, cueSink)
         defaultMuteStore = DataStoreDefaultMuteStore(applicationContext)
         // SCREEN-061: read once, synchronously, matching AppDatabase.open's own blocking-on-
         // onCreate convention just above — onStartCommand can process a Start command (the
@@ -120,6 +126,11 @@ class WorkoutService : Service() {
         tickJob?.cancel()
         serviceScope.cancel()
         releaseWakeLock()
+        // A SoundPool holds the four decoded assets in native memory for as long as it lives, so
+        // it is released here, where this service already gives up everything else it acquired.
+        // Nothing fires a cue after this point: the tick loop is cancelled above and the session
+        // is not reachable once the service is destroyed.
+        if (::cueSink.isInitialized) cueSink.close()
         if (::database.isInitialized) database.close()
         super.onDestroy()
     }

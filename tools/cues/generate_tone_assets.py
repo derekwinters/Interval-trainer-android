@@ -10,7 +10,13 @@ below and run it again.
 
 Usage (from anywhere; the output path is resolved from this file's location):
 
-    python3 tools/cues/generate_tone_assets.py
+    python3 tools/cues/generate_tone_assets.py            # write the assets
+    python3 tools/cues/generate_tone_assets.py --check    # verify them, writing nothing
+
+``--check`` regenerates each tone in memory and compares it with the committed file byte for byte,
+exiting non-zero if any of them differs or is missing. That is the claim ``docs/spec/cues.md`` §9
+makes about these binaries, and without this flag verifying it would mean overwriting the working
+tree first and trusting ``git diff`` to be empty afterwards.
 
 Standard library only — ``wave``, ``math``, ``struct``. No JDK, no Android SDK, no network.
 
@@ -26,9 +32,11 @@ its articulation.
 the assets inspectable. Each file is a few tens of kilobytes; these are cues, not music.
 """
 
+import io
 import math
 import os
 import struct
+import sys
 import wave
 
 SAMPLE_RATE_HZ = 44_100
@@ -90,36 +98,86 @@ def note_samples(frequency_hz, duration_millis, amplitude):
     return samples
 
 
-def write_wav(path, samples):
-    """Write `samples` as mono 16-bit PCM."""
+def wav_bytes(samples):
+    """`samples` as a complete mono 16-bit PCM WAV file, as bytes."""
     frames = b"".join(
         struct.pack("<h", max(-32768, min(32767, int(round(sample * 32767.0)))))
         for sample in samples
     )
-    with wave.open(path, "wb") as output:
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as output:
         output.setnchannels(1)
         output.setsampwidth(2)
         output.setframerate(SAMPLE_RATE_HZ)
         output.writeframes(frames)
+    return buffer.getvalue()
 
 
-def main():
-    os.makedirs(OUTPUT_DIRECTORY, exist_ok=True)
-    for name, (notes, amplitude) in sorted(TONES.items()):
-        samples = []
-        for frequency_hz, duration_millis in notes:
-            samples.extend(note_samples(frequency_hz, duration_millis, amplitude))
+def tone_bytes(name):
+    """The WAV file `TONES[name]` describes, synthesised in memory."""
+    notes, amplitude = TONES[name]
+    samples = []
+    for frequency_hz, duration_millis in notes:
+        samples.extend(note_samples(frequency_hz, duration_millis, amplitude))
+    return wav_bytes(samples)
+
+
+def main(argv):
+    arguments = argv[1:]
+    checking = arguments == ["--check"]
+    if arguments and not checking:
+        print("usage: generate_tone_assets.py [--check]", file=sys.stderr)
+        return 2
+
+    if not checking:
+        os.makedirs(OUTPUT_DIRECTORY, exist_ok=True)
+
+    mismatches = []
+    for name, (notes, _) in sorted(TONES.items()):
         path = os.path.join(OUTPUT_DIRECTORY, name + ".wav")
-        write_wav(path, samples)
-        print(
-            "{}: {} note(s), {:.0f} ms, {} bytes".format(
-                os.path.basename(path),
-                len(notes),
-                sum(duration for _, duration in notes),
-                os.path.getsize(path),
-            )
+        generated = tone_bytes(name)
+        summary = "{} note(s), {:.0f} ms, {} bytes".format(
+            len(notes), sum(duration for _, duration in notes), len(generated)
         )
+
+        if not checking:
+            with open(path, "wb") as output:
+                output.write(generated)
+            print("{}: {}".format(os.path.basename(path), summary))
+            continue
+
+        try:
+            with open(path, "rb") as committed_file:
+                committed = committed_file.read()
+        except OSError as error:
+            print("{}: MISSING ({})".format(os.path.basename(path), error.strerror))
+            mismatches.append(name)
+            continue
+
+        if committed == generated:
+            print("{}: matches ({})".format(os.path.basename(path), summary))
+        else:
+            print(
+                "{}: DIFFERS — committed {} bytes, generated {} bytes".format(
+                    os.path.basename(path), len(committed), len(generated)
+                )
+            )
+            mismatches.append(name)
+
+    if checking and mismatches:
+        print(
+            "\n{} of {} assets are not what this script produces: {}.\nEither re-run without "
+            "--check to regenerate them, or find out who edited them by hand.".format(
+                len(mismatches), len(TONES), ", ".join(sorted(mismatches))
+            ),
+            file=sys.stderr,
+        )
+        return 1
+
+    if checking:
+        print("\nAll {} assets match their generator, byte for byte.".format(len(TONES)))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main(sys.argv))
