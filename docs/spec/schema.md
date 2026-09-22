@@ -209,17 +209,9 @@ documented, empty harness — its KDoc names the exact `androidx.room.testing.Mi
 shape a future test will use, verified against Room 2.7.0's own source rather than assumed from
 this page's Room-3-era research note — rather than a test with something to assert.
 `SCHEMA-041` stays unmet until a breaking change actually needs it: that requirement is a promise
-about the *next* migration's test, not a claim this file makes today, and two more things that
-test will need are still missing regardless of this file — the committed v1 schema JSON
-(`SCHEMA-003`, [#100](https://github.com/derekwinters/Interval-trainer-android/issues/100)) and an
-actual v2 to migrate to.
-
-**The exported schema JSON (`SCHEMA-003`) is not committed in the pull request that added this
-paragraph.** `:database`'s Room and `androidx.sqlite` dependencies resolve only from Google's
-Maven repository, which the sandbox that wrote this module could not reach; generating the real,
-Room-computed schema file needs a build environment that can. That is tracked as
-[#100](https://github.com/derekwinters/Interval-trainer-android/issues/100) rather than guessed
-at here.
+about the *next* migration's test, not a claim this file makes today. The committed v1 schema JSON
+that test reads from is now in place (`SCHEMA-003`); what is still missing is an actual v2 to
+migrate to.
 
 **Why the proportion is mostly `manual`.** Most of this page is the shape of a table — a column, a
 type, a foreign key, an index — which is a configuration fact the exported schema and Room's own
