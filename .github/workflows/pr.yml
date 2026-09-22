@@ -81,5 +81,49 @@ jobs:
           ROBOLECTRIC_DEPENDENCY_REPO_URL: https://robolectric-cache-miss.invalid/maven2
         run: ./gradlew test --stacktrace
 
+      # TEMPORARY SCAFFOLDING FOR ISSUE 100 — both of the steps below, and this comment, are
+      # removed again by the commit that lands the schema file. Nothing depends on them.
+      #
+      # Issue 100 needs the real, Room-computed v1 schema JSON for IntervalTrainerDatabase, and
+      # its `identityHash` is not something anyone may hand-write. Room and androidx.sqlite
+      # resolve only from Google's Maven repository, which no development environment here can
+      # reach (see CLAUDE.md, *Building*), so this workflow is the only place that file is ever
+      # produced — and today it is discarded when the job ends. These steps hand it over instead.
+      #
+      # This listing runs immediately after "Run the unit tests" and before anything else
+      # compiles :database, so what it prints is exactly what `./gradlew test` alone produced.
+      # That is the question issue 100 has to answer from a real run rather than assume: which
+      # of :database's Room KSP tasks the top-level `test` aggregate actually reaches, and the
+      # layout Room's `copyRoomSchemas` task writes under database/schemas/.
+      - name: Temporary (issue 100) — list what Room exported during the unit tests
+        if: always()
+        run: |
+          echo '--- database/schemas (the copyRoomSchemas task output)'
+          find database/schemas -type f -print 2>/dev/null || echo '(absent)'
+          echo '--- database/build/intermediates/room (per-KSP-task raw exports)'
+          find database/build/intermediates/room -type f -print 2>/dev/null || echo '(absent)'
+
       - name: Assemble the debug APK
         run: ./gradlew assembleDebug
+
+      # TEMPORARY SCAFFOLDING FOR ISSUE 100 — removed with the listing step above.
+      #
+      # Runs last and `if: always()`, so it captures whatever either Gradle invocation wrote even
+      # if one of them failed. Two paths, because each answers a different half of the question:
+      # database/schemas/ is where Room's `copyRoomSchemas` task consolidates the exported
+      # schemas, and database/build/intermediates/room/schemas/<kspTaskName>/ is the output
+      # directory each Room compiler run writes unconditionally — so the artifact still carries
+      # the real generated JSON even if the consolidating copy task is skipped.
+      #
+      # Adds no permission: BUILD-042's `contents: read` is all an artifact upload needs. The
+      # SHA is the one release-candidate.yml already pins for this action (BUILD-043).
+      - name: Temporary (issue 100) — upload the exported Room schemas
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: room-schemas
+          path: |
+            database/schemas/
+            database/build/intermediates/room/schemas/
+          if-no-files-found: warn
+          retention-days: 3
