@@ -1,3 +1,22 @@
+---
+type: Research Note
+title: "Testing Room migrations and schema contracts on the JVM"
+description: "How Room migrations and schema contracts are tested on the JVM, without an emulator, on Room's current stable release."
+status: stable
+generated: { by: claude-code, at: 2026-09-16T02:45:37Z }
+sources:
+  - resource: https://developer.android.com/
+    title: "Android developer documentation: the Room release notes, guides and API reference"
+  - resource: https://github.com/androidx/androidx
+    title: "AndroidX source on the androidx-main branch, including room3 and its integration tests"
+  - resource: https://github.com/robolectric/robolectric
+    title: "Robolectric source, cited in place of robolectric.org, which was unreachable"
+  - resource: https://repo1.maven.org/maven2/
+    title: "Maven Central artifact metadata for published versions and release dates"
+  - resource: https://kotlinlang.org/
+    title: "Kotlin documentation"
+---
+
 # Research — Testing Room migrations and schema contracts on the JVM
 
 **Question (issue #27).** How are Room migrations and schema contracts tested on the JVM, without an

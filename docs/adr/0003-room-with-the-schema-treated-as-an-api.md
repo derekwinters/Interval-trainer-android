@@ -1,3 +1,11 @@
+---
+type: Architecture Decision Record
+title: "ADR 0003: Room from v1, with the schema treated as an API"
+description: "Presets are stored in Room from v1, the exported schema is committed and reviewed as a diff, and migration tests run as plain JVM tests with no emulator."
+status: stable
+generated: { by: claude-code, at: 2026-09-12T17:15:15Z }
+---
+
 # 3. Room from v1, with the schema treated as an API
 
 - **Status:** accepted; amended 2026-09-12, see [Amendment, 2026-09-12](#amendment-2026-09-12)

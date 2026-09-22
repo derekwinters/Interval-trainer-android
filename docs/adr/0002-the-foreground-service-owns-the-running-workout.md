@@ -1,3 +1,11 @@
+---
+type: Architecture Decision Record
+title: "ADR 0002: The foreground service owns the running workout"
+description: "The foreground service owns the running workout's schedule and clock and declares the mediaPlayback service type; screens observe that state and send commands."
+status: stable
+generated: { by: claude-code, at: 2026-09-11T22:52:31Z }
+---
+
 # 2. The foreground service owns the running workout
 
 - **Status:** accepted

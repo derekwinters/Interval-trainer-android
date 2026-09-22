@@ -1,3 +1,11 @@
+---
+type: Architecture Decision Record
+title: "ADR 0001: Release builds are signed with a stable, owned keystore"
+description: "Release builds are signed with a real, stable, owned keystore created once and kept, reaching a build only as repository secrets."
+status: stable
+generated: { by: claude-code, at: 2026-09-11T22:52:31Z }
+---
+
 # 1. Release builds are signed with a stable, owned keystore
 
 - **Status:** accepted
