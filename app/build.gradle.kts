@@ -187,3 +187,17 @@ dependencies {
     // The unit tests run on the JVM alone (BUILD-021), so nothing here needs a device.
     testImplementation("junit:junit:4.13.2")
 }
+
+// Diagnosability (#78, #107), the same reasoning `:designsystem`'s own build file already carries:
+// Gradle's default `Test` task logging collapses a failed assertion to one line — class, method
+// name and source location — with no message and no value, so a test whose whole point is which
+// of several conditions failed (WindowThemeDeclarationTest.kt, DS-022) reports nothing usable in
+// the workflow log. `TestExceptionFormat.FULL` prints the `AssertionError`'s own message alongside
+// the stack trace, in the console output `pr.yml` and `release-candidate.yml` already capture.
+tasks.withType<Test>().configureEach {
+    testLogging {
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showCauses = true
+        showStackTraces = true
+    }
+}

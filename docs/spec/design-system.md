@@ -73,6 +73,15 @@ none of the six v1 screens exists yet. That remains
 > `DS-091`'s "every" down to "some", and is wrong regardless of whether the sample it happened to
 > pick passes.
 
+> **Invariant — the app's theme states the absence of the platform action bar in its own body, not
+> in a parent's name.** A theme whose only claim to having no action bar is a parent ending in
+> `.NoActionBar` satisfies `DS-022` by coincidence: nothing in this repository fails when that
+> parent is changed, and the two-headers defect
+> [#132](https://github.com/derekwinters/Interval-trainer-android/issues/132) reports comes back
+> with no test going red. `android:windowActionBar` and `android:windowNoTitle` are written out in
+> the theme itself, whatever parent it takes — the parent stays an implementation choice, the
+> property does not.
+
 ---
 
 ## 1. Buttons and actions
@@ -174,6 +183,34 @@ none of the six v1 screens exists yet. That remains
   page-level FAB (home's "new preset").
 - **DS-021** Every one of the six v1 screens uses `ScreenHeader`, including the three built from
   stock Material 3 components in §7 — never a stock `TopAppBar`.
+- **DS-022** `AndroidManifest.xml`'s `<application>` element declares an `android:theme`, and that
+  theme's own body sets `android:windowActionBar` to `false` and `android:windowNoTitle` to `true`.
+  It is declared on the application rather than on one activity because `DS-021` and `DS-062` are
+  claims about every screen, and an activity-level declaration would hold only for the activities
+  that remember to repeat it. With no theme declared anywhere, the platform supplies its own, which
+  draws an action bar titled from `android:label` above whatever the screen composes — so
+  `ScreenHeader` stops being the only header on screen, broken by the window rather than by any
+  screen's own code
+  ([#132](https://github.com/derekwinters/Interval-trainer-android/issues/132)). *(auto:
+  `WindowThemeDeclarationTest.kt`, at
+  `app/src/test/java/com/derekwinters/intervaltrainer/WindowThemeDeclarationTest.kt` — a pure-JVM
+  test that reads the manifest and the theme resource the manifest names. It asserts the
+  declaration, not a resolved theme: resolving one needs a simulated Android runtime, and
+  [`docs/spec/build.md`](build.md) `BUILD-023` scopes Robolectric to `:designsystem` alone, which
+  this requirement does not widen. This page's fifth invariant is what makes the declaration the
+  honest thing to assert.)*
+- **DS-023** `MainActivity` sets its own window up for edge-to-edge explicitly — `enableEdgeToEdge()`,
+  or the equivalent `WindowCompat.setDecorFitsSystemWindows(window, false)` — rather than leaving
+  the window to whatever `targetSdk = 35` enforces by default. This requirement is the window level
+  and stops there: consuming the resulting insets as padding, so that no content sits under the
+  status or navigation bar, is a property of the layouts in §8 and belongs to
+  [#131](https://github.com/derekwinters/Interval-trainer-android/issues/131), not here. Until that
+  lands, a screen's `ScreenHeader` may sit under the status bar; that is this boundary showing, not
+  a failure of this requirement. *(manual: `setDecorFitsSystemWindows` has no public getter to
+  assert against, and the further window properties `enableEdgeToEdge()` sets are that function's
+  own — a test asserting those would pick one of the two implementations this requirement
+  deliberately leaves open. Checked by reading the call site, and on a device for the visible
+  result.)*
 
 ## 4. Timer typography
 
@@ -392,7 +429,7 @@ this decision:
 |---|---|---|
 | Buttons and actions | DS-001–009, DS-014–016 | *(manual)* |
 | Dialogs | DS-010–012 | *(manual)* |
-| Screen scaffolding | DS-013, DS-020–021 | *(manual)* |
+| Screen scaffolding | DS-013, DS-020–023 | `WindowThemeDeclarationTest.kt` (DS-022); *(manual)* DS-013, DS-020–021, DS-023 |
 | Timer typography | DS-030–033 | *(manual)* |
 | Spacing | DS-040 | *(manual)* |
 | Colour tokens | DS-050–052 | `ColorSchemeMappingTest.kt` (DS-051's `ColorScheme` mapping); `TokenContrastTest.kt` (DS-050–051, via DS-094, not yet written); *(manual)* DS-050, DS-052 |
@@ -402,7 +439,7 @@ this decision:
 | Enforcement — not adopted | DS-096–097 | *(manual)* |
 | Human judgement calls | DS-098–101 | *(manual)* |
 
-**51 requirements, 3 `auto` and 48 `manual`.** This table's "Tests" column is what a JVM test
+**53 requirements, 4 `auto` and 49 `manual`.** This table's "Tests" column is what a JVM test
 checks, and stays as written above whether or not the component itself has been built: `*(manual)*`
 means "no test", not "no code". `DS-001`–`DS-013`, `DS-014`–`016` and `DS-020`–`021` (buttons
 and actions, dialogs, screen scaffolding) are now implemented in `:designsystem`
@@ -455,6 +492,19 @@ path this page named before `:designsystem` had a test convention of its own to 
 assert `DS-094` has a home rather than being invented at implementation time. A requirement marked
 `auto` is a promise that a JVM test *can* assert it and *will*, not a claim that one does; `DS-091`
 now redeems most of that promise, `DS-093` and `DS-094` still do not.
+
+**`DS-022` is this page's fourth `auto` requirement, and the first whose test lives outside
+`:designsystem`.** It lives in `:app` because the manifest and the theme resource it names do:
+`WindowThemeDeclarationTest.kt`, at
+`app/src/test/java/com/derekwinters/intervaltrainer/WindowThemeDeclarationTest.kt`, in that module's
+existing unit-test source set and with no new test dependency. It reads `AndroidManifest.xml` and
+the theme resource declared there, and asserts the two attributes this page's fifth invariant
+requires the theme to write out for itself. That is a declaration-level assertion rather than a
+resolved-theme one, and deliberately: resolving a theme needs a simulated Android runtime, and
+[`docs/spec/build.md`](build.md) `BUILD-023` scopes Robolectric to `:designsystem` alone — a scope
+[#132](https://github.com/derekwinters/Interval-trainer-android/issues/132) had no reason to widen,
+since a theme nothing declares is exactly what that defect was. `DS-023`'s own window call stays
+`manual`, for the reason its entry gives.
 
 Robolectric's `android-all` jar is what a live `./gradlew test` would otherwise fetch from Maven
 Central the first time a Robolectric test runs (`DS-092`); pre-fetching and caching it in `pr.yml`
