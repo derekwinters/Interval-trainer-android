@@ -1,3 +1,20 @@
+---
+type: Research Note
+title: "OpenSpec and OKF: what they are, and whether they overlap"
+description: "Whether OpenSpec's requirements workflow and Google's Open Knowledge Format work together or overlap, and what adopting either would cost this repository."
+status: stable
+generated: { by: claude-code, at: 2026-09-11T22:52:31Z }
+sources:
+  - resource: https://github.com/Fission-AI/OpenSpec
+    title: "Fission-AI/OpenSpec: the project repository and its specification files"
+  - resource: https://github.com/GoogleCloudPlatform/open-knowledge-format
+    title: "GoogleCloudPlatform/open-knowledge-format: SPEC.md, the Open Knowledge Format v0.2 specification"
+  - resource: https://registry.npmjs.org/@fission-ai/openspec
+    title: "npm registry metadata for the published OpenSpec CLI"
+  - resource: https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing
+    title: "How the Open Knowledge Format can improve data sharing: Google Cloud's announcement"
+---
+
 # Research — OpenSpec and OKF: what they are, and whether they overlap
 
 **Question.** The repository owner wants persistent specification files (not merely a design change

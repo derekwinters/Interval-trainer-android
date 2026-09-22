@@ -1,3 +1,16 @@
+---
+type: Research Note
+title: "Foreground service requirements for a timer on Android 8 to 15"
+description: "What Android requires of a foreground service that keeps an interval timer running and cueing on time with the screen off, on API 26 through 35."
+status: stable
+generated: { by: claude-code, at: 2026-09-11T22:52:31Z }
+sources:
+  - resource: https://developer.android.com/
+    title: "Android developer documentation: guides, behaviour-change pages and API reference"
+  - resource: https://github.com/aosp-mirror/platform_frameworks_base
+    title: "AOSP platform source, read from the official GitHub mirror on the main branch"
+---
+
 # Research — Foreground service requirements for a timer on Android 8 to 15
 
 **Question (issue #25):** what does Android require of a foreground service that keeps an interval

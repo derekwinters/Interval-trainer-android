@@ -1,3 +1,11 @@
+---
+type: Architecture Decision Record
+title: "ADR 0006: Specifications stay as docs/spec pages for v1"
+description: "For v1, specifications stay as docs/spec pages with stable requirement labels, explicit invariants, auto/manual marking and a traceability table."
+status: stable
+generated: { by: claude-code, at: 2026-09-12T04:03:00Z }
+---
+
 # 6. Specifications stay as `docs/spec` pages for v1
 
 - **Status:** accepted

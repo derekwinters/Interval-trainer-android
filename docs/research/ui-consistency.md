@@ -1,3 +1,32 @@
+---
+type: Research Note
+title: "Enforcing user-interface consistency on the JVM"
+description: "What mechanically enforces interface consistency in Jetpack Compose with Material 3 on a JVM-only continuous-integration setup with no emulator."
+status: stable
+generated: { by: claude-code, at: 2026-09-11T22:52:31Z }
+sources:
+  - resource: https://developer.android.com/
+    title: "Android developer documentation: Compose, design systems, lint and Gradle dependency guides"
+  - resource: https://github.com/androidx/androidx
+    title: "AndroidX source on the androidx-main branch"
+  - resource: https://github.com/cashapp/paparazzi
+    title: "cashapp/paparazzi: JVM screenshot testing"
+  - resource: https://github.com/takahirom/roborazzi
+    title: "takahirom/roborazzi: Robolectric-based screenshot testing, cited to source in place of its hosted docs"
+  - resource: https://github.com/detekt/detekt
+    title: "detekt/detekt: static analysis for Kotlin, cited to source in place of detekt.dev"
+  - resource: https://github.com/slackhq/compose-lints
+    title: "slackhq/compose-lints: lint rules for Compose"
+  - resource: https://github.com/robolectric/robolectric
+    title: "Robolectric source, cited in place of robolectric.org, which was unreachable"
+  - resource: https://github.com/googlesamples/android-custom-lint-rules
+    title: "googlesamples/android-custom-lint-rules: writing custom lint checks"
+  - resource: https://github.com/android/nowinandroid
+    title: "android/nowinandroid: Google's own reference app"
+  - resource: https://repo1.maven.org/maven2/
+    title: "Maven Central artifact listings for publication dates"
+---
+
 # Research — Enforcing user-interface consistency on the JVM
 
 **Question.** The interface must be consistent — every button of a given action the same style, colour

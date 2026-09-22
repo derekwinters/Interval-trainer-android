@@ -1,3 +1,11 @@
+---
+type: Architecture Decision Record
+title: "ADR 0007: A :designsystem module with bespoke colour tokens mapped onto Material 3"
+description: "A :designsystem module keeps material3 off every other module's compile classpath and owns a closed set of bespoke colour tokens mapped onto Material's roles."
+status: stable
+generated: { by: claude-code, at: 2026-09-14T23:57:57Z }
+---
+
 # 7. A `:designsystem` module with bespoke colour tokens mapped onto Material 3
 
 - **Status:** accepted

@@ -1,3 +1,11 @@
+---
+type: Architecture Decision Record
+title: "ADR 0004: The user interface is Jetpack Compose with Material 3"
+description: "The user interface is Jetpack Compose with Material 3, in a single activity, with Compose Navigation between screens."
+status: stable
+generated: { by: claude-code, at: 2026-09-14T23:57:57Z }
+---
+
 # 4. The user interface is Jetpack Compose with Material 3
 
 - **Status:** accepted

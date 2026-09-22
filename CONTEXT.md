@@ -1,3 +1,11 @@
+---
+type: Glossary
+title: "Interval Trainer: the project glossary"
+description: "The words this repository uses for presets, workouts and cues, one word per concept, so an issue, a specification page and a class name mean the same thing."
+status: stable
+generated: { by: claude-code, at: 2026-09-12T17:15:15Z }
+---
+
 # Interval Trainer
 
 The language of the interval-training app: the words this repository uses for presets, workouts and

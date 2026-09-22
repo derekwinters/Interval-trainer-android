@@ -1,3 +1,11 @@
+---
+type: Architecture Decision Record
+title: "ADR 0005: A pure-JVM core and a thin Android shell"
+description: "The app splits into a pure-Kotlin :core module holding the model, schedule expansion, timer state machine and reducers, and a thin Android :app shell."
+status: stable
+generated: { by: claude-code, at: 2026-09-14T23:57:57Z }
+---
+
 # 5. A pure-JVM core and a thin Android shell
 
 - **Status:** accepted

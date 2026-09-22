@@ -1,3 +1,14 @@
+---
+type: Research Note
+title: "Cue tones, audio focus and vibration on Android 8.0 to 15"
+description: "How a foreground service produces a short cue tone and a vibration on API 26 to 35 while another app is playing music through headphones."
+status: stable
+generated: { by: claude-code, at: 2026-09-11T22:52:31Z }
+sources:
+  - resource: https://developer.android.com/
+    title: "Android developer documentation: the media, audio-focus and vibration reference and guides, cited inline per claim"
+---
+
 # Cue tones, audio focus and vibration on Android 8.0 to 15
 
 Research for issue #26. Scope: API 26 (Android 8.0) through API 35 (Android 15), producing a

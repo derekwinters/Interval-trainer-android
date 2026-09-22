@@ -47,6 +47,23 @@ the commands under *Building* above and do not guess anything else.
 No private links — session links, signed URLs, anything carrying a token — ever go into a commit,
 a pull request, an issue or a comment. This repository is public, so each of those is a publication.
 
+## Documentation format
+
+This repository targets **OKF v0.2** — Google Cloud's
+[Open Knowledge Format](https://github.com/GoogleCloudPlatform/open-knowledge-format) — for the
+documents that are **not** specifications: everything under `docs/adr/` and `docs/research/`, plus
+`CONTEXT.md`. Each of those starts with a YAML frontmatter block. `docs/spec/` deliberately stays
+out of it, and so do `README.md`, `CHANGELOG.md`, this file and everything under `.ai-sdlc/`. The
+decision, the key conventions and the reasoning are
+[ADR 0008](docs/adr/0008-okf-frontmatter-on-the-documents-that-are-not-specifications.md).
+
+Writing one of those documents means writing its frontmatter: `type` is required and is one of
+`Architecture Decision Record`, `Research Note` or `Glossary`; `status` is always written out,
+because OKF reads an **absent `status` as `stable`** and would take an unfinished document for
+settled fact. There is no root `index.md` — which is the only place OKF permits `okf_version` — so
+the version this repository targets is pinned in prose here and in ADR 0008, the way
+`.ai-sdlc/adoption.md` pins ai-sdlc's. Nothing parses these files and no check validates them.
+
 ## Agent skills
 
 ### Issue tracker
