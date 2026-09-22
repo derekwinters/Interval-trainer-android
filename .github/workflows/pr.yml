@@ -81,77 +81,30 @@ jobs:
           ROBOLECTRIC_DEPENDENCY_REPO_URL: https://robolectric-cache-miss.invalid/maven2
         run: ./gradlew test --stacktrace
 
-      - name: Assemble the debug APK
-        run: ./gradlew assembleDebug
-
-      # TEMPORARY SCAFFOLDING FOR ISSUE 100 — this step, the upload step below it, and both
-      # comments are removed again by the commit that lands the schema file, except that the
-      # upload step is kept permanently. Nothing depends on this printing step.
+      # BUILD-046: every pull request keeps the schema Room actually exported, so a schema change
+      # can be reviewed against the committed database/schemas/ file (SCHEMA-003) without anyone
+      # reproducing an Android build locally — which, per CLAUDE.md, most environments working on
+      # this repository cannot do at all, because Room resolves only from Google's Maven.
       #
-      # Issue 100 needs the real, Room-computed v1 schema JSON for IntervalTrainerDatabase, and
-      # its `identityHash` is not something anyone may hand-write. Room and androidx.sqlite
-      # resolve only from Google's Maven repository, which no development environment here can
-      # reach (see CLAUDE.md, *Building*), so this workflow is the only place that file is ever
-      # produced.
+      # It runs here, straight after the unit tests, rather than at the end of the job, because
+      # `./gradlew test` alone already reaches :database's Room KSP tasks and its `copyRoomSchemas`
+      # task — observed in a real run, not assumed — so database/schemas/ is populated by this
+      # point. `if: always()` so a later failure still leaves the exported schema to look at.
       #
-      # It prints the file instead of relying on the artifact the step below uploads, because
-      # that artifact cannot be fetched from where the change is being written: artifact
-      # downloads are served from Azure blob storage the development environment is refused by,
-      # and the GitHub API offers no artifact download that works there either. A job log can be
-      # read. So the log is the transport — path, sha256, byte count and full contents between
-      # unambiguous markers — and the sha256 is what makes the transfer safe: it is checked
-      # again against the committed file, so no transcription error can survive into the
-      # repository. The byte count is there because the blank `echo` after `cat` (which keeps
-      # the end marker on a line of its own even for a file with no final newline) would
-      # otherwise leave a trailing newline indistinguishable from none; the two together say
-      # exactly what to write.
+      # The path is database/schemas/ only: that is the consolidated, committed location, one file
+      # per database class. The per-task raw exports under build/intermediates/room/schemas/ are
+      # the same content before `copyRoomSchemas` collects it, and are not worth uploading twice.
       #
-      # Placed after "Assemble the debug APK" rather than after the unit tests because the
-      # previous run showed :database:kspDebugKotlinAndroid and :database:copyRoomSchemas
-      # executing during assembleDebug, so database/schemas/ is certainly populated by here.
-      # That run also answered what the earlier listing step was for: `./gradlew test` alone
-      # already reaches :database's KSP tasks, and already leaves exactly one consolidated file,
-      # database/schemas/<database class FQN>/1.json.
-      - name: Temporary (issue 100) — print the exported Room schemas
-        if: always()
-        run: |
-          found=0
-          while IFS= read -r schema; do
-            found=1
-            echo "===== BEGIN ROOM SCHEMA ====="
-            echo "PATH: ${schema}"
-            echo "SHA256: $(sha256sum "${schema}" | cut -d ' ' -f 1)"
-            echo "BYTES: $(wc -c < "${schema}" | tr -d ' ')"
-            echo "----- BEGIN CONTENTS -----"
-            cat "${schema}"
-            echo ""
-            echo "----- END CONTENTS -----"
-            echo "===== END ROOM SCHEMA ====="
-          done < <(find database/schemas -type f 2>/dev/null | sort)
-          if [ "${found}" -eq 0 ]; then
-            echo "!!!!! NO FILES FOUND UNDER database/schemas — nothing to hand over !!!!!"
-            echo "!!!!! Issue 100 cannot take the schema from this run; do not treat this as a pass !!!!!"
-          fi
-
-      # TEMPORARY SCAFFOLDING FOR ISSUE 100 — this comment goes with the printing step above;
-      # the step itself stays, as the permanent record of what each build exported.
-      #
-      # Runs last and `if: always()`, so it captures whatever either Gradle invocation wrote even
-      # if one of them failed. Two paths, because each answers a different half of the question:
-      # database/schemas/ is where Room's `copyRoomSchemas` task consolidates the exported
-      # schemas, and database/build/intermediates/room/schemas/<kspTaskName>/ is the output
-      # directory each Room compiler run writes unconditionally — so the artifact still carries
-      # the real generated JSON even if the consolidating copy task is skipped.
-      #
-      # Adds no permission: BUILD-042's `contents: read` is all an artifact upload needs. The
-      # SHA is the one release-candidate.yml already pins for this action (BUILD-043).
-      - name: Temporary (issue 100) — upload the exported Room schemas
+      # Adds no permission: BUILD-042's `contents: read` is all an artifact upload needs. The SHA
+      # is the one release-candidate.yml already pins for this action (BUILD-043).
+      - name: Upload the exported Room schemas
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: room-schemas
-          path: |
-            database/schemas/
-            database/build/intermediates/room/schemas/
+          path: database/schemas/
           if-no-files-found: warn
           retention-days: 3
+
+      - name: Assemble the debug APK
+        run: ./gradlew assembleDebug

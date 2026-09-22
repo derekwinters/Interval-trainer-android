@@ -23,7 +23,8 @@ plugins {
     // `androidx.room:room-runtime`/`room-compiler` coordinates in database/build.gradle.kts —
     // Room ships its Gradle plugin from the same release train as the library itself. It replaces
     // a manual `ksp { arg("room.schemaLocation", ...) }` with the plugin's own `room {
-    // schemaDirectory(...) }` DSL, which writes each KSP task's exported schema to its own
-    // variant-scoped subdirectory instead of one shared path every task races to write.
+    // schemaDirectory(...) }` DSL, which gives each KSP task its own variant-scoped output
+    // directory under `build/intermediates/room/schemas/` and copies the result into the
+    // configured directory afterwards, instead of one shared path every task races to write.
     id("androidx.room") version "2.7.0" apply false
 }
