@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
@@ -22,7 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 
 /**
- * The closed set of three screen layouts (`DS-070`–`079`): **list** ([ListLayout]), **full-bleed**
+ * The closed set of three screen layouts (`DS-070`–`080`): **list** ([ListLayout]), **full-bleed**
  * ([FullBleedLayout]), and **form** ([FormLayout]). Per this page's first invariant in
  * `docs/spec/design-system.md`, a screen does not arrange its own header, spacing and action
  * placement — it fills one of these three layouts' named slots. Each slot below is typed to the
@@ -33,6 +34,15 @@ import androidx.compose.ui.tooling.preview.Preview
  * `LazyListScope` receiver (`LazyColumn`'s own content shape, matching "a collection of like items"
  * — `DS-072`), and the form layout's one primary action is expressed as `PrimaryButton`'s own
  * parameters (`DS-001`), not an arbitrary composable slot a screen could fill with any button.
+ *
+ * All three inset their own content by the window's system bars (`DS-080`). `MainActivity` opens
+ * the window edge-to-edge (`DS-023`) and these three layouts — and nothing else in the app —
+ * consume the insets that produces as padding: a screen never applies an inset modifier of its own,
+ * per `docs/spec/design-system.md`'s sixth invariant. The padding goes *inside* each layout's
+ * `Surface`, so the token background (`DS-050`) still fills the window corner to corner and only
+ * the content within it is inset. `Modifier.systemBarsPadding()` is
+ * `windowInsetsPadding(WindowInsets.systemBars)`, which also *consumes* those insets, so an inset
+ * modifier nested deeper inside a screen's content cannot double-apply them.
  *
  * A structural check asserting a screen's root composable is one of these three (`DS-093`) is a
  * later issue's job (screen implementation, `#78`) — this file only builds the layouts themselves,
@@ -74,7 +84,11 @@ fun ListLayout(
     val colors = AppTheme.colors
     val spacing = AppTheme.spacing
     Surface(modifier = modifier.fillMaxSize(), color = colors.bg) {
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .systemBarsPadding(),
+        ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 ScreenHeader(title = title, onBack = onBack, trailingAction = trailingAction)
                 LazyColumn(
@@ -104,9 +118,18 @@ fun ListLayout(
  *
  * What makes this a *layout* rather than simply the absence of one: it still applies the token
  * layer's own background (`colors.bg`, `DS-050`) rather than leaving Material's baseline surface
- * default in place, and it still fills the screen edge-to-edge with no scaffold insets — both
- * properties every screen gets structurally, per this page's invariant that a screen does not
- * arrange its own background. Positioning everything inside that surface is genuinely free: `content`
+ * default in place, and it still insets its own content by the system bars (`DS-080`), exactly as
+ * the other two layouts do — both properties every screen gets structurally, per this page's
+ * invariants that a screen arranges neither its own background nor its own spacing. **"Full-bleed"
+ * names the absence of the header-and-list scaffold and nothing more.** This comment used to name
+ * "edge-to-edge with no scaffold insets" as the second of those two properties: that described the
+ * code accurately and was wrong as a design, because the system navigation bar then drew on top of
+ * the running screen's own controls
+ * ([#131](https://github.com/derekwinters/Interval-trainer-android/issues/131)). The background
+ * still fills the window corner to corner, behind both bars; the countdown inside it gives up the
+ * bars' worth of space like every other screen.
+ *
+ * Positioning everything inside that surface is genuinely free: `content`
  * is a `BoxScope` receiver so a screen can align its own elements (a ring centred, a rail to one
  * side, a control row at the bottom) however it needs to, including composing its own `ScreenHeader`
  * inside this free composition if the screen calls for one (`DS-062`).
@@ -118,7 +141,12 @@ fun FullBleedLayout(
 ) {
     val colors = AppTheme.colors
     Surface(modifier = modifier.fillMaxSize(), color = colors.bg) {
-        Box(modifier = Modifier.fillMaxSize(), content = content)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .systemBarsPadding(),
+            content = content,
+        )
     }
 }
 
@@ -148,7 +176,9 @@ fun FormLayout(
     val spacing = AppTheme.spacing
     Surface(modifier = modifier.fillMaxSize(), color = colors.bg) {
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .systemBarsPadding(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             if (headerTitle != null) {

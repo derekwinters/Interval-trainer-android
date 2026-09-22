@@ -31,7 +31,8 @@ the three icon-button roles, `CountStepper`, `DurationScrollPicker`, `Toggle`, `
 three screen layouts in §8 is now implemented
 too ([#76](https://github.com/derekwinters/Interval-trainer-android/issues/76)): `ListLayout`,
 `FullBleedLayout`, and `FormLayout`, each built from this component vocabulary and each with a
-`@Preview`. `:app` now depends on `:designsystem`
+`@Preview`, and each applying `DS-080`'s system-bar insets to its own content since
+[#131](https://github.com/derekwinters/Interval-trainer-android/issues/131). `:app` now depends on `:designsystem`
 ([#79](https://github.com/derekwinters/Interval-trainer-android/issues/79), the home screen, the
 first screen that needed its vocabulary), so the compile-time enforcement `DS-090` describes now
 genuinely applies to it: a `material3` import inside `:app` is a compile error today, not a
@@ -212,10 +213,11 @@ none of the six v1 screens exists yet. That remains
   or the equivalent `WindowCompat.setDecorFitsSystemWindows(window, false)` — rather than leaving
   the window to whatever `targetSdk = 35` enforces by default. This requirement is the window level
   and stops there: consuming the resulting insets as padding, so that no content sits under the
-  status or navigation bar, is a property of the layouts in §8 and belongs to
-  [#131](https://github.com/derekwinters/Interval-trainer-android/issues/131), not here. Until that
-  lands, a screen's `ScreenHeader` may sit under the status bar; that is this boundary showing, not
-  a failure of this requirement. *(manual: `setDecorFitsSystemWindows` has no public getter to
+  status or navigation bar, is a property of the layouts in §8 — `DS-080`, delivered by
+  [#131](https://github.com/derekwinters/Interval-trainer-android/issues/131) — and not of this
+  requirement. Both halves exist now, and they meet: this one opens the window to the bars, `DS-080`
+  keeps the content out from under them. A screen's `ScreenHeader` sitting under the status bar
+  would today be a failure of `DS-080`, not of this requirement. *(manual: `setDecorFitsSystemWindows` has no public getter to
   assert against, and the further window properties `enableEdgeToEdge()` sets are that function's
   own — a test asserting those would pick one of the two implementations this requirement
   deliberately leaves open. Checked by reading the call site, and on a device for the visible
