@@ -257,6 +257,26 @@ precision.
 Tune them against the prototype. They are a coherent set that satisfies §2, §3 and §5, and that is
 all they are.
 
+Where they ended up: the tone column is realised by the four assets in `app/src/main/res/raw`, which
+`tools/cues/generate_tone_assets.py` synthesises from the very numbers in the table below, and the
+vibration column by the waveforms in `CueEmission.kt`. Retuning a tone is editing a number in that
+script and re-running it; retuning a vibration is editing a waveform. Neither is a specification
+change, which is why nothing above pins either — and why the assets are generated from a committed
+script rather than committed as binaries nobody can reason about.
+
+The script is standard-library Python and deterministic, so re-running it reproduces the committed
+files byte for byte: a `.wav` here that its own generator does not reproduce is one somebody edited
+by hand, and the script has stopped describing what ships. `--check` is how to find that out —
+`python3 tools/cues/generate_tone_assets.py --check` regenerates each tone in memory, compares it
+with the committed file and exits non-zero on any difference, writing nothing, so verifying the
+claim does not mean overwriting the working tree first. It writes mono 16-bit PCM at 44.1 kHz —
+22 KB for a 250 ms boundary tone, 32 KB for the 360 ms finish, 81 KB for all four — and each note is
+windowed with a 5 ms raised-cosine fade at both ends, because a sine truncated mid-cycle clicks and a
+click reads as a glitch rather than as a signal. Uncompressed, because `SoundPool` pre-decodes
+whatever it is given into 16-bit PCM at load time anyway
+([`cue-audio.md`](../research/cue-audio.md)), so a compressed container would trade a few tens of
+kilobytes of APK for an asset the standard library cannot regenerate.
+
 | Cue | Tone | Vibration |
 |---|---|---|
 | Work start | 880 Hz, 250 ms, one note | two pulses of 120 ms, 100 ms apart |
@@ -278,11 +298,11 @@ table's guess at which reads as the more urgent.
 | Section | IDs | Tests |
 |---|---|---|
 | What a cue is | CUE-001–003 | `CueSelectionTest.kt` (CUE-001–002); *(manual)* CUE-003 |
-| Tones | CUE-010–016 | `CueSelectionTest.kt` (CUE-010–013, 016); *(manual)* CUE-014–015 |
-| Vibration | CUE-020–024 | `CueSelectionTest.kt` (CUE-020–023); *(manual)* CUE-024 |
+| Tones | CUE-010–016 | `CueSelectionTest.kt` (CUE-010–013, 016), `CueEmissionTest.kt` (CUE-010–013, 016); *(manual)* CUE-014–015 |
+| Vibration | CUE-020–024 | `CueSelectionTest.kt` (CUE-020–023), `CueEmissionTest.kt` (CUE-020–023); *(manual)* CUE-024 |
 | Colour | CUE-030–035 | `CueSelectionTest.kt` (CUE-030); *(manual)* CUE-031–035 |
 | The countdown | CUE-040–045 | `CueSelectionTest.kt` |
-| Mute | CUE-050–055 | `CueSelectionTest.kt` (CUE-050–053, 055); *(manual)* CUE-054 |
+| Mute | CUE-050–055 | `CueSelectionTest.kt` (CUE-050–053, 055), `CueEmissionTest.kt` (CUE-050); *(manual)* CUE-054 |
 | Audio attribution | CUE-060–061 | *(manual)* |
 | Silence the app does not fight | CUE-070–073 | *(manual)* |
 | Starting values | *(none — see §9)* | *(not specified)* |
@@ -301,6 +321,41 @@ package as the rest of `:core`), against a recording fake `CueSink`. `TIMER-033`
 fires the countdown and no boundary cue of its own — is exercised here too, now that there is
 a `CueSink` member to assert its absence against; see [`timer.md`](timer.md)'s traceability table.
 
+**Emission is built too, and the line has moved.** `:app` implements `CueSink` over `SoundPool` and
+`VibrationEffect` — the real tone and the real vibration `CueSink.kt`'s own doc comment named and
+[#130](https://github.com/derekwinters/Interval-trainer-android/issues/130) built — so the line this
+page draws between what a test can reach and what it cannot is no longer the `:core`/`:app` module
+boundary. It now runs *through* the adapter. On the reachable side is a pure function from a `Cue` to
+what is emitted for it: which bundled tone asset, and which vibration waveform. On the far side are
+the `SoundPool` load and play, the `Vibrator` call and the focus request, which no JVM runner can
+observe — `:app` has no Robolectric, and [`build.md`](build.md)'s `BUILD-023` scopes Robolectric to
+`:designsystem` alone. That split is the reason the mapping is a separate function rather than a few
+lines inside the adapter: a mapping inlined into the adapter is a mapping no test can reach, which is
+the same argument this page's fifth invariant makes one level up.
+
+`CueEmissionTest.kt` at
+`app/src/test/java/com/derekwinters/intervaltrainer/service/CueEmissionTest.kt` asserts the reachable
+side, against the very cues `:core` selects: that the four resolve to four distinct tone assets and
+between them account for every asset there is (`CUE-010`–`CUE-013`, `CUE-016`), that warm-up and
+cool-down resolve to the recovery asset rather than a fifth (`CUE-011`), that every pattern in the
+vibration vocabulary resolves to a waveform of its own (`CUE-023`), with the two boundary patterns
+differing in pulse count rather than in pulse length alone (`CUE-021`) and the finish neither of them
+(`CUE-022`), and that a muted cue emits no tone and the vibration it would have emitted anyway
+(`CUE-050`, `CUE-020`). It also checks that every asset the mapping names is a file that exists in
+`res/raw` and begins with a container `SoundPool` can decode: a mapping naming an asset nobody
+committed is a cue that is silent on the device and says nothing about it, because `SoundPool.load`
+returns sound id 0 for what it cannot decode and `play(0, ...)` is a no-op.
+
+**It pins no number from §9.** Those pitches, durations and pulse lengths are a starting point and
+retuning one is explicitly not a specification change, so what is asserted is the structure §2, §3
+and §6 do fix — how many there are, which is distinct from which, what mute does — and never a
+value. A test that pinned 880 Hz would turn retuning a cue into a test failure, which is the false
+precision §9 refuses.
+
+**None of that moves a requirement from `manual` to `auto`**, and the counts above are unchanged. The
+adapter asking for the right thing is what is asserted; whether the platform then delivers it, and
+whether what it delivers sounds and feels right, is not in reach here.
+
 **Why the split falls where it does.** Everything above the line between selection and emission is
 arithmetic: which cue fires at a given boundary, given the schedule, the elapsed time and the current
 mute state, is a pure function of those inputs, and it is exactly what
@@ -309,7 +364,8 @@ cue sink can turn "a tick fires at each of the last three seconds" into an asser
 fake clock makes a thirty-four-minute workout a millisecond of test time, so the long-workout cases
 are as cheap as the short ones.
 
-Everything below that line is not assertable on a JVM runner and is not pretended to be. No test can
+Everything below that line — which now falls inside the adapter rather than at the module boundary,
+per the paragraphs above — is not assertable on a JVM runner and is not pretended to be. No test can
 hear that the finish tone is unmistakable, feel that the ticks are subordinate, confirm that a
 vibration reached the actuator with the screen off, or measure the contrast of text the design system
 has not yet chosen a colour for. Those are verified by a human, on a device, and keeping their number

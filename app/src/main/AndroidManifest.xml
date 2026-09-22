@@ -6,6 +6,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <!-- SVC-011: the wake lock the service holds for as long as a workout is running or paused. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- CUE-020, CUE-024: every cue vibrates, and mute never suppresses it. Protection level is
+         normal, so this is granted at install with no runtime prompt and nothing asks for it. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <!-- The notification's own runtime permission (SVC-020–024). Declaring it here is what makes
          it requestable at all; the first-run request flow itself is SVC-030–033, built in #84 as
          MainActivity.kt's `first_run` route, the app's one call site for it. -->
