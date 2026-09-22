@@ -109,8 +109,12 @@ dependencies {
 // file, and Room's own `exportSchema` step reads that file to validate against before writing a
 // new one — so when two tasks run close together, one can read the other's still-in-progress
 // write and fail on truncated JSON. The plugin's `room { schemaDirectory(...) }` DSL is
-// variant-aware: it gives each task its own subdirectory under the path below, so no two tasks
-// ever contend for the same file.
+// variant-aware, but not in the shape that sentence once claimed: each KSP task writes its own
+// export under `build/intermediates/room/schemas/<kspTaskName>/`, and a separate
+// `copyRoomSchemas` task then consolidates those into the directory configured below. So no two
+// tasks ever contend for the same file, and what lands here is one committed file per database
+// class — `schemas/<database class FQN>/<version>.json` — not one per variant. Confirmed from a
+// real build (issue 100), not from reading the plugin alone.
 room {
     schemaDirectory("$projectDir/schemas")
 }

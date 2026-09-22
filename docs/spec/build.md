@@ -262,6 +262,18 @@ proper is not specified yet, and the first feature to need a real duration type 
   local edit stands, the same tradeoff a hand-edit to any `adopt`-managed file makes.
   *(auto: `.github/scripts/tests/test_closing_keyword_workflow.py`, standard library only, no
   Android SDK, no real pull request.)*
+- **BUILD-046** `pr.yml` uploads the schema Room exported during the run as an artifact named
+  `room-schemas`, taking `database/schemas/` — the consolidated location `SCHEMA-003` commits,
+  one file per `@Database` class, not one per build variant. The step runs immediately after
+  `./gradlew test`, which alone already drives `:database`'s Room KSP tasks and its
+  `copyRoomSchemas` task, and carries `if: always()` so a later failure in the same job still
+  leaves the exported schema to inspect. It is what makes a schema change reviewable at all in a
+  repository most of whose development environments cannot run an Android build: the artifact is
+  what the committed file is compared against, rather than a build nobody present can reproduce.
+  It adds **no permission** — `BUILD-042`'s `contents: read` is all an artifact upload needs —
+  and its `uses:` is a full 40-character commit SHA with a comment naming the version, per
+  `BUILD-043`. *(manual: a workflow step and its artifact; observable only by opening a pull
+  request, as BUILD-040. `BUILD-043`'s pin is checked by ai-sdlc's action-pin gate.)*
 
 ## 6. Release build and attach
 
@@ -530,14 +542,14 @@ the artifact and a maximally-installable one, its signature-scheme set
 | The app module, `:core` and `:designsystem` | BUILD-010–019 | `BUILD-015`: `.github/scripts/tests/test_bump_version_code.py`; the rest *(manual)* |
 | Tests | BUILD-020–023 | *(manual)* |
 | Duration formatting | BUILD-030–033 | `core/src/test/kotlin/com/derekwinters/intervaltrainer/FormatSecondsTest.kt` |
-| Continuous integration | BUILD-040–045 | `BUILD-045`: `.github/scripts/tests/test_closing_keyword_workflow.py`; the rest *(manual)* |
+| Continuous integration | BUILD-040–046 | `BUILD-045`: `.github/scripts/tests/test_closing_keyword_workflow.py`; the rest *(manual)* |
 | Release build and attach | BUILD-050–058 | *(manual)* |
 | Release candidate | BUILD-059–065 | *(manual)* |
 | Recovering a missed release APK | BUILD-066–067 | `.github/scripts/tests/test_bump_version_code.py` |
 | Keeping the verification gate current | BUILD-068 | `.github/scripts/tests/test_verify_release_signature.py` |
 | An artifact a device will install | BUILD-070–075 | `BUILD-070`–`073`, `BUILD-075`: `.github/scripts/tests/test_verify_release_package.py`; `BUILD-074` *(manual)* |
 
-**53 requirements, 14 `auto` and 39 `manual`.**
+**54 requirements, 14 `auto` and 40 `manual`.**
 
 The proportion is what a build skeleton looks like: almost every requirement here is a fact about
 configuration, verified by the build running at all, and the only executable behaviour outside
