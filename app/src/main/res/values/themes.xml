@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+      DS-022: the app's one theme, declared on <application> in AndroidManifest.xml so that every
+      activity resolves it rather than each one having to repeat it. It exists to take the
+      platform's action bar away: with no theme declared anywhere, the platform supplies its own,
+      which draws a bar titled from android:label above whatever the screen composes — two headers
+      on screen where DS-021 allows exactly one, and the one the design system owns is the one the
+      user cannot see (#132).
+
+      The parent is a platform theme because :app depends on neither AppCompat nor the Material
+      Components library: ADR 0007 keeps Material out of :app, and the Compose Material 3 that
+      :designsystem uses is a Compose library with no XML themes to inherit from. Theme.Material is
+      the dark variant rather than .Light because DesignSystemColors.Default is unconditionally
+      dark (DS-050 — bg is #121212) and there is no light palette for a DayNight parent to switch
+      to.
+
+      windowActionBar and windowNoTitle are written out here rather than left to the parent's name,
+      per design-system.md's fifth invariant: the parent stays an implementation choice, the
+      absence of the action bar does not, and a later parent change cannot quietly put the second
+      header back.
+    -->
+    <style name="Theme.IntervalTrainer" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+
+</resources>
