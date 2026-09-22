@@ -86,10 +86,11 @@ class MainActivity : ComponentActivity() {
         // `targetSdk = 35` enforces by default — and stated before `super.onCreate`, which is
         // where androidx.activity documents this call belongs. This is the window level and stops
         // there: consuming the insets it produces as padding, so no content sits under the status
-        // or navigation bar, is a property of :designsystem's own layouts
-        // (docs/spec/design-system.md §8) and is
-        // https://github.com/derekwinters/Interval-trainer-android/issues/131's, not this
-        // activity's. Until that lands, a screen's own ScreenHeader may sit under the status bar.
+        // or navigation bar, is a property of :designsystem's own layouts (DS-080,
+        // docs/spec/design-system.md §8) —
+        // https://github.com/derekwinters/Interval-trainer-android/issues/131. ListLayout,
+        // FullBleedLayout and FormLayout apply that padding; this activity does not, and neither
+        // does any screen in this module, per that page's sixth invariant.
         // No new dependency: `enableEdgeToEdge` ships in androidx.activity:activity, the artifact
         // androidx.activity:activity-compose already puts on this module's compile classpath —
         // the same one ComponentActivity above comes from.
