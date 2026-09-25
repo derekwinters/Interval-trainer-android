@@ -7,6 +7,8 @@ import com.derekwinters.intervaltrainer.PresetStore
 import com.derekwinters.intervaltrainer.TimerEvent
 import com.derekwinters.intervaltrainer.reduceAndFireCues
 import com.derekwinters.intervaltrainer.toggleMuted
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * `docs/spec/service.md` `SVC-014`: applies a [WorkoutCommand] to the workout's current
@@ -32,11 +34,16 @@ class WorkoutSession(
      * [WorkoutCommand.Start] whose [WorkoutCommand.Start.presetId] resolves to no preset changes
      * nothing — the same "no cell, no change" guard `:core`'s own `reduce` applies to every event
      * `TIMER-012`'s table has no cell for.
+     *
+     * `SVC-015` (#145): a start's preset lookup runs on [Dispatchers.IO], never on the caller's
+     * thread — the service calls this for commands that arrive on the main thread, where the Room
+     * store refuses to be read. This is why the function suspends. Every other command is applied
+     * without leaving the caller's thread.
      */
-    fun handle(command: WorkoutCommand, defaultMuted: Boolean = state.muted): CueTimerState {
+    suspend fun handle(command: WorkoutCommand, defaultMuted: Boolean = state.muted): CueTimerState {
         state = when (command) {
             is WorkoutCommand.Start -> {
-                val preset = presetStore.preset(command.presetId)
+                val preset = withContext(Dispatchers.IO) { presetStore.preset(command.presetId) }
                 if (preset == null) {
                     state
                 } else {

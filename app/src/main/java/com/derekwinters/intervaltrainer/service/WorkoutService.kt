@@ -33,6 +33,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -49,10 +50,16 @@ import kotlinx.coroutines.runBlocking
  * It holds a [WorkoutSession] — `:core`'s reducer plus the preset lookup `SVC-014` describes — an
  * [AndroidCueSink] (`docs/spec/cues.md`, issue #130), a `PARTIAL_WAKE_LOCK` (`SVC-011`), and the
  * notification (`SVC-020`–`026`). Every command a screen or the notification sends arrives as an
- * `Intent` this service's own `onStartCommand` decodes into a [WorkoutCommand] and hands to
+ * `Intent` this service's own `onStartCommand` decodes into a [WorkoutCommand] and queues for
  * [WorkoutSession.handle] — the decoding is the only part of this class [WorkoutSessionTest] does
  * not already cover, and it is a single `when` over an `Intent`'s action string with no branching
  * worth a JVM test of its own.
+ *
+ * `SVC-015`–`016` (#145): `onStartCommand` runs on the main thread, and a start's preset lookup
+ * must not, so [WorkoutSession.handle] suspends. Commands therefore go into [commands], and one
+ * coroutine applies them one at a time, in arrival order — the scheduler's own tick included — so
+ * a start waiting on its preset read is neither overtaken by the commands behind it nor run
+ * alongside them.
  *
  * `docs/spec/screens.md` `SCREEN-061`: it also collects [DefaultMuteStore]'s own `Flow` into
  * [currentDefaultMuted], the value it passes to every [WorkoutSession.handle] call —
@@ -76,6 +83,10 @@ class WorkoutService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var tickJob: Job? = null
+
+    // SVC-016: every command, from onStartCommand and from the tick loop alike, goes through this
+    // one queue, and only the consumer launched in onCreate ever calls applyCommand.
+    private val commands = Channel<WorkoutCommand>(Channel.UNLIMITED)
 
     // SCREEN-061: the settings screen's own persisted default-mute value, cached from
     // defaultMuteStore's Flow rather than read fresh (suspending) on every command, so applying a
@@ -110,10 +121,15 @@ class WorkoutService : Service() {
             defaultMuteStore.defaultMuted.collect { currentDefaultMuted = it }
         }
         createNotificationChannel()
+        serviceScope.launch {
+            for (command in commands) applyCommand(command)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        intent?.toWorkoutCommand()?.let(::applyCommand)
+        // SVC-015–016: queued, never applied here — this runs on the main thread, and a start's
+        // preset lookup must not.
+        intent?.toWorkoutCommand()?.let { commands.trySend(it) }
         // SVC-042: nothing here promises the service comes back after the platform kills the
         // process; START_NOT_STICKY makes no attempt to, rather than promising something this
         // specification explicitly says is outside the app's control.
@@ -124,6 +140,7 @@ class WorkoutService : Service() {
 
     override fun onDestroy() {
         tickJob?.cancel()
+        commands.close()
         serviceScope.cancel()
         releaseWakeLock()
         // A SoundPool holds the four decoded assets in native memory for as long as it lives, so
@@ -139,7 +156,7 @@ class WorkoutService : Service() {
     // android:stopWithTask is left unset in the manifest (the platform default, false) — between
     // the two, removing the task from recents does not stop this service (SVC-041).
 
-    private fun applyCommand(command: WorkoutCommand) {
+    private suspend fun applyCommand(command: WorkoutCommand) {
         val wasEnded = session.state.timer is TimerState.Ended
         val next = session.handle(command, defaultMuted = currentDefaultMuted)
         WorkoutServiceState.publish(next)
@@ -173,7 +190,7 @@ class WorkoutService : Service() {
         tickJob = serviceScope.launch {
             while (isActive) {
                 delay(TICK_INTERVAL_MILLIS)
-                applyCommand(WorkoutCommand.Tick)
+                commands.send(WorkoutCommand.Tick)
             }
         }
     }
