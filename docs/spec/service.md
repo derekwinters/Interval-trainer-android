@@ -47,6 +47,13 @@ because this page is where their observable consequences are specified:
 > state (`SVC-026`), which is what makes `SVC-023` true by construction rather than by two
 > implementations agreeing to match.
 
+> **Invariant — the service never reads the preset store on the main thread.** `onStartCommand`
+> runs on the main thread, and the on-device store refuses to be read there (`SCHEMA-004`'s Room
+> implementation is built without `allowMainThreadQueries()`), so a start command's preset lookup
+> (`SVC-015`) is always dispatched off it — the same discipline every other preset-store caller in
+> the app already follows, not an exception made for the service
+> ([#145](https://github.com/derekwinters/Interval-trainer-android/issues/145)).
+
 > **Invariant — declining or ignoring the notification permission never changes workout timing or
 > cue firing.** `SVC-031` states this in full; restated here as an invariant because it is the one
 > property `SVC-030`–`033`'s entire permission flow — the first-run prompt, and the settings row
@@ -104,6 +111,17 @@ the ADR, is this specification's call — see the pull request's Deviations sect
   never does, which is why it lives in `:app` rather than `:core`; nothing about that placement
   excuses it from a test of its own. *(auto: exercised by `WorkoutSessionTest.kt`, on the JVM, with
   no `android.*` import anywhere in the class under test.)*
+- **SVC-015** A start command's preset lookup (`SVC-014`) reads the preset store on an I/O
+  dispatcher, never on the thread that delivered the command. The result is applied exactly as it
+  was before this requirement: a start whose preset id resolves to no preset, or to a preset
+  `TIMER-013` refuses to start, still changes nothing. *(auto: exercised by
+  `WorkoutSessionTest.kt` with a preset store that refuses reads on the calling thread, the way
+  Room refuses them on the main thread.)*
+- **SVC-016** The service applies commands one at a time, in the order they reach it — the
+  commands a screen or the notification sends and the scheduler's own tick (`SVC-012`) alike — so a
+  start waiting on its preset read (`SVC-015`) is neither overtaken by the commands behind it nor
+  run concurrently with them. *(manual: the service's own command queue is not reachable from a JVM
+  runner.)*
 
 ## 3. The notification
 
@@ -266,8 +284,8 @@ runner.)*
 | Section | IDs | Tests |
 |---|---|---|
 | What produces a workout's schedule | SVC-001–002 | Covered by `ScheduleTest.kt` via `TIMER-001`–`003`; the naming itself is *(manual)* |
-| The foreground service | SVC-010–013 | *(manual)* |
-| The foreground service — command handling | SVC-014 | `WorkoutSessionTest.kt` |
+| The foreground service | SVC-010–013, SVC-016 | *(manual)* |
+| The foreground service — command handling | SVC-014–015 | `WorkoutSessionTest.kt` |
 | The notification | SVC-020–024 | *(manual)* |
 | The notification — content and the pause/resume toggle, as pure functions | SVC-025–026 | `WorkoutNotificationContentTest.kt` |
 | The notification permission | SVC-030–033 | `NotificationSettingsDeepLinkTest.kt` (SVC-033's deep-link action/extra); *(manual)* SVC-030–033 |
@@ -276,7 +294,7 @@ runner.)*
 | Stop | SVC-050–053 | *(manual)* |
 | Preset edited or deleted mid-workout | SVC-060–062 | *(manual)*, consequence of `TIMER-002`–`003` |
 
-**28 requirements, 3 `auto` and 25 `manual`.**
+**30 requirements, 4 `auto` and 26 `manual`.**
 
 **Why almost every requirement here is `manual`.** This page is almost entirely the far side of
 the boundary [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md) drew: a foreground
@@ -294,3 +312,10 @@ of them a pure function of state that has no reason to touch `android.*` to comp
 pulled out and tested the same way `:core`'s own reducers are — the platform-only remainder is the
 service that calls them, the wake lock, and the actual `NotificationCompat` calls, which stay
 `manual` for the same reason the rest of this page is.
+
+Fixing the start crash ([#145](https://github.com/derekwinters/Interval-trainer-android/issues/145))
+added two more. `SVC-015` is `auto` because the thread a preset read happens on is observable from
+`WorkoutSession` alone: a test store that refuses reads on its caller's thread fails the same way
+Room does on the main thread. What a JVM test cannot show is that `onStartCommand` itself runs on
+the main thread, or that `SVC-016`'s queue is the only path into the session — both stay `manual`,
+and the check that matters for either is a start on a device.
