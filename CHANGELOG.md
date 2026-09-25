@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/derekwinters/Interval-trainer-android/compare/v0.3.0...v0.3.1) (2026-09-25)
+
+
+### Fixes
+
+* **service:** read the preset off the main thread when a workout starts ([#148](https://github.com/derekwinters/Interval-trainer-android/issues/148)) ([807255e](https://github.com/derekwinters/Interval-trainer-android/commit/807255ec7d0962069fbab4ac9755de9442d207ac)), closes [#145](https://github.com/derekwinters/Interval-trainer-android/issues/145)
+
 ## [0.3.0](https://github.com/derekwinters/Interval-trainer-android/compare/v0.2.2...v0.3.0) (2026-09-22)
 
 
