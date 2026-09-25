@@ -8,6 +8,7 @@ import com.derekwinters.intervaltrainer.IntervalKind
 import com.derekwinters.intervaltrainer.Preset
 import com.derekwinters.intervaltrainer.PresetStore
 import com.derekwinters.intervaltrainer.TimerState
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -16,7 +17,11 @@ import org.junit.Test
 /**
  * JVM unit tests for `docs/spec/service.md` `SVC-014`: the pure mapping from a [WorkoutCommand] to
  * the workout state it produces, independent of whatever `Intent` or `PendingIntent` carried the
- * command in.
+ * command in — and `SVC-015`: a start command's preset lookup never runs on the thread that
+ * delivered the command (#145).
+ *
+ * Every test calls [WorkoutSession.handle] from inside [runBlocking], so the calling thread is this
+ * test's own — the stand-in for `WorkoutService.onStartCommand`'s main thread.
  */
 class WorkoutSessionTest {
 
@@ -25,7 +30,7 @@ class WorkoutSessionTest {
     private val presetStore = InMemoryPresetStore(listOf(preset))
 
     @Test
-    fun `start resolves the preset id and copies its intervals into the schedule`() {
+    fun `start resolves the preset id and copies its intervals into the schedule`() = runBlocking<Unit> {
         val session = WorkoutSession(presetStore, SessionFakeClock(0L), RecordingCueSink())
 
         val state = session.handle(WorkoutCommand.Start("p1"))
@@ -35,7 +40,7 @@ class WorkoutSessionTest {
     }
 
     @Test
-    fun `start with an id that resolves to no preset changes nothing`() {
+    fun `start with an id that resolves to no preset changes nothing`() = runBlocking<Unit> {
         val session = WorkoutSession(presetStore, SessionFakeClock(0L), RecordingCueSink())
 
         val state = session.handle(WorkoutCommand.Start("no-such-preset"))
@@ -44,7 +49,7 @@ class WorkoutSessionTest {
     }
 
     @Test
-    fun `pause and resume round-trip through the session`() {
+    fun `pause and resume round-trip through the session`() = runBlocking<Unit> {
         val session = WorkoutSession(presetStore, SessionFakeClock(0L), RecordingCueSink())
         session.handle(WorkoutCommand.Start("p1"))
 
@@ -56,7 +61,7 @@ class WorkoutSessionTest {
     }
 
     @Test
-    fun `skip and stop reach the timer through the same session`() {
+    fun `skip and stop reach the timer through the same session`() = runBlocking<Unit> {
         val session = WorkoutSession(presetStore, SessionFakeClock(0L), RecordingCueSink())
         session.handle(WorkoutCommand.Start("p1"))
 
@@ -66,7 +71,7 @@ class WorkoutSessionTest {
     }
 
     @Test
-    fun `toggle mute flips the session's own mute state and touches nothing else`() {
+    fun `toggle mute flips the session's own mute state and touches nothing else`() = runBlocking<Unit> {
         val session = WorkoutSession(presetStore, SessionFakeClock(0L), RecordingCueSink())
         session.handle(WorkoutCommand.Start("p1"))
 
@@ -76,11 +81,48 @@ class WorkoutSessionTest {
     }
 
     @Test
-    fun `tick with no workout running changes nothing`() {
+    fun `tick with no workout running changes nothing`() = runBlocking<Unit> {
         val session = WorkoutSession(presetStore, SessionFakeClock(0L), RecordingCueSink())
 
         val state = session.handle(WorkoutCommand.Tick)
 
+        assertEquals(TimerState.Idle, state.timer)
+    }
+
+    // ---- SVC-015: the preset lookup runs off the calling thread (#145) ----------------------
+
+    @Test
+    fun `start reads the preset off the calling thread and starts the workout`() = runBlocking<Unit> {
+        val store = CallerThreadRefusingPresetStore(listOf(preset))
+        val session = WorkoutSession(store, SessionFakeClock(0L), RecordingCueSink())
+
+        val state = session.handle(WorkoutCommand.Start("p1"))
+
+        assertTrue(store.reads > 0)
+        check(state.timer is TimerState.Running)
+        assertEquals(listOf(work60), (state.timer as TimerState.Running).schedule.map { it.interval })
+    }
+
+    @Test
+    fun `start with no such preset still changes nothing when read off the calling thread`() = runBlocking<Unit> {
+        val store = CallerThreadRefusingPresetStore(listOf(preset))
+        val session = WorkoutSession(store, SessionFakeClock(0L), RecordingCueSink())
+
+        val state = session.handle(WorkoutCommand.Start("no-such-preset"))
+
+        assertTrue(store.reads > 0)
+        assertEquals(TimerState.Idle, state.timer)
+    }
+
+    @Test
+    fun `start from a preset with no intervals still changes nothing when read off the calling thread`() = runBlocking<Unit> {
+        val empty = Preset(id = "empty", name = "Empty", intervals = emptyList())
+        val store = CallerThreadRefusingPresetStore(listOf(empty))
+        val session = WorkoutSession(store, SessionFakeClock(0L), RecordingCueSink())
+
+        val state = session.handle(WorkoutCommand.Start("empty"))
+
+        assertTrue(store.reads > 0)
         assertEquals(TimerState.Idle, state.timer)
     }
 }
@@ -94,6 +136,47 @@ private class InMemoryPresetStore(initial: List<Preset>) : PresetStore {
     }
     override fun delete(id: String) {
         presets.remove(id)
+    }
+}
+
+/**
+ * `SVC-015`: a [PresetStore] that refuses to be read on the thread that built it — this test's own
+ * thread, standing in for the main thread — the way the on-device Room store refuses main-thread
+ * reads (`AppDatabase.open` builds it without `allowMainThreadQueries()`), with the same exception
+ * type Room throws. [reads] counts the reads that were allowed, so a test can tell a lookup that
+ * happened off the calling thread from one that never happened at all.
+ */
+private class CallerThreadRefusingPresetStore(initial: List<Preset>) : PresetStore {
+    private val refusedThread: Thread = Thread.currentThread()
+    private val presets = initial.associateBy { it.id }
+
+    @Volatile
+    var reads = 0
+        private set
+
+    private fun checkNotRefusedThread() {
+        check(Thread.currentThread() !== refusedThread) {
+            "Cannot access database on the main thread since it may potentially lock the UI for a long period of time."
+        }
+        reads++
+    }
+
+    override fun presets(): List<Preset> {
+        checkNotRefusedThread()
+        return presets.values.toList()
+    }
+
+    override fun preset(id: String): Preset? {
+        checkNotRefusedThread()
+        return presets[id]
+    }
+
+    override fun save(preset: Preset) {
+        throw UnsupportedOperationException("not used by WorkoutSession")
+    }
+
+    override fun delete(id: String) {
+        throw UnsupportedOperationException("not used by WorkoutSession")
     }
 }
 
