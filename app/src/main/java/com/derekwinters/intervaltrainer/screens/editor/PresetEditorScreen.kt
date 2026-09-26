@@ -48,6 +48,7 @@ import com.derekwinters.intervaltrainer.designsystem.ListLayout
 import com.derekwinters.intervaltrainer.designsystem.ScreenHeaderAction
 import com.derekwinters.intervaltrainer.designsystem.SecondaryButton
 import com.derekwinters.intervaltrainer.formatSeconds
+import com.derekwinters.intervaltrainer.isSavable
 import com.derekwinters.intervaltrainer.next
 import com.derekwinters.intervaltrainer.presetSummary
 import java.util.UUID
@@ -95,7 +96,8 @@ private fun Interval.toEditorRow() = EditorRow(
  * no I/O of its own (`presetStore` calls happen in `MainActivity`'s `NavHost`, the same split
  * `HomeScreen` already uses). All editing happens in local state until [onSave] fires
  * (`SCREEN-019`); nothing here writes through as the user types, per `SCREEN-015`'s own "nothing
- * saved is lost until Save is pressed".
+ * saved is lost until Save is pressed". Save is disabled while the schedule holds no intervals
+ * (`SCREEN-019`, #147).
  *
  * **Drag reorder** (`SCREEN-013`) is index-swap-on-threshold, not a free-pixel drag: every row is
  * [RowHeight] tall while a drag is in progress, and starting a drag closes whichever row was open
@@ -134,9 +136,13 @@ fun PresetEditorScreen(
         title = "Edit preset",
         modifier = modifier,
         onBack = onBack,
+        // SCREEN-019 (#147): a preset with no intervals cannot be saved, so Save is disabled while
+        // the schedule on screen is empty — read from currentPreset, recomputed on every edit, never
+        // from the preset this screen opened with.
         trailingAction = ScreenHeaderAction.TextAction(
             label = "Save",
             onClick = { onSave(currentPreset) },
+            enabled = currentPreset.isSavable(),
         ),
     ) {
         item(key = "name-field") {

@@ -13,3 +13,11 @@ data class Preset(
     val name: String,
     val intervals: List<Interval>,
 )
+
+/**
+ * `docs/spec/screens.md` `SCREEN-019`: whether the preset editor may save this preset — only while
+ * it holds at least one interval, since `TIMER-013` refuses to start a workout from one that holds
+ * none (#147). The editor calls this on the preset as currently edited, never on the one it opened
+ * with.
+ */
+fun Preset.isSavable(): Boolean = intervals.isNotEmpty()
