@@ -24,7 +24,8 @@ is implemented, and so is the component vocabulary in §1–3
 ([#73](https://github.com/derekwinters/Interval-trainer-android/issues/73) built the first ten;
 `#80` added `Toggle` and widened `AlertDialog` and `ScreenHeader`; `#82` added `StockListItem`;
 `#83` widened `StockListItem` with a `trailingContent` slot (`DS-016`) and corrected `DS-014`'s and
-`DS-061`'s own text, per §1–3 and §7 below): `PrimaryButton`, `SecondaryButton`, `DestructiveButton`,
+`DS-061`'s own text; `#147` gave `ScreenHeader`'s text action a disabled state (`DS-020`), per §1–3
+and §7 below): `PrimaryButton`, `SecondaryButton`, `DestructiveButton`,
 the three icon-button roles, `CountStepper`, `DurationScrollPicker`, `Toggle`, `StockListItem`, the
 `AlertDialog` wrapper, and `ScreenHeader`, each reading only the token layer and each with a
 `@Preview`. The closed set of
@@ -190,7 +191,11 @@ none of the six v1 screens exists yet. That remains
   a reason to add a third slot to the same component — see this pull request's Deviations section.
 - **DS-020** `ScreenHeader` is a fixed header row: an optional leading back action (`DS-013`), a
   title top-left, exactly one trailing action (an icon or a text button), and an optional
-  page-level FAB (home's "new preset").
+  page-level FAB (home's "new preset"). A text trailing action can be disabled: it then ignores
+  taps and draws its label at the same disabled opacity `PrimaryButton`, `SecondaryButton` and
+  `DestructiveButton` use. The preset editor's Save (`docs/spec/screens.md` `SCREEN-019`) is its
+  one caller that disables it
+  ([#147](https://github.com/derekwinters/Interval-trainer-android/issues/147)).
 - **DS-021** Every one of the six v1 screens uses `ScreenHeader`, including the three built from
   stock Material 3 components in §7 — never a stock `TopAppBar`.
 - **DS-022** `AndroidManifest.xml`'s `<application>` element declares an `android:theme`, and that

@@ -10,6 +10,7 @@ import com.derekwinters.intervaltrainer.PresetStore
 import com.derekwinters.intervaltrainer.TimerState
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -17,8 +18,9 @@ import org.junit.Test
 /**
  * JVM unit tests for `docs/spec/service.md` `SVC-014`: the pure mapping from a [WorkoutCommand] to
  * the workout state it produces, independent of whatever `Intent` or `PendingIntent` carried the
- * command in — and `SVC-015`: a start command's preset lookup never runs on the thread that
- * delivered the command (#145).
+ * command in — `SVC-015`: a start command's preset lookup never runs on the thread that
+ * delivered the command (#145) — and `SVC-017`: which commands count as a start that left no
+ * workout, for the service to reach the foreground, leave it and stop (#147).
  *
  * Every test calls [WorkoutSession.handle] from inside [runBlocking], so the calling thread is this
  * test's own — the stand-in for `WorkoutService.onStartCommand`'s main thread.
@@ -124,6 +126,78 @@ class WorkoutSessionTest {
 
         assertTrue(store.reads > 0)
         assertEquals(TimerState.Idle, state.timer)
+    }
+
+    // ---- SVC-017: a start that left no workout (#147) -----------------------------------------
+
+    private val emptyPreset = Preset(id = "empty", name = "Empty", intervals = emptyList())
+    private val storeWithEmpty = InMemoryPresetStore(listOf(preset, emptyPreset))
+
+    @Test
+    fun `a start whose preset id names nothing left no workout`() = runBlocking<Unit> {
+        val session = WorkoutSession(storeWithEmpty, SessionFakeClock(0L), RecordingCueSink())
+        val command = WorkoutCommand.Start("no-such-preset")
+
+        val state = session.handle(command)
+
+        assertTrue(startLeftNoWorkout(command, state))
+    }
+
+    @Test
+    fun `a start from a preset with no intervals left no workout`() = runBlocking<Unit> {
+        val session = WorkoutSession(storeWithEmpty, SessionFakeClock(0L), RecordingCueSink())
+        val command = WorkoutCommand.Start("empty")
+
+        val state = session.handle(command)
+
+        assertTrue(startLeftNoWorkout(command, state))
+    }
+
+    @Test
+    fun `a start that starts a workout did not leave no workout`() = runBlocking<Unit> {
+        val session = WorkoutSession(storeWithEmpty, SessionFakeClock(0L), RecordingCueSink())
+        val command = WorkoutCommand.Start("p1")
+
+        val state = session.handle(command)
+
+        assertFalse(startLeftNoWorkout(command, state))
+    }
+
+    /** The invariant on SVC-017: TIMER-013 refuses this start too, but a workout is still under way. */
+    @Test
+    fun `a start refused while a workout is running is not a start that left no workout`() = runBlocking<Unit> {
+        val session = WorkoutSession(storeWithEmpty, SessionFakeClock(0L), RecordingCueSink())
+        session.handle(WorkoutCommand.Start("p1"))
+        val command = WorkoutCommand.Start("empty")
+
+        val state = session.handle(command)
+
+        assertTrue(state.timer is TimerState.Running)
+        assertFalse(startLeftNoWorkout(command, state))
+    }
+
+    /** The invariant on SVC-017, from paused: home is reachable then (SCREEN-041), so Start is too. */
+    @Test
+    fun `a start refused while a workout is paused is not a start that left no workout`() = runBlocking<Unit> {
+        val session = WorkoutSession(storeWithEmpty, SessionFakeClock(0L), RecordingCueSink())
+        session.handle(WorkoutCommand.Start("p1"))
+        session.handle(WorkoutCommand.Pause)
+        val command = WorkoutCommand.Start("no-such-preset")
+
+        val state = session.handle(command)
+
+        assertTrue(state.timer is TimerState.Paused)
+        assertFalse(startLeftNoWorkout(command, state))
+    }
+
+    @Test
+    fun `a command other than start that leaves the state idle is not a start that left no workout`() = runBlocking<Unit> {
+        val session = WorkoutSession(storeWithEmpty, SessionFakeClock(0L), RecordingCueSink())
+
+        val state = session.handle(WorkoutCommand.Tick)
+
+        assertEquals(TimerState.Idle, state.timer)
+        assertFalse(startLeftNoWorkout(WorkoutCommand.Tick, state))
     }
 }
 
