@@ -141,8 +141,9 @@ fun DestructiveButton(
     }
 }
 
-/** Shared disabled-state alpha for the button variants above; not a colour or a dimension. */
-private const val DisabledAlpha = 0.38f
+/** Shared disabled-state alpha for the button variants above, and for `ScreenHeader`'s disabled
+ * text action (`DS-020`); not a colour or a dimension. */
+internal const val DisabledAlpha = 0.38f
 
 /**
  * Draws a dashed outline on top of the content, since neither `Modifier.border` nor [BorderStroke]

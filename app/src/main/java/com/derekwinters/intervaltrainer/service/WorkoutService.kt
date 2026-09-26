@@ -55,6 +55,9 @@ import kotlinx.coroutines.runBlocking
  * not already cover, and it is a single `when` over an `Intent`'s action string with no branching
  * worth a JVM test of its own.
  *
+ * `SVC-017` (#147): a start that left no workout still reaches the foreground, then leaves it and
+ * stops — see [leaveForegroundAfterStartWithNoWorkout].
+ *
  * `SVC-015`–`016` (#145): `onStartCommand` runs on the main thread, and a start's preset lookup
  * must not, so [WorkoutSession.handle] suspends. Commands therefore go into [commands], and one
  * coroutine applies them one at a time, in arrival order — the scheduler's own tick included — so
@@ -160,7 +163,24 @@ class WorkoutService : Service() {
         val wasEnded = session.state.timer is TimerState.Ended
         val next = session.handle(command, defaultMuted = currentDefaultMuted)
         WorkoutServiceState.publish(next)
+        if (startLeftNoWorkout(command, next)) {
+            leaveForegroundAfterStartWithNoWorkout()
+            return
+        }
         onStateChanged(next, wasEnded)
+    }
+
+    /**
+     * `SVC-017` (#147): a start that left no workout — its preset is gone, or holds no intervals —
+     * still has to reach the foreground, because this service was started with
+     * `startForegroundService` and the platform ends the app if it never calls `startForeground`.
+     * So it posts the minimal notification, removes it at once and stops, with no wake lock and no
+     * tick. The published state stays idle; nothing navigates.
+     */
+    private fun leaveForegroundAfterStartWithNoWorkout() {
+        startForegroundCompat(buildMinimalNotification())
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
     }
 
     private fun onStateChanged(state: CueTimerState, wasEnded: Boolean) {
@@ -291,6 +311,17 @@ class WorkoutService : Service() {
 
         return builder.build()
     }
+
+    /**
+     * `SVC-017`: the notification a start that left no workout posts and removes at once — the
+     * app's icon and name on the workout channel, with no status content (`SVC-020`) and no
+     * actions (`SVC-021`), since there is no workout for either to describe.
+     */
+    private fun buildMinimalNotification(): Notification =
+        NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(getString(R.string.app_name))
+            .build()
 
     /** SVC-026: the notification's one toggling control, decided by the same pure function a
      * running-screen control (SCREEN-031) would call. */
