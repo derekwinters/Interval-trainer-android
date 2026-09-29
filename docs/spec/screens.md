@@ -170,10 +170,21 @@ duration times one recovery duration times a round count (`TIMER-001`).
   *(manual: the footer's rendering is a screen fact; the total it shows is `:core` arithmetic,
   covered by `PresetSummaryTest.kt`.)*
 - **SCREEN-019** **Save** persists the name and the ordered interval list (`SCHEMA-010`,
-  `SCHEMA-025`) and returns to home.
+  `SCHEMA-025`) and returns to home. A preset with no intervals cannot be saved: Save is disabled
+  (`docs/spec/design-system.md` `DS-020`) while the schedule holds no intervals, with no message,
+  because `TIMER-013` refuses to start a workout from one. Whether Save is enabled is `:core`'s
+  `isSavable` (`Preset.kt`), applied to the preset as currently edited. A preset saved with no
+  intervals before this rule still appears on home with Start (`SCREEN-005`); starting it is
+  `docs/spec/service.md` `SVC-017`'s case
+  ([#147](https://github.com/derekwinters/Interval-trainer-android/issues/147)).
+
+> **Invariant — Save's enabled state follows the schedule on screen, never the preset the editor
+> opened with.** It is recomputed on every edit, so deleting the last row disables Save and adding
+> a row enables it; a check made once when the editor opens would let an emptied preset be saved.
 
 *(All of §2 is manual: screen structure, controls and navigation. SCREEN-018's own content — the
-total it shows — is `:core` arithmetic, covered by `PresetSummaryTest.kt`. SCREEN-014a's cycle is
+total it shows — is `:core` arithmetic, covered by `PresetSummaryTest.kt`. SCREEN-019's rule for
+when Save is enabled is `:core`'s `isSavable`, covered by `PresetTest.kt`. SCREEN-014a's cycle is
 also `:core`, covered by `IntervalKindTest.kt`; and SCREEN-017's own splice onto the list is
 `appendGeneratedRounds`, covered by `ScheduleGeneratorTest.kt`. What stays manual, exactly as every
 other screen page here, is whether the screen itself actually renders and wires these correctly —
@@ -540,7 +551,7 @@ and nothing else" split `WorkoutSession.handle` (`docs/spec/service.md` `SVC-014
 | Section | IDs | Tests |
 |---|---|---|
 | Home | SCREEN-001–008 | `PresetSummaryTest.kt` (SCREEN-003's round count and total, SCREEN-004's colour-strip segments); *(manual)* SCREEN-001–008 |
-| The preset editor | SCREEN-010–019, SCREEN-014a | `PresetSummaryTest.kt` (SCREEN-018's total); `IntervalKindTest.kt` (SCREEN-014a's cycle); `ScheduleGeneratorTest.kt` (SCREEN-017's splice); *(manual)* SCREEN-010–019, SCREEN-014a |
+| The preset editor | SCREEN-010–019, SCREEN-014a | `PresetSummaryTest.kt` (SCREEN-018's total); `IntervalKindTest.kt` (SCREEN-014a's cycle); `ScheduleGeneratorTest.kt` (SCREEN-017's splice); `PresetTest.kt` (SCREEN-019's save rule); *(manual)* SCREEN-010–019, SCREEN-014a |
 | The running screen — content | SCREEN-020–024, SCREEN-022a | `RunningScreenContentTest.kt` (SCREEN-020's ring content, SCREEN-021's total-left value again, SCREEN-022's/SCREEN-022a's round in progress, SCREEN-024's distinct get-ready shape); *(manual)* SCREEN-020–024, SCREEN-022a |
 | The running screen — controls | SCREEN-030–033 | *(manual)* |
 | The running screen — navigation lock | SCREEN-040–046 | *(manual)* |
@@ -573,7 +584,9 @@ preset editor's own footer) cites `presetSummary`
 `SCREEN-014a` cites `IntervalKind.next()` (`Interval.kt`), via `IntervalKindTest.kt`; `SCREEN-017`
 cites `appendGeneratedRounds` (`ScheduleGenerator.kt`), via `ScheduleGeneratorTest.kt` — all three
 added or extended by the preset editor itself
-([#80](https://github.com/derekwinters/Interval-trainer-android/issues/80)). `SCREEN-020`, `022`,
+([#80](https://github.com/derekwinters/Interval-trainer-android/issues/80)). `SCREEN-019`'s save
+rule cites `isSavable` (`Preset.kt`), via `PresetTest.kt`
+([#147](https://github.com/derekwinters/Interval-trainer-android/issues/147)). `SCREEN-020`, `022`,
 `022a` and `024` cite `runningScreenContent` and `currentRound`
 (`RunningScreenContent.kt`, `Timer.kt`), this pull request's own new `:core`, via
 `RunningScreenContentTest.kt` — the same "pure state-derivation function for its own display" split

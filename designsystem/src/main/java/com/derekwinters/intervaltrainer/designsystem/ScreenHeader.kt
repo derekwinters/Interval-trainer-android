@@ -32,10 +32,15 @@ sealed interface ScreenHeaderAction {
         val onClick: () -> Unit,
     ) : ScreenHeaderAction
 
-    /** A trailing text button — `docs/spec/screens.md`'s `SCREEN-010` "Save", for example. */
+    /**
+     * A trailing text button — `docs/spec/screens.md`'s `SCREEN-010` "Save", for example. When
+     * [enabled] is false it ignores taps and draws its label at the disabled opacity the buttons in
+     * `Buttons.kt` use (`DS-020`; `SCREEN-019`'s Save while the schedule is empty, #147).
+     */
     data class TextAction(
         val label: String,
         val onClick: () -> Unit,
+        val enabled: Boolean = true,
     ) : ScreenHeaderAction
 }
 
@@ -99,8 +104,14 @@ fun ScreenHeader(
                     onClick = trailingAction.onClick,
                 )
 
-                is ScreenHeaderAction.TextAction -> TextButton(onClick = trailingAction.onClick) {
-                    Text(text = trailingAction.label, color = colors.work)
+                is ScreenHeaderAction.TextAction -> TextButton(
+                    onClick = trailingAction.onClick,
+                    enabled = trailingAction.enabled,
+                ) {
+                    Text(
+                        text = trailingAction.label,
+                        color = if (trailingAction.enabled) colors.work else colors.work.copy(alpha = DisabledAlpha),
+                    )
                 }
 
                 null -> Unit

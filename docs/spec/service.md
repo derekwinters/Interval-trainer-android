@@ -54,6 +54,12 @@ because this page is where their observable consequences are specified:
 > the app already follows, not an exception made for the service
 > ([#145](https://github.com/derekwinters/Interval-trainer-android/issues/145)).
 
+> **Invariant — a start that left no workout is recognised by the idle state it leaves, never
+> by the start having been refused.** `TIMER-013` also refuses a start while a workout is already
+> running or paused, and treating that refusal as `SVC-017`'s case would remove the notification
+> and stop the service out from under a workout still under way
+> ([#147](https://github.com/derekwinters/Interval-trainer-android/issues/147)).
+
 > **Invariant — declining or ignoring the notification permission never changes workout timing or
 > cue firing.** `SVC-031` states this in full; restated here as an invariant because it is the one
 > property `SVC-030`–`033`'s entire permission flow — the first-run prompt, and the settings row
@@ -114,14 +120,30 @@ the ADR, is this specification's call — see the pull request's Deviations sect
 - **SVC-015** A start command's preset lookup (`SVC-014`) reads the preset store on an I/O
   dispatcher, never on the thread that delivered the command. The result is applied exactly as it
   was before this requirement: a start whose preset id resolves to no preset, or to a preset
-  `TIMER-013` refuses to start, still changes nothing. *(auto: exercised by
-  `WorkoutSessionTest.kt` with a preset store that refuses reads on the calling thread, the way
-  Room refuses them on the main thread.)*
+  `TIMER-013` refuses to start, still changes nothing; what the service then does about the
+  foreground is `SVC-017`. *(auto: exercised by `WorkoutSessionTest.kt` with a preset store that
+  refuses reads on the calling thread, the way Room refuses them on the main thread.)*
 - **SVC-016** The service applies commands one at a time, in the order they reach it — the
   commands a screen or the notification sends and the scheduler's own tick (`SVC-012`) alike — so a
   start waiting on its preset read (`SVC-015`) is neither overtaken by the commands behind it nor
   run concurrently with them. *(manual: the service's own command queue is not reachable from a JVM
   runner.)*
+- **SVC-017** A start command that leaves no workout at all — its preset id resolves to no preset,
+  or to a preset with no intervals, which `TIMER-013` refuses to start — still brings the service
+  to the foreground, because a service started with `startForegroundService` must reach the
+  foreground or the platform ends the app. The service posts a minimal notification, removes it at
+  once, and stops itself. The minimal notification is the app's icon and name on the workout
+  channel, with no status content (`SVC-020`) and no actions (`SVC-021`). No wake lock is acquired
+  (`SVC-011`) and no tick is scheduled (`SVC-012`). The workout state stays idle, and nothing
+  navigates: the running screen `SCREEN-006` opened for that start shows no workout, and back
+  leaves it, because the navigation lock holds only while a workout is running (`SCREEN-040`,
+  `SCREEN-042`). Such a start is decided from the command and the state it produced alone: a start
+  whose resulting state is idle, per the invariant above. The editor no longer saves a preset with
+  no intervals (`docs/spec/screens.md` `SCREEN-019`), but a preset saved empty before that rule, or
+  a preset id that names nothing, still reaches this path
+  ([#147](https://github.com/derekwinters/Interval-trainer-android/issues/147)). *(auto: which
+  commands count is exercised by `WorkoutSessionTest.kt`; the notification, its removal and the
+  service stopping are manual.)*
 
 ## 3. The notification
 
@@ -145,8 +167,10 @@ the ADR, is this specification's call — see the pull request's Deviations sect
   assembled ad hoc from the Android notification APIs. During the lead-in, "current interval" is
   the interval the lead-in counts down into, and the remaining time is the lead-in's own countdown,
   not that interval's full duration — the same phase and the same `remainingMillis` a screen
-  showing the lead-in would read (`TIMER-030`–`036`). There is no content, and no notification, for
-  idle or ended. *(auto: exercised by `WorkoutNotificationContentTest.kt`.)*
+  showing the lead-in would read (`TIMER-030`–`036`). There is no content for idle or ended, and
+  no notification for them either, with one exception: a start that left the workout idle posts
+  the minimal notification `SVC-017` describes and removes it at once. That notification carries no
+  content from this function. *(auto: exercised by `WorkoutNotificationContentTest.kt`.)*
 - **SVC-026** The one event the notification's pause/resume action sends is decided by the pure
   function the invariant above names — `Pause` from running, `Resume` from paused — never by which
   label the control happens to be showing. *(auto: exercised by `WorkoutNotificationContentTest.kt`.)*
@@ -285,7 +309,7 @@ runner.)*
 |---|---|---|
 | What produces a workout's schedule | SVC-001–002 | Covered by `ScheduleTest.kt` via `TIMER-001`–`003`; the naming itself is *(manual)* |
 | The foreground service | SVC-010–013, SVC-016 | *(manual)* |
-| The foreground service — command handling | SVC-014–015 | `WorkoutSessionTest.kt` |
+| The foreground service — command handling | SVC-014–015, SVC-017 | `WorkoutSessionTest.kt` (SVC-017's classification of a start that left no workout); *(manual)* SVC-017's notification and stop |
 | The notification | SVC-020–024 | *(manual)* |
 | The notification — content and the pause/resume toggle, as pure functions | SVC-025–026 | `WorkoutNotificationContentTest.kt` |
 | The notification permission | SVC-030–033 | `NotificationSettingsDeepLinkTest.kt` (SVC-033's deep-link action/extra); *(manual)* SVC-030–033 |
@@ -294,7 +318,7 @@ runner.)*
 | Stop | SVC-050–053 | *(manual)* |
 | Preset edited or deleted mid-workout | SVC-060–062 | *(manual)*, consequence of `TIMER-002`–`003` |
 
-**30 requirements, 4 `auto` and 26 `manual`.**
+**31 requirements, 5 `auto` and 26 `manual`.**
 
 **Why almost every requirement here is `manual`.** This page is almost entirely the far side of
 the boundary [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md) drew: a foreground
@@ -319,3 +343,9 @@ added two more. `SVC-015` is `auto` because the thread a preset read happens on 
 Room does on the main thread. What a JVM test cannot show is that `onStartCommand` itself runs on
 the main thread, or that `SVC-016`'s queue is the only path into the session — both stay `manual`,
 and the check that matters for either is a start on a device.
+
+A start that left no workout ([#147](https://github.com/derekwinters/Interval-trainer-android/issues/147))
+added `SVC-017`, `auto` for the one decision in it that is a pure function: whether a command and
+the state it produced count as a start that left no workout, which is where the invariant above
+could be broken. That the service then posts, removes and stops is the platform's side of the
+boundary and is checked on a device, by starting a preset that has no intervals.

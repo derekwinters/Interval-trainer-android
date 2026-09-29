@@ -5,6 +5,7 @@ import com.derekwinters.intervaltrainer.CueSink
 import com.derekwinters.intervaltrainer.CueTimerState
 import com.derekwinters.intervaltrainer.PresetStore
 import com.derekwinters.intervaltrainer.TimerEvent
+import com.derekwinters.intervaltrainer.TimerState
 import com.derekwinters.intervaltrainer.reduceAndFireCues
 import com.derekwinters.intervaltrainer.toggleMuted
 import kotlinx.coroutines.Dispatchers
@@ -33,7 +34,8 @@ class WorkoutSession(
      * Applies [command], returning (and recording as [state]) the [CueTimerState] it produces. A
      * [WorkoutCommand.Start] whose [WorkoutCommand.Start.presetId] resolves to no preset changes
      * nothing — the same "no cell, no change" guard `:core`'s own `reduce` applies to every event
-     * `TIMER-012`'s table has no cell for.
+     * `TIMER-012`'s table has no cell for. What the service does about the foreground after such a
+     * start is [startLeftNoWorkout]'s question (`SVC-017`), not this function's.
      *
      * `SVC-015` (#145): a start's preset lookup runs on [Dispatchers.IO], never on the caller's
      * thread — the service calls this for commands that arrive on the main thread, where the Room
@@ -67,3 +69,15 @@ class WorkoutSession(
         return state
     }
 }
+
+/**
+ * `docs/spec/service.md` `SVC-017` (#147): whether [command] was a start that left no workout at
+ * all — its preset id named nothing, or a preset with no intervals — given the [result] applying it
+ * produced. The service must still reach the foreground for such a start, then leave it and stop.
+ *
+ * Decided by [result] being idle, not by the start having been refused: `TIMER-013` also refuses a
+ * start while a workout is running or paused, and that workout must not lose its notification or
+ * its service (the invariant `SVC-017` carries).
+ */
+fun startLeftNoWorkout(command: WorkoutCommand, result: CueTimerState): Boolean =
+    command is WorkoutCommand.Start && result.timer is TimerState.Idle
