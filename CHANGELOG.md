@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/derekwinters/Interval-trainer-android/compare/v0.3.0...v0.3.1) (2026-09-29)
+
+
+### Fixes
+
+* **app:** stop a start with no intervals from crashing the app ([#150](https://github.com/derekwinters/Interval-trainer-android/issues/150)) ([f64349d](https://github.com/derekwinters/Interval-trainer-android/commit/f64349d2c00201d283be4710cc98b092b1ec6d2f)), closes [#147](https://github.com/derekwinters/Interval-trainer-android/issues/147)
+* **service:** read the preset off the main thread when a workout starts ([#148](https://github.com/derekwinters/Interval-trainer-android/issues/148)) ([807255e](https://github.com/derekwinters/Interval-trainer-android/commit/807255ec7d0962069fbab4ac9755de9442d207ac)), closes [#145](https://github.com/derekwinters/Interval-trainer-android/issues/145)
+
 ## [0.3.0](https://github.com/derekwinters/Interval-trainer-android/compare/v0.2.2...v0.3.0) (2026-09-22)
 
 
