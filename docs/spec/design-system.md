@@ -93,6 +93,14 @@ none of the six v1 screens exists yet. That remains
 > layout that should have carried the inset still does not. The inset belongs to `ListLayout`,
 > `FullBleedLayout` and `FormLayout` in `ScreenLayouts.kt` (`DS-080`) and to nothing else.
 
+> **Invariant — a value control reports what the user did, never what it found.** A picker that
+> calls its change callback on appearing — because the row it reads as "selected" after its first
+> layout differs from the value it was given, or because its settle check runs once before any
+> scroll — writes a value nobody chose, and the screen stores it as if they had. `DS-009`'s drum
+> reports only a settle that follows a scroll, and measures "selected" from the same centre row it
+> draws as selected; the round trip shown-then-dismissed is a no-op by construction, not because the
+> two readings happen to agree.
+
 ---
 
 ## 1. Buttons and actions
@@ -118,6 +126,13 @@ none of the six v1 screens exists yet. That remains
   This supersedes the increment/decrement wording in [#29](https://github.com/derekwinters/Interval-trainer-android/issues/29)
   and in [#40](https://github.com/derekwinters/Interval-trainer-android/issues/40)'s own original
   text, both of which predate this decision.
+  The value the picker was given is the drum's centre row — the bright, full-size one, level with
+  the fixed `:` between the two drums — and the fade/shrink is measured from that row. Showing the
+  picker changes nothing: it reports a new duration only once the user has scrolled a drum and that
+  drum has settled, so a duration shown and dismissed untouched comes back out unchanged. Each drum
+  reports its own unit alongside the other unit's current value, never a value captured when the
+  picker first appeared
+  ([#133](https://github.com/derekwinters/Interval-trainer-android/issues/133)).
 - **DS-014** `Toggle` is a bespoke on/off switch — track and knob, never a Material `Switch` — for a
   boolean value a screen needs to show and flip. The preset editor's round generator
   (`docs/spec/screens.md` `SCREEN-017`, the trailing-recovery control) is the first v1 caller; the
@@ -464,7 +479,7 @@ this decision:
 
 | Section | IDs | Tests |
 |---|---|---|
-| Buttons and actions | DS-001–009, DS-014–016 | *(manual)* |
+| Buttons and actions | DS-001–009, DS-014–016 | `DurationScrollPickerTest.kt` (DS-009); *(manual)* DS-001–008, DS-014–016 |
 | Dialogs | DS-010–012 | *(manual)* |
 | Screen scaffolding | DS-013, DS-020–023 | `WindowThemeDeclarationTest.kt` (DS-022); *(manual)* DS-013, DS-020–021, DS-023 |
 | Timer typography | DS-030–033 | *(manual)* |
@@ -476,7 +491,7 @@ this decision:
 | Enforcement — not adopted | DS-096–097 | *(manual)* |
 | Human judgement calls | DS-098–101 | *(manual)* |
 
-**54 requirements, 5 `auto` and 49 `manual`.** This table's "Tests" column is what a JVM test
+**54 requirements, 6 `auto` and 48 `manual`.** This table's "Tests" column is what a JVM test
 checks, and stays as written above whether or not the component itself has been built: `*(manual)*`
 means "no test", not "no code". `DS-001`–`DS-013`, `DS-014`–`016` and `DS-020`–`021` (buttons
 and actions, dialogs, screen scaffolding) are now implemented in `:designsystem`
@@ -556,6 +571,16 @@ modifier of its own — the half of this requirement that this page's sixth inva
 because the screens live in `:app`, which
 [ADR 0007](../adr/0007-a-designsystem-module-with-bespoke-colour-tokens.md)'s dependency direction
 keeps out of this module's test source set, the same reason `DS-093` still has no test.
+
+**`DS-009` is this page's sixth `auto` requirement, and its test covers the picker's behaviour, not
+its feel.** `DurationScrollPickerTest.kt`, beside `DesignSystemConsistencyTest.kt`, composes the
+picker at a known duration under Robolectric and asserts what
+[#133](https://github.com/derekwinters/Interval-trainer-android/issues/133) found broken: that
+showing it calls nothing back, that the given value is the row level with the `:` and drawn no
+smaller than its neighbours, and that scrolling one drum and then the other keeps the first drum's
+unit. Whether the flick-scrub and its fade/shrink curve feel right stays a manual judgement, as the
+paragraph below says, and so does the rest of `DS-009`'s wording — no steppers, typed digits or
+chips — which is a fact about what the control is, not something it does.
 
 Robolectric's `android-all` jar is what a live `./gradlew test` would otherwise fetch from Maven
 Central the first time a Robolectric test runs (`DS-092`); pre-fetching and caching it in `pr.yml`
