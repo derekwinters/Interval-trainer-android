@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListLayoutInfo
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Surface
@@ -19,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -30,6 +32,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
 
 /**
@@ -97,9 +100,23 @@ private const val VisibleRowCount = 3
 private val RowHeight: Dp = 80.dp
 
 /**
+ * The centre of a drum's viewport, in the same coordinates as [LazyListLayoutInfo.visibleItemsInfo]'s
+ * offsets. Those offsets are measured from the end of the list's top content padding, not from the
+ * top of the viewport, so the centre is the midpoint of [LazyListLayoutInfo.viewportStartOffset]
+ * (negative by that padding) and [LazyListLayoutInfo.viewportEndOffset] — not half of
+ * `viewportSize.height`, which lands one row low and is exactly
+ * [#133](https://github.com/derekwinters/Interval-trainer-android/issues/133)'s off-by-one.
+ */
+private fun LazyListLayoutInfo.viewportCentre(): Float =
+    (viewportStartOffset + viewportEndOffset) / 2f
+
+/**
  * One scrollable "drum" of values (`00`–`59`), snapping to the centre row and fading/shrinking rows
- * away from it. Reports the settled value once scrolling stops, rather than continuously mid-fling,
- * so a caller never sees a value it did not actually land on.
+ * away from it. Reports the settled value once a scroll stops, rather than continuously mid-fling,
+ * so a caller never sees a value it did not actually land on — and never on appearing, so showing
+ * the drum changes nothing (`DS-009`, this page's invariant that a value control reports what the
+ * user did). The fade/shrink and the settle both measure from [viewportCentre], so the row drawn as
+ * selected and the row reported as selected are the same row.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -118,18 +135,26 @@ private fun ScrollDrum(
     val colors = AppTheme.colors
     val density = LocalDensity.current
     val rowHeightPx = remember(density) { with(density) { RowHeight.toPx() } }
+    // The latest value and callback, not the ones captured when the effect below first launched:
+    // the caller's callback closes over the *other* drum's current unit, and a stale one would write
+    // that unit back as it was when the picker appeared.
+    val currentValue by rememberUpdatedState(value)
+    val currentOnValueChange by rememberUpdatedState(onValueChange)
 
     LaunchedEffect(listState, values) {
         snapshotFlow { listState.isScrollInProgress }
+            // The first emission is the drum appearing, not a scroll ending.
+            .drop(1)
             .filter { inProgress -> !inProgress }
             .collect {
-                val viewportCenter = listState.layoutInfo.viewportSize.height / 2f
-                val centered = listState.layoutInfo.visibleItemsInfo.minByOrNull { item ->
-                    abs((item.offset + item.size / 2) - viewportCenter)
+                val layoutInfo = listState.layoutInfo
+                val viewportCentre = layoutInfo.viewportCentre()
+                val centred = layoutInfo.visibleItemsInfo.minByOrNull { item ->
+                    abs((item.offset + item.size / 2) - viewportCentre)
                 }
-                val settled = centered?.index?.let { values.getOrNull(it) }
-                if (settled != null && settled != value) {
-                    onValueChange(settled)
+                val settled = centred?.index?.let { values.getOrNull(it) }
+                if (settled != null && settled != currentValue) {
+                    currentOnValueChange(settled)
                 }
             }
     }
@@ -144,9 +169,9 @@ private fun ScrollDrum(
     ) {
         itemsIndexed(values) { index, item ->
             val info = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }
-            val viewportCenter = listState.layoutInfo.viewportSize.height / 2f
-            val itemCenter = info?.let { it.offset + it.size / 2 } ?: viewportCenter.toInt()
-            val distanceRows = abs(itemCenter - viewportCenter) / rowHeightPx.coerceAtLeast(1f)
+            val viewportCentre = listState.layoutInfo.viewportCentre()
+            val itemCentre = info?.let { (it.offset + it.size / 2).toFloat() } ?: viewportCentre
+            val distanceRows = abs(itemCentre - viewportCentre) / rowHeightPx.coerceAtLeast(1f)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
