@@ -136,6 +136,10 @@ duration times one recovery duration times a round count (`TIMER-001`).
 - **SCREEN-014** Tapping a row's duration opens it in place for editing, using the scroll-picker
   control `DS-009` names — a flick-scrub drum for minutes and seconds
   (`prototypes/screens/preset-editor/DurScroll.dc.html`) — never steppers, typed digits, or chips.
+  The opened row labels the picker with the text **"Duration"**, directly above it, 13sp bold in
+  `colors.fg` — the same style as the round generator's "Rounds" label (`SCREEN-017`) — so the
+  drum says what it sets
+  ([#134](https://github.com/derekwinters/Interval-trainer-android/issues/134)).
 - **SCREEN-014a** A row's *kind* is set the same way its duration is reached: while the row is open
   for editing (`SCREEN-014`), tapping its colour dot or its kind name cycles it one step through the
   fixed order warm-up → work → recovery → cool-down → back to warm-up

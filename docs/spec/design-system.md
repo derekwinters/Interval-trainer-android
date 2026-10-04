@@ -133,6 +133,17 @@ none of the six v1 screens exists yet. That remains
   reports its own unit alongside the other unit's current value, never a value captured when the
   picker first appeared
   ([#133](https://github.com/derekwinters/Interval-trainer-android/issues/133)).
+  The picker is sized as one field among several on a form, not as a screen's focal display
+  ([#134](https://github.com/derekwinters/Interval-trainer-android/issues/134)): each drum's digits
+  and the fixed `:` between the drums render in the `timer.inline` role (`DS-032`) — never
+  `timer.large` (`DS-030`), and never a fourth role (`DS-033`). A drum row is **40dp** tall, a drum
+  shows **three** rows at once (the centre row and one either side), so the picker is **120dp**
+  tall, and each drum is **48dp** wide; the `:` between them is `spacing.lg` (`DS-040`) wide. The
+  fade/shrink keeps its existing curve — rows dim to 0.3 alpha and shrink to 0.7 scale one row from
+  the centre.
+  *Invariant — the drum is small because of its role and its row, not because it is scaled:* a drum
+  that lays out `timer.large` and shrinks it with a graphics layer looks the same size and still
+  renders a timer value in the wrong role.
 - **DS-014** `Toggle` is a bespoke on/off switch — track and knob, never a Material `Switch` — for a
   boolean value a screen needs to show and flip. The preset editor's round generator
   (`docs/spec/screens.md` `SCREEN-017`, the trailing-recovery control) is the first v1 caller; the
@@ -578,9 +589,12 @@ picker at a known duration under Robolectric and asserts what
 [#133](https://github.com/derekwinters/Interval-trainer-android/issues/133) found broken: that
 showing it calls nothing back, that the given value is the row level with the `:` and drawn no
 smaller than its neighbours, and that scrolling one drum and then the other keeps the first drum's
-unit. Whether the flick-scrub and its fade/shrink curve feel right stays a manual judgement, as the
-paragraph below says, and so does the rest of `DS-009`'s wording — no steppers, typed digits or
-chips — which is a fact about what the control is, not something it does.
+unit. It also asserts the sizing
+[#134](https://github.com/derekwinters/Interval-trainer-android/issues/134) pinned: the picker's
+measured height and width, and that the centre digit and the `:` are laid out in `timer.inline`'s
+style rather than `timer.large`'s. Whether the flick-scrub and its fade/shrink curve feel right
+stays a manual judgement, as the paragraph below says, and so does the rest of `DS-009`'s wording
+— no steppers, typed digits or chips — which is a fact about what the control is, not something it does.
 
 Robolectric's `android-all` jar is what a live `./gradlew test` would otherwise fetch from Maven
 Central the first time a Robolectric test runs (`DS-092`); pre-fetching and caching it in `pr.yml`
