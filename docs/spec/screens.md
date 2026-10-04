@@ -167,6 +167,15 @@ duration times one recovery duration times a round count (`TIMER-001`).
   `prototypes/screens/preset-editor/EditorScroll.dc.html`; its exact field set is the four inputs
   `TIMER-080` specifies, not that file's own warm-up and cool-down fields — see this pull request's
   Deviations section.
+  The two duration pickers tell themselves apart the way the schedule rows do (`SCREEN-012`): each
+  is labelled, directly above it, with its kind's colour dot followed by its kind's name — an 8dp
+  circle in `colors.work` before **"Work"** and in `colors.recovery` before **"Recovery"**
+  (`CUE-030`), `spacing.sm` between dot and name, the name 13sp bold in `colors.fg`, the same style
+  as the dialog's "Rounds" and "Trailing recovery" labels. The name stays visible beside the dot in
+  every state; the colour reinforces it and never carries the meaning alone (`CUE-032`)
+  ([#136](https://github.com/derekwinters/Interval-trainer-android/issues/136)).
+  *Invariant:* draw these dots and names with the schedule rows' own kind label — one kind-to-colour
+  mapping through `colorRole()` shared by both — never a colour or name written into the dialog.
 - **SCREEN-018** A footer shows the interval count and the schedule's total duration, formatted as
   `formatSeconds` does — for example "9 intervals · total 15:30". The interval count is the list's
   own size; the total is `presetSummary(preset).totalDurationSeconds` (`PresetSummary.kt`), the same
@@ -555,7 +564,7 @@ and nothing else" split `WorkoutSession.handle` (`docs/spec/service.md` `SVC-014
 | Section | IDs | Tests |
 |---|---|---|
 | Home | SCREEN-001–008 | `PresetSummaryTest.kt` (SCREEN-003's round count and total, SCREEN-004's colour-strip segments); *(manual)* SCREEN-001–008 |
-| The preset editor | SCREEN-010–019, SCREEN-014a | `PresetSummaryTest.kt` (SCREEN-018's total); `IntervalKindTest.kt` (SCREEN-014a's cycle); `ScheduleGeneratorTest.kt` (SCREEN-017's splice); `PresetTest.kt` (SCREEN-019's save rule); *(manual)* SCREEN-010–019, SCREEN-014a |
+| The preset editor | SCREEN-010–019, SCREEN-014a | `PresetSummaryTest.kt` (SCREEN-018's total); `IntervalKindTest.kt` (SCREEN-014a's cycle); `ScheduleGeneratorTest.kt` (SCREEN-017's splice); `KindLabelTest.kt` (the kind-to-colour mapping SCREEN-012's rows and SCREEN-017's duration labels share); `PresetTest.kt` (SCREEN-019's save rule); *(manual)* SCREEN-010–019, SCREEN-014a |
 | The running screen — content | SCREEN-020–024, SCREEN-022a | `RunningScreenContentTest.kt` (SCREEN-020's ring content, SCREEN-021's total-left value again, SCREEN-022's/SCREEN-022a's round in progress, SCREEN-024's distinct get-ready shape); *(manual)* SCREEN-020–024, SCREEN-022a |
 | The running screen — controls | SCREEN-030–033 | *(manual)* |
 | The running screen — navigation lock | SCREEN-040–046 | *(manual)* |
@@ -606,6 +615,10 @@ in `:app` (not `:core`, since combining a workout's own liveness with the first-
 concern of `:app`'s NavHost, not of `:core`'s domain), taking both facts as plain booleans its
 caller already resolved — the same "no `android.*` import" split `WorkoutSession.handle`
 (`SVC-014`) and `notificationSettingsDeepLink` (`SVC-033`) already use — via `StartDestinationTest.kt`.
+`SCREEN-012`'s and `SCREEN-017`'s colour dots both resolve through one `:app` function,
+`IntervalKind.dotColor` (`screens/editor/KindLabel.kt`), via `KindLabelTest.kt`
+([#136](https://github.com/derekwinters/Interval-trainer-android/issues/136)); that checks which
+design-system colour each kind's dot takes, not that either screen draws it.
 This page is honest that everything else — whether a screen's structure actually matches this page,
 whether a control does what it says, whether the lock actually holds — is a human reading the
 screen against this specification, the same proportion `docs/spec/design-system.md` reports for
