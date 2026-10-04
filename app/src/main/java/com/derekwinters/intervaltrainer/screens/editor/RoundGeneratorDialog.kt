@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -42,6 +44,14 @@ private const val DefaultRecoveryDurationSeconds = 15
  * enforcement `TIMER-072` names for the editor generally, so an invalid duration never reaches
  * [com.derekwinters.intervaltrainer.appendGeneratedRounds] (which would otherwise throw) through
  * this dialog at all.
+ *
+ * The content scrolls ([#135](https://github.com/derekwinters/Interval-trainer-android/issues/135)).
+ * `AlertDialog`'s body slot gives it whatever height is left between the title and the action row
+ * and clips anything taller, so on a short window — a small phone, landscape, or a larger system
+ * font — the recovery drum was sliced and the trailing-recovery toggle was unreachable. Even with
+ * the drums at 120dp (#134) the dialog is roughly 570dp tall at the default font scale, more than a
+ * landscape phone has, so the four controls `SCREEN-017` lists stay reachable only by scrolling to
+ * them. The drums keep their fixed height, so a drag that starts on a drum still turns the drum.
  */
 @Composable
 fun RoundGeneratorDialog(
@@ -78,7 +88,10 @@ fun RoundGeneratorDialog(
         onCancel = onDismiss,
         confirmEnabled = isValid,
         content = {
-            Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm),
+            ) {
                 GeneratorFieldRow(label = "Rounds") {
                     CountStepper(count = roundCount, onCountChange = { roundCount = it })
                 }
