@@ -134,7 +134,8 @@ class DurationScrollPickerTest {
     fun `scrolling one drum and then the other keeps the first drum's unit`() {
         val host = Host(minutes = 0, seconds = 30)
         show(host)
-        val rowHeightPx = with(composeTestRule.density) { 80.dp.toPx() }
+        // One drum row, as DS-009 pins it.
+        val rowHeightPx = with(composeTestRule.density) { 40.dp.toPx() }
 
         composeTestRule.onNodeWithText("30", useUnmergedTree = true).performTouchInput {
             swipeUp(startY = centerY, endY = centerY - rowHeightPx, durationMillis = 500)

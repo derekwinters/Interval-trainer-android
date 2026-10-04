@@ -392,11 +392,19 @@ private fun EditorRowView(
                     .padding(bottom = spacing.sm),
                 contentAlignment = Alignment.Center,
             ) {
-                DurationScrollPicker(
-                    minutes = row.durationSeconds / 60,
-                    seconds = row.durationSeconds % 60,
-                    onDurationChange = onDurationChange,
-                )
+                // SCREEN-014: the drum says what it sets — the same style as the round generator's
+                // "Rounds" label (GeneratorFieldRow), directly above the picker.
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    BasicText(
+                        text = "Duration",
+                        style = TextStyle(color = colors.fg, fontSize = 13.sp, fontWeight = FontWeight.Bold),
+                    )
+                    DurationScrollPicker(
+                        minutes = row.durationSeconds / 60,
+                        seconds = row.durationSeconds % 60,
+                        onDurationChange = onDurationChange,
+                    )
+                }
             }
         }
     }
