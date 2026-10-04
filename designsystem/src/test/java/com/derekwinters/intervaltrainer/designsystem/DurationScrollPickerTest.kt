@@ -4,11 +4,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import org.junit.Assert.assertEquals
@@ -46,9 +53,15 @@ class DurationScrollPickerTest {
         val reports = mutableListOf<Pair<Int, Int>>()
     }
 
+    /** The theme values the picker resolved against, read inside the composition that showed it. */
+    private lateinit var timerTypography: TimerTypography
+    private var colonWidth: Dp = Dp.Unspecified
+
     private fun show(host: Host) {
         composeTestRule.setContent {
             AppTheme {
+                timerTypography = AppTheme.timerTypography
+                colonWidth = AppTheme.spacing.lg
                 if (host.shown) {
                     DurationScrollPicker(
                         minutes = host.minutes,
@@ -58,11 +71,20 @@ class DurationScrollPickerTest {
                             host.minutes = m
                             host.seconds = s
                         },
+                        modifier = Modifier.testTag(PICKER_TAG),
                     )
                 }
             }
         }
         composeTestRule.waitForIdle()
+    }
+
+    /** The style a text node was actually laid out in — what it rendered, not what it was scaled to. */
+    private fun laidOutStyle(text: String): TextStyle {
+        val layouts = mutableListOf<TextLayoutResult>()
+        val node = composeTestRule.onNodeWithText(text, useUnmergedTree = true).fetchSemanticsNode()
+        node.config[SemanticsActions.GetTextLayoutResult].action!!.invoke(layouts)
+        return layouts.single().layoutInput.style
     }
 
     private fun bounds(text: String): Rect =
@@ -112,7 +134,8 @@ class DurationScrollPickerTest {
     fun `scrolling one drum and then the other keeps the first drum's unit`() {
         val host = Host(minutes = 0, seconds = 30)
         show(host)
-        val rowHeightPx = with(composeTestRule.density) { 80.dp.toPx() }
+        // One drum row, as DS-009 pins it.
+        val rowHeightPx = with(composeTestRule.density) { 40.dp.toPx() }
 
         composeTestRule.onNodeWithText("30", useUnmergedTree = true).performTouchInput {
             swipeUp(startY = centerY, endY = centerY - rowHeightPx, durationMillis = 500)
@@ -133,5 +156,46 @@ class DurationScrollPickerTest {
             secondsAfterFirstScroll,
             host.seconds,
         )
+    }
+
+    @Test
+    fun `the picker is sized as one field - three 40dp rows tall and two 48dp drums wide`() {
+        show(Host(minutes = 0, seconds = 30))
+
+        val picker = composeTestRule.onNodeWithTag(PICKER_TAG).fetchSemanticsNode().boundsInRoot
+        val (expectedHeight, expectedWidth) = with(composeTestRule.density) {
+            (40.dp * 3).toPx() to (48.dp * 2 + colonWidth).toPx()
+        }
+
+        assertEquals("the picker's height (DS-009: three 40dp rows)", expectedHeight, picker.height, 1f)
+        assertEquals(
+            "the picker's width (DS-009: two 48dp drums and a spacing.lg colon)",
+            expectedWidth,
+            picker.width,
+            1f,
+        )
+    }
+
+    @Test
+    fun `the digits and the colon are laid out in timer inline, not timer large`() {
+        show(Host(minutes = 0, seconds = 30))
+
+        for (text in listOf("30", "00", ":")) {
+            val style = laidOutStyle(text)
+            assertEquals(
+                "\"$text\" is not laid out at timer.inline's size (DS-009, DS-032)",
+                timerTypography.inline.fontSize,
+                style.fontSize,
+            )
+            assertEquals(
+                "\"$text\" is not laid out in timer.inline's typeface (DS-009, DS-032)",
+                timerTypography.inline.fontFamily,
+                style.fontFamily,
+            )
+        }
+    }
+
+    private companion object {
+        const val PICKER_TAG = "duration-picker"
     }
 }

@@ -73,7 +73,7 @@ fun DurationScrollPicker(
         )
         Text(
             text = ":",
-            style = AppTheme.timerTypography.large,
+            style = AppTheme.timerTypography.inline,
             color = colors.fg,
             modifier = Modifier
                 .width(spacing.lg),
@@ -91,13 +91,16 @@ fun DurationScrollPicker(
 private const val VisibleRowCount = 3
 
 /**
- * The height of one row in a drum, sized with headroom for [TimerTypography.large]'s 64sp digits
- * (`DS-030`) — the drum reuses that same timer typographic role, since a drum digit is a timer
- * value in the same sense the running countdown is. Not named by `docs/spec/design-system.md`; a
- * drum row is a control's own dimension in the same sense `DS-008`'s 26dp is, not an ad hoc padding
- * `DS-040` governs.
+ * The height of one row in a drum, as `DS-009` pins it
+ * ([#134](https://github.com/derekwinters/Interval-trainer-android/issues/134)): sized for
+ * [TimerTypography.inline]'s digits (`DS-032`), so three rows make a 120dp field rather than a
+ * screen's focal display. A control's own dimension in the same sense `DS-008`'s 26dp is, not an ad
+ * hoc padding `DS-040` governs.
  */
-private val RowHeight: Dp = 80.dp
+private val RowHeight: Dp = 40.dp
+
+/** The width of one drum, as `DS-009` pins it. */
+private val DrumWidth: Dp = 48.dp
 
 /**
  * The centre of a drum's viewport, in the same coordinates as [LazyListLayoutInfo.visibleItemsInfo]'s
@@ -163,7 +166,7 @@ private fun ScrollDrum(
         state = listState,
         flingBehavior = flingBehavior,
         modifier = modifier
-            .width(96.dp)
+            .width(DrumWidth)
             .height(RowHeight * VisibleRowCount),
         contentPadding = PaddingValues(vertical = RowHeight * (VisibleRowCount / 2)),
     ) {
@@ -181,7 +184,7 @@ private fun ScrollDrum(
             ) {
                 Text(
                     text = item.toString().padStart(2, '0'),
-                    style = AppTheme.timerTypography.large,
+                    style = AppTheme.timerTypography.inline,
                     color = colors.fg,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.graphicsLayer {
