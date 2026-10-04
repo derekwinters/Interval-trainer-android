@@ -19,6 +19,7 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.derekwinters.intervaltrainer.IntervalKind
 import com.derekwinters.intervaltrainer.MINIMUM_INTERVAL_DURATION_SECONDS
 import com.derekwinters.intervaltrainer.designsystem.AlertDialog
 import com.derekwinters.intervaltrainer.designsystem.AppTheme
@@ -52,6 +53,10 @@ private const val DefaultRecoveryDurationSeconds = 15
  * the drums at 120dp (#134) the dialog is roughly 570dp tall at the default font scale, more than a
  * landscape phone has, so the four controls `SCREEN-017` lists stay reachable only by scrolling to
  * them. The drums keep their fixed height, so a drag that starts on a drum still turns the drum.
+ *
+ * Each drum is labelled with its kind's colour dot and name ([KindLabel], `SCREEN-017`,
+ * [#136](https://github.com/derekwinters/Interval-trainer-android/issues/136)) — the same label the
+ * schedule rows draw — because the two drums are otherwise identical.
  */
 @Composable
 fun RoundGeneratorDialog(
@@ -95,13 +100,13 @@ fun RoundGeneratorDialog(
                 GeneratorFieldRow(label = "Rounds") {
                     CountStepper(count = roundCount, onCountChange = { roundCount = it })
                 }
-                GeneratorFieldLabel("Work")
+                GeneratorKindLabel(IntervalKind.WORK)
                 DurationScrollPicker(
                     minutes = workMinutes,
                     seconds = workSeconds,
                     onDurationChange = { m, s -> workMinutes = m; workSeconds = s },
                 )
-                GeneratorFieldLabel("Recovery")
+                GeneratorKindLabel(IntervalKind.RECOVERY)
                 DurationScrollPicker(
                     minutes = recoveryMinutes,
                     seconds = recoverySeconds,
@@ -119,13 +124,11 @@ fun RoundGeneratorDialog(
     )
 }
 
+/** A duration picker's label (`SCREEN-017`, #136): the schedule rows' own [KindLabel] — the kind's
+ * colour dot before its name — so the two identical drums tell themselves apart at a glance. */
 @Composable
-private fun GeneratorFieldLabel(text: String) {
-    BasicText(
-        text = text,
-        style = TextStyle(color = AppTheme.colors.dim, fontSize = 11.sp, fontWeight = FontWeight.Bold),
-        modifier = Modifier.fillMaxWidth().padding(top = AppTheme.spacing.xs),
-    )
+private fun GeneratorKindLabel(kind: IntervalKind) {
+    KindLabel(kind = kind, modifier = Modifier.fillMaxWidth().padding(top = AppTheme.spacing.xs))
 }
 
 @Composable
