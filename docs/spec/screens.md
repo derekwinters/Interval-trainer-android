@@ -245,8 +245,10 @@ measured from the edges of `FullBleedLayout`. Spacing tokens are `AppTheme.spaci
   `RunningScreenContentTest.kt`.)*
 - **SCREEN-021** A "Total left" readout shows the total remaining time across the whole workout
   (`TIMER-025`): a 13sp `dim` label and a bold `timer.stat` (`DS-031`) value. It sits at the **top
-  centre** of the screen, vertically centred on the mute button (`SCREEN-030`), so its centre line
-  is 16 + 19 = 35dp from the top. *(manual: the readout's rendering is a screen fact; the value it
+  centre** of the screen, its centre line **35dp** from the top. #151 derives that as the mute
+  button's (`SCREEN-030`) centre, 16dp padding plus half its 38dp drawn size; the button's 48dp
+  minimum touch target (`DS-005`) actually places its drawn centre at 40dp, so the two sit 5dp
+  apart. *(manual: the readout's rendering is a screen fact; the value it
   shows is already `:core`-tested via `TIMER-025`, and again directly via
   `RunningScreenContentTest.kt`.)*
 - **SCREEN-023** Two lists around the ring preview the schedule. The **past list**, above the ring,
@@ -276,7 +278,8 @@ measured from the edges of `FullBleedLayout`. Spacing tokens are `AppTheme.spaci
   counts as current during it is `runningScreenSchedule()`, `:core`-tested via
   `RunningScreenScheduleTest.kt`.)*
 - **SCREEN-025** A timeline strip runs across the top of the screen, its top edge **66dp** from the
-  top (12dp below the mute button's bottom edge), inset `spacing.xl` (20dp) on the left and right
+  top (#151 derives it as 12dp below the mute button's bottom edge, taking the button as 38dp tall;
+  `SCREEN-021` notes the 48dp touch target that moves that edge), inset `spacing.xl` (20dp) on the left and right
   and filling the width between. It has **one segment per schedule entry**, in schedule order,
   warm-up and cool-down included, and every segment has **equal width** whatever its interval's
   duration. A segment is **8dp** tall with a **2dp** corner radius, filled with its kind's colour
