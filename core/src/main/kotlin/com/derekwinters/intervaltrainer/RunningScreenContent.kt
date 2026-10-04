@@ -1,8 +1,8 @@
 package com.derekwinters.intervaltrainer
 
 /**
- * `docs/spec/screens.md` `SCREEN-020`–`022`, `SCREEN-022a`, `SCREEN-024`: what the running
- * screen's ring and round indicator show, derived from a [TimerState] and [Clock] alone — the
+ * `docs/spec/screens.md` `SCREEN-020`, `SCREEN-021`, `SCREEN-024`: what the running screen's ring
+ * and "Total left" readout show, derived from a [TimerState] and [Clock] alone — the
  * same "a screen shows only what a `:core` reducer computed for it" split this repository's own
  * invariant names, and the same shape [WorkoutNotificationContent] (`SVC-025`) already gives the
  * notification. `null` for [TimerState.Idle] and [TimerState.Ended] — there is nothing running to
@@ -19,10 +19,6 @@ package com.derekwinters.intervaltrainer
  * `:app`'s job.
  */
 sealed interface RunningScreenContent {
-    /** `SCREEN-022`, `SCREEN-022a`: the round currently in progress, and rounds planned. */
-    val roundInProgress: Int
-    val roundsPlanned: Int
-
     /** `SCREEN-021`: the total remaining time across the whole workout (`TIMER-025`). */
     val totalRemainingMillis: Long
 
@@ -35,8 +31,6 @@ sealed interface RunningScreenContent {
         val remainingMillis: Long,
         val upcomingKind: IntervalKind,
         val upcomingDurationMillis: Long,
-        override val roundInProgress: Int,
-        override val roundsPlanned: Int,
         override val totalRemainingMillis: Long,
     ) : RunningScreenContent
 
@@ -48,14 +42,12 @@ sealed interface RunningScreenContent {
         val kind: IntervalKind,
         val remainingMillis: Long,
         val fullDurationMillis: Long,
-        override val roundInProgress: Int,
-        override val roundsPlanned: Int,
         override val totalRemainingMillis: Long,
     ) : RunningScreenContent
 }
 
 /**
- * `SCREEN-020`–`022`, `SCREEN-022a`, `SCREEN-024`: the running screen's content, for [this]
+ * `SCREEN-020`, `SCREEN-021`, `SCREEN-024`: the running screen's content, for [this]
  * [TimerState] read against [clock] — `null` outside [TimerState.Running] and
  * [TimerState.Paused].
  */
@@ -75,7 +67,6 @@ fun TimerState.runningScreenContent(clock: Clock): RunningScreenContent? {
         is TimerPhase.InInterval -> phase.index
     }
     val interval = schedule[index].interval
-    val (roundInProgress, roundsPlanned) = schedule.currentRound(index)
     val remaining = remainingMillis(clock)
     val total = totalRemainingMillis(clock)
 
@@ -84,8 +75,6 @@ fun TimerState.runningScreenContent(clock: Clock): RunningScreenContent? {
             remainingMillis = remaining,
             upcomingKind = interval.kind,
             upcomingDurationMillis = interval.durationSeconds * 1_000L,
-            roundInProgress = roundInProgress,
-            roundsPlanned = roundsPlanned,
             totalRemainingMillis = total,
         )
 
@@ -93,8 +82,6 @@ fun TimerState.runningScreenContent(clock: Clock): RunningScreenContent? {
             kind = interval.kind,
             remainingMillis = remaining,
             fullDurationMillis = interval.durationSeconds * 1_000L,
-            roundInProgress = roundInProgress,
-            roundsPlanned = roundsPlanned,
             totalRemainingMillis = total,
         )
     }

@@ -43,7 +43,7 @@ data class TimerTypography(
                 fontSize = 64.sp,
                 fontFeatureSettings = TABULAR_FIGURES,
             ),
-            // timer.stat (DS-031): the round counter and the total-remaining display.
+            // timer.stat (DS-031): the total-remaining display.
             stat = TextStyle(
                 fontFamily = JetBrainsMono,
                 fontSize = 20.sp,

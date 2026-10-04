@@ -1,24 +1,24 @@
 package com.derekwinters.intervaltrainer.screens.running
 
 import android.app.Activity
+import android.content.pm.ActivityInfo
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
@@ -39,10 +39,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -54,13 +56,14 @@ import com.derekwinters.intervaltrainer.ColorRole
 import com.derekwinters.intervaltrainer.CueTimerState
 import com.derekwinters.intervaltrainer.IntervalKind
 import com.derekwinters.intervaltrainer.RunningScreenContent
-import com.derekwinters.intervaltrainer.ScheduleEntry
+import com.derekwinters.intervaltrainer.ScheduleRow
+import com.derekwinters.intervaltrainer.TimelineSegment
 import com.derekwinters.intervaltrainer.TimerEvent
-import com.derekwinters.intervaltrainer.TimerPhase
 import com.derekwinters.intervaltrainer.TimerState
 import com.derekwinters.intervaltrainer.colorRole
 import com.derekwinters.intervaltrainer.formatSeconds
 import com.derekwinters.intervaltrainer.runningScreenContent
+import com.derekwinters.intervaltrainer.runningScreenSchedule
 import com.derekwinters.intervaltrainer.toggleEvent
 import com.derekwinters.intervaltrainer.designsystem.AlertDialog
 import com.derekwinters.intervaltrainer.designsystem.AppTheme
@@ -69,7 +72,6 @@ import com.derekwinters.intervaltrainer.designsystem.FullBleedLayout
 import com.derekwinters.intervaltrainer.designsystem.StatusIconButton
 import com.derekwinters.intervaltrainer.designsystem.TransportIconButton
 import kotlinx.coroutines.delay
-import kotlin.math.abs
 
 /** How often the display refreshes its own "now" while a workout is actually counting down
  * (`Running`, never `Paused` — the held remaining time does not move, `SVC`'s own pause
@@ -80,16 +82,33 @@ import kotlin.math.abs
  * the same way any countdown UI reading a monotonic clock does. */
 private const val DisplayTickIntervalMillis = 200L
 
+// docs/spec/screens.md §3, issue #151: the stacked layout's measurements, at a 360 × 760dp
+// portrait reference screen, measured from FullBleedLayout's edges.
+private val StatusButtonDrawnHeight = 38.dp // StatusIconButton's drawn size; Total left centres on it
+private val StripTop = 66.dp // SCREEN-025
+private val StripHeight = 8.dp
+private val StripCornerRadius = 2.dp
+private val CenterColumnTop = 92.dp // SCREEN-028
+private val CenterColumnBottom = 100.dp
+private val CenterColumnGap = 18.dp
+private val ListWidth = 190.dp
+private val PastListMinHeight = 64.dp
+private val UpcomingListMinHeight = 140.dp
+private val RingSize = 176.dp // SCREEN-020, SCREEN-024
+private val RingStroke = 11.dp
+private val RingDigitsSize = 51.sp
+
 /**
  * The running screen (`docs/spec/screens.md` §3, `SCREEN-020`–`046`; `docs/spec/service.md` §7,
- * `SVC-050`–`053`): the ring timer, the schedule rail, the mute/pause-resume/skip/stop controls,
- * the navigation lock, and the stop confirmation.
+ * `SVC-050`–`053`): the timeline strip, the ring timer between the past and upcoming lists, the
+ * mute/pause-resume/skip/stop controls, the navigation lock, the portrait lock, and the stop
+ * confirmation.
  *
  * [state] and [clock] are read, never written, here (`ADR 0005`'s split): every value this screen
- * shows is [state.timer]'s own [runningScreenContent] (`SCREEN-020`–`022`, `SCREEN-022a`,
- * `SCREEN-024`) or a field of [state] directly ([CueTimerState.muted]). Every control below sends
- * a command through its own callback rather than mutating [state] itself — [state] always comes
- * from [com.derekwinters.intervaltrainer.service.WorkoutServiceState], the app-wide channel the
+ * shows is [state.timer]'s own [runningScreenContent] (`SCREEN-020`, `SCREEN-021`, `SCREEN-024`),
+ * its [runningScreenSchedule] (`SCREEN-023`–`026`), or a field of [state] directly
+ * ([CueTimerState.muted]). Every control below sends a command through its own callback rather
+ * than mutating [state] itself — [state] always comes from [com.derekwinters.intervaltrainer.service.WorkoutServiceState], the app-wide channel the
  * foreground service owns (`ADR 0002`).
  */
 @Composable
@@ -107,8 +126,8 @@ fun RunningScreen(
     var showStopConfirmation by remember { mutableStateOf(false) }
 
     // See DisplayTickIntervalMillis's own doc comment: this is what actually advances the ring
-    // and rail between service-published state changes, while the workout is running. Paused
-    // needs no ticking at all — the held remaining time (TIMER-023) does not move.
+    // between service-published state changes, while the workout is running. Paused needs no
+    // ticking at all — the held remaining time (TIMER-023) does not move.
     var tick by remember { mutableLongStateOf(0L) }
     val isCountingDown = state.timer is TimerState.Running
     LaunchedEffect(isCountingDown) {
@@ -118,7 +137,7 @@ fun RunningScreen(
         }
     }
     val content = remember(state.timer, tick) { state.timer.runningScreenContent(clock) }
-    val scheduleAndIndex = remember(state.timer) { state.timer.scheduleAndIndex() }
+    val schedule = remember(state.timer) { state.timer.runningScreenSchedule() }
 
     // SCREEN-042, SVC-053: system back while running raises the same stop confirmation as the
     // stop button — the only exit the locked screen offers — and never fires while paused, when
@@ -132,6 +151,7 @@ fun RunningScreen(
     }
 
     KeepScreenOn() // SCREEN-046
+    LockPortrait() // SCREEN-027
 
     FullBleedLayout(modifier = modifier) {
         MuteButton(
@@ -143,43 +163,63 @@ fun RunningScreen(
         )
 
         if (content != null) {
-            RoundIndicator(
-                roundInProgress = content.roundInProgress,
-                roundsPlanned = content.roundsPlanned,
+            // SCREEN-021: top centre, centre line at 16 + 19 = 35dp, as #151 fixes it.
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = spacing.lg)
+                    .height(StatusButtonDrawnHeight),
+                contentAlignment = Alignment.Center,
+            ) {
+                TotalLeft(totalRemainingMillis = content.totalRemainingMillis, colors = colors)
+            }
+        }
+
+        if (content != null && schedule != null) {
+            TimelineStrip(
+                segments = schedule.strip,
+                gapDp = schedule.stripGapDp,
                 colors = colors,
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(spacing.lg),
+                    .padding(top = StripTop, start = spacing.xl, end = spacing.xl)
+                    .fillMaxWidth()
+                    .height(StripHeight),
             )
-        }
 
-        if (content != null && scheduleAndIndex != null) {
-            val (schedule, currentIndex) = scheduleAndIndex
+            // SCREEN-028: one centred column between 92dp from the top and 100dp from the
+            // bottom, its children centred as a group. The lists' minimum heights keep the ring
+            // in place whatever number of rows they hold.
             Column(
                 modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(top = spacing.xxl * 2),
+                    .fillMaxSize()
+                    .padding(top = CenterColumnTop, bottom = CenterColumnBottom),
                 horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(CenterColumnGap, Alignment.CenterVertically),
             ) {
-                when (content) {
-                    is RunningScreenContent.Active -> Ring(content = content, colors = colors)
-                    is RunningScreenContent.GetReady -> GetReadyContent(content = content, colors = colors)
+                ScheduleList(
+                    rows = schedule.past,
+                    colors = colors,
+                    verticalAlignment = Alignment.Bottom,
+                    modifier = Modifier
+                        .width(ListWidth)
+                        .heightIn(min = PastListMinHeight),
+                )
+                Box(modifier = Modifier.size(RingSize), contentAlignment = Alignment.Center) {
+                    when (content) {
+                        is RunningScreenContent.Active -> Ring(content = content, colors = colors)
+                        is RunningScreenContent.GetReady -> GetReadyContent(content = content, colors = colors)
+                    }
                 }
-                Spacer(Modifier.height(spacing.lg))
-                TotalLeft(totalRemainingMillis = content.totalRemainingMillis, colors = colors)
+                ScheduleList(
+                    rows = schedule.upcoming,
+                    colors = colors,
+                    verticalAlignment = Alignment.Top,
+                    modifier = Modifier
+                        .width(ListWidth)
+                        .heightIn(min = UpcomingListMinHeight),
+                )
             }
-
-            ScheduleRail(
-                schedule = schedule,
-                currentIndex = currentIndex,
-                activeRemainingMillis = (content as? RunningScreenContent.Active)?.remainingMillis,
-                colors = colors,
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(end = spacing.lg)
-                    .width(112.dp)
-                    .fillMaxHeight(0.6f),
-            )
         }
 
         ControlRow(
@@ -220,6 +260,26 @@ private fun KeepScreenOn() {
     }
 }
 
+/** `SCREEN-027`: the running screen is locked to portrait while it is shown, and only then.
+ * Leaving it resets the activity to the platform default
+ * ([ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED]) — what every other screen uses, since nothing
+ * else sets an orientation. The reset is skipped while the activity is being recreated for a
+ * configuration change: the lock is still wanted on the recreated activity, and resetting it there
+ * would hand the rotation straight back. */
+@Composable
+private fun LockPortrait() {
+    val context = LocalContext.current
+    DisposableEffect(Unit) {
+        val activity = context as? Activity
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        onDispose {
+            if (activity != null && !activity.isChangingConfigurations) {
+                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            }
+        }
+    }
+}
+
 /** `SCREEN-033`, `SVC-050`, `DS-010`–`011`: the destructive stop confirmation, cancel left,
  * affirmative right — `AlertDialog`'s own guaranteed ordering, not reimplemented here. */
 @Composable
@@ -248,27 +308,6 @@ private fun MuteButton(muted: Boolean, onToggleMute: () -> Unit, modifier: Modif
     )
 }
 
-/** `SCREEN-022`, `SCREEN-022a`: "Round 2 of 4", the round currently in progress against rounds
- * planned — never rounds completed (`TIMER-061`), which this screen never shows. */
-@Composable
-private fun RoundIndicator(
-    roundInProgress: Int,
-    roundsPlanned: Int,
-    colors: DesignSystemColors,
-    modifier: Modifier = Modifier,
-) {
-    Column(modifier = modifier) {
-        BasicText(
-            text = "ROUND",
-            style = TextStyle(color = colors.dim, fontSize = 11.sp, fontWeight = FontWeight.Bold),
-        )
-        BasicText(
-            text = "$roundInProgress of $roundsPlanned",
-            style = AppTheme.timerTypography.stat.copy(color = colors.fg, fontWeight = FontWeight.Bold),
-        )
-    }
-}
-
 /** `SCREEN-021`: total remaining time across the whole workout (`TIMER-025`). */
 @Composable
 private fun TotalLeft(totalRemainingMillis: Long, colors: DesignSystemColors, modifier: Modifier = Modifier) {
@@ -282,9 +321,9 @@ private fun TotalLeft(totalRemainingMillis: Long, colors: DesignSystemColors, mo
 }
 
 /** `SCREEN-020`: the current interval's kind, colour, and remaining time against its full
- * duration — "0:32 of 0:45" — as a depleting ring: the coloured arc is what remains, so it
- * shrinks as the interval runs out, the same reading direction the settled design's own mockup
- * shows. */
+ * duration — "0:32 of 0:45" — as a depleting 176dp ring with an 11dp stroke: the coloured arc is
+ * what remains, so it shrinks as the interval runs out, the same reading direction the settled
+ * design's own mockup shows. */
 @Composable
 private fun Ring(content: RunningScreenContent.Active, colors: DesignSystemColors, modifier: Modifier = Modifier) {
     val ringColor = content.kind.dotColor(colors)
@@ -294,8 +333,8 @@ private fun Ring(content: RunningScreenContent.Active, colors: DesignSystemColor
         0f
     }
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        Canvas(modifier = Modifier.size(220.dp)) {
-            val strokeWidth = 14.dp.toPx()
+        Canvas(modifier = Modifier.size(RingSize)) {
+            val strokeWidth = RingStroke.toPx()
             drawArc(
                 color = colors.line,
                 startAngle = -90f,
@@ -327,7 +366,7 @@ private fun Ring(content: RunningScreenContent.Active, colors: DesignSystemColor
             }
             BasicText(
                 text = formatSeconds(content.remainingMillis.toWholeSeconds()),
-                style = AppTheme.timerTypography.large.copy(color = colors.fg),
+                style = AppTheme.timerTypography.large.copy(color = colors.fg, fontSize = RingDigitsSize),
             )
             BasicText(
                 text = "of ${formatSeconds(content.fullDurationMillis.toWholeSeconds())}",
@@ -338,7 +377,8 @@ private fun Ring(content: RunningScreenContent.Active, colors: DesignSystemColor
 }
 
 /** `SCREEN-024`: the lead-in's own distinct "get ready" state — no ring, no partially-formed
- * interval display, per `prototypes/screens/running-screen/States.dc.html`. */
+ * interval display, per `prototypes/screens/running-screen/States.dc.html` — in the ring's 176dp
+ * slot, its number at the ring's 51sp. */
 @Composable
 private fun GetReadyContent(
     content: RunningScreenContent.GetReady,
@@ -353,7 +393,7 @@ private fun GetReadyContent(
         val secondsRemaining = ((content.remainingMillis + 999L) / 1_000L).coerceAtLeast(0L)
         BasicText(
             text = "$secondsRemaining",
-            style = AppTheme.timerTypography.large.copy(color = colors.fg),
+            style = AppTheme.timerTypography.large.copy(color = colors.fg, fontSize = RingDigitsSize),
         )
         BasicText(text = "seconds", style = TextStyle(color = colors.dim, fontSize = 13.sp))
         BasicText(
@@ -365,69 +405,61 @@ private fun GetReadyContent(
     }
 }
 
-/** `SCREEN-023`: every interval in the schedule, in order, the current one emphasised and each
- * other one shrinking and dimming with its distance from it — a preview, not a control (no row
- * carries a click handler of any kind). */
+/** `SCREEN-025`, `SCREEN-026`: one equal-width segment per schedule entry, only the current one at
+ * full alpha (the page's invariant), with the gap `:core` chose for the schedule's length. No
+ * text, and no click handler of any kind. */
 @Composable
-private fun ScheduleRail(
-    schedule: List<ScheduleEntry>,
-    currentIndex: Int,
-    activeRemainingMillis: Long?,
+private fun TimelineStrip(
+    segments: List<TimelineSegment>,
+    gapDp: Int,
     colors: DesignSystemColors,
     modifier: Modifier = Modifier,
 ) {
-    val listState = rememberLazyListState()
-    LaunchedEffect(currentIndex) {
-        listState.animateScrollToItem(index = (currentIndex - 2).coerceAtLeast(0))
-    }
-    LazyColumn(
-        state = listState,
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm),
-    ) {
-        itemsIndexed(schedule) { index, entry ->
-            RailRow(
-                entry = entry,
-                isCurrent = index == currentIndex,
-                distance = abs(index - currentIndex),
-                activeRemainingMillis = if (index == currentIndex) activeRemainingMillis else null,
-                colors = colors,
+    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(gapDp.dp)) {
+        segments.forEach { segment ->
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .alpha(segment.alpha)
+                    .clip(RoundedCornerShape(StripCornerRadius))
+                    .background(segment.kind.dotColor(colors)),
             )
         }
     }
 }
 
+/** `SCREEN-023`: the past or upcoming list — rows `spacing.sm` apart, bottom-aligned above the ring
+ * and top-aligned below it. A preview, not a control: no row carries a click handler. */
 @Composable
-private fun RailRow(
-    entry: ScheduleEntry,
-    isCurrent: Boolean,
-    distance: Int,
-    activeRemainingMillis: Long?,
+private fun ScheduleList(
+    rows: List<ScheduleRow>,
     colors: DesignSystemColors,
+    verticalAlignment: Alignment.Vertical,
     modifier: Modifier = Modifier,
 ) {
-    val rowAlpha = if (isCurrent) 1f else (1f - 0.18f * distance).coerceIn(0.3f, 1f)
-    val rowScale = if (isCurrent) 1f else (1f - 0.06f * distance).coerceIn(0.75f, 1f)
-    val kindColor = entry.interval.kind.dotColor(colors)
-    val trailingSeconds = activeRemainingMillis?.toWholeSeconds() ?: entry.interval.durationSeconds
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm, verticalAlignment),
+    ) {
+        rows.forEach { row -> ScheduleListRow(row = row, colors = colors) }
+    }
+}
 
+/** `SCREEN-023`: one row, faded and shrunk by `:core`'s alpha and scale for its distance, scaled
+ * around its own centre; kind bar and name on the left, duration at the right edge. */
+@Composable
+private fun ScheduleListRow(row: ScheduleRow, colors: DesignSystemColors, modifier: Modifier = Modifier) {
+    val kindColor = row.interval.kind.dotColor(colors)
     Row(
         modifier = modifier
+            .fillMaxWidth()
             .graphicsLayer {
-                this.alpha = rowAlpha
-                scaleX = rowScale
-                scaleY = rowScale
+                this.alpha = row.alpha
+                scaleX = row.scale
+                scaleY = row.scale
+                transformOrigin = TransformOrigin.Center
             }
-            .then(
-                if (isCurrent) {
-                    Modifier
-                        .clip(RoundedCornerShape(AppTheme.spacing.xs))
-                        .background(colors.chip)
-                        .border(1.dp, kindColor, RoundedCornerShape(AppTheme.spacing.xs))
-                } else {
-                    Modifier
-                },
-            )
             .padding(horizontal = 6.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -438,18 +470,14 @@ private fun RailRow(
                 .background(kindColor),
         )
         BasicText(
-            text = entry.interval.kind.displayName(),
-            style = TextStyle(
-                color = if (isCurrent) colors.fg else colors.dim,
-                fontSize = if (isCurrent) 13.sp else 11.sp,
-                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-            ),
+            text = row.interval.kind.displayName(),
+            style = TextStyle(color = colors.dim, fontSize = 11.sp),
             modifier = Modifier.padding(start = 6.dp),
         )
-        Spacer(Modifier.width(6.dp))
+        Spacer(Modifier.weight(1f))
         BasicText(
-            text = formatSeconds(trailingSeconds),
-            style = TextStyle(color = if (isCurrent) kindColor else colors.dim, fontSize = 11.sp),
+            text = formatSeconds(row.interval.durationSeconds),
+            style = TextStyle(color = colors.dim, fontSize = 11.sp),
         )
     }
 }
@@ -482,20 +510,6 @@ private fun ControlRow(
 
 private fun Long.toWholeSeconds(): Int = (this / 1_000L).toInt().coerceAtLeast(0)
 
-/** [ScheduleEntry.interval]'s own schedule position, shared by [TimerState.Running] and
- * [TimerState.Paused] alike, and `null` outside both — the same split [runningScreenContent]
- * itself makes. */
-private fun TimerState.scheduleAndIndex(): Pair<List<ScheduleEntry>, Int>? = when (this) {
-    is TimerState.Running -> schedule to phase.index()
-    is TimerState.Paused -> schedule to phase.index()
-    else -> null
-}
-
-private fun TimerPhase.index(): Int = when (this) {
-    is TimerPhase.LeadIn -> index
-    is TimerPhase.InInterval -> index
-}
-
 private fun IntervalKind.displayName(): String = when (this) {
     IntervalKind.WARM_UP -> "Warm-up"
     IntervalKind.WORK -> "Work"
@@ -504,7 +518,7 @@ private fun IntervalKind.displayName(): String = when (this) {
 }
 
 /** The one place `:app` maps `:core`'s [ColorRole] (`CUE-030`) to a real [Color] (`DS-050`) for
- * this screen's own ring, kind label and rail ticks — `:core` does not depend on `:designsystem`
+ * this screen's own ring, kind label, list rows and strip segments — `:core` does not depend on `:designsystem`
  * and has no way to know this mapping itself, the same reason every other screen's own
  * `toColor`/`dotColor` exists. */
 private fun IntervalKind.dotColor(colors: DesignSystemColors): Color = when (colorRole()) {

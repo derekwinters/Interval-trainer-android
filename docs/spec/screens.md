@@ -22,9 +22,10 @@ lock.
 
 ## Invariants
 
-> **Invariant — portrait only.** No screen in v1 supports landscape. The running screen's layout in
-> particular is built around a ring and a vertical rail (§3) that has no landscape counterpart
-> designed for it.
+> **Invariant — no landscape layout.** No screen in v1 has a layout designed for landscape. The
+> running screen enforces this: it is locked to portrait while it is shown (`SCREEN-027`), because
+> its stacked strip, lists and ring (§3) have no landscape counterpart. Every other screen keeps the
+> platform's default orientation behaviour; nothing locks it.
 
 > **Invariant — the running screen locks navigation while a workout is running, and releases it
 > while paused.** Stated in full in §3; carried here because it governs every other screen's
@@ -207,66 +208,130 @@ not the arithmetic underneath it.)*
 
 **Layout:** full-bleed (`DS-074`). **Vocabulary:** bespoke (`DS-060`).
 
-The settled design is `prototypes/screens/running-screen/Main.dc.html`
-(`.../previews/Main.png`): a progress ring for the current interval, a narrow vertical rail beside
-it previewing the rest of the schedule with past and future intervals shrinking and dimming by
-distance, and a control row below. Per that directory's README, two choices are deliberate: start,
-pause and resume share one toggle control rather than three separate buttons, and what is next is
-carried by the rail itself rather than a separate line of text.
+The layout is the stacked one chosen on
+[#151](https://github.com/derekwinters/Interval-trainer-android/issues/151), which replaced the
+design of `prototypes/screens/running-screen/Main.dc.html`, whose schedule column beside the ring
+ran underneath it on a 360dp phone. From top to bottom: a mute button and the "Total left"
+readout, a thin timeline strip with one segment per interval, the two intervals before the current
+one, a progress ring for the current interval, the four intervals after it, and the control row.
+Two choices from the original prototype's README still hold: start, pause and resume share one
+toggle control rather than three separate buttons, and what is next is carried by the schedule
+itself rather than a separate line of text.
+
+Every measurement below is fixed by #151, drawn at a 360 × 760dp portrait reference screen and
+measured from the edges of `FullBleedLayout`. Spacing tokens are `AppTheme.spacing` (`DS-040`).
+
+> **Invariant — exactly one timeline segment is at full alpha at any time the running screen is
+> shown.** It is the current interval's segment (`SCREEN-025`), or during a lead-in the segment of
+> the interval the lead-in counts into (`SCREEN-024`). No finished interval is drawn bright, and no
+> state of the running screen — lead-in, running, paused — shows zero or two bright segments.
+
+> **Invariant — the ring does not move while a workout runs.** The past and upcoming lists reserve
+> their minimum heights (`SCREEN-028`) whether or not they have rows to fill them, so the ring sits
+> in the same place on the first interval, the last interval and every one between. A layout that
+> centres the ring by measuring how many rows happen to be shown is the technically plausible way to
+> get this wrong.
 
 ### 3.1 Content
 
 - **SCREEN-020** The ring shows the current interval's kind name, its colour (`CUE-030`), and the
-  remaining time in that interval against its full duration — "0:32 of 0:45". *(manual: the ring's
-  own rendering — colour, arc, digits — is a screen fact; the kind, the remaining time and the full
-  duration it draws from are `:core` arithmetic, `RunningScreenContent.Active` below,
-  `:core`-tested via `RunningScreenContentTest.kt`.)*
-- **SCREEN-021** A "Total left" readout shows the total remaining time across the whole workout
-  (`TIMER-025`). *(manual: the readout's rendering is a screen fact; the value it shows is already
-  `:core`-tested via `TIMER-025`, and again directly via `RunningScreenContentTest.kt`.)*
-- **SCREEN-022** A round indicator shows the round **currently in progress** against rounds
-  planned — "Round 2 of 4" (`TIMER-060`). This is a live position, distinct from **rounds
-  completed** (`TIMER-061`), which this screen never shows; rounds completed is reported only on
-  the summary (§4). Conflating the two would misreport progress the moment a round is skipped
-  (`TIMER-061`).
-- **SCREEN-022a** `docs/spec/timer.md` §7 explicitly leaves "a better rendering of a non-uniform
-  workout" to the running screen's own issue; `SCREEN-022`'s "currently in progress" is this pull
-  request's resolution of that gap, not a value any earlier decision pins down. The round in
-  progress is the **ordinal, among the schedule's work intervals, of the last one reached at or
-  before the timer's current schedule position** — `currentRound(index)` in `:core`
-  (`core/src/main/kotlin/com/derekwinters/intervaltrainer/Timer.kt`, beside `roundsCompleted`). A
-  work interval counts the moment its own lead-in begins, and stays the round in progress through
-  whatever non-work interval follows it, until the next work interval's own lead-in begins — so the
-  indicator already reads "Round 2 of 4" during round 2's own get-ready countdown, matching the
-  settled design's own `States.dc.html` mockup, which shows the round indicator unchanged across
-  get-ready, running, paused and muted. It counts a work interval reached this way whether it was
-  finished or skipped (`TIMER-061`'s finished-only rule is for rounds *completed*, a different
-  question `SCREEN-022a` does not answer): skip still moves the schedule position forward, and "in
-  progress" tracks position, not completion. Zero before the first work interval is reached, e.g.
-  during a leading warm-up. *(manual: which round the indicator names is a screen fact; the ordinal
-  itself is `:core` arithmetic — `currentRound` in `Timer.kt`, `:core`-tested via
+  remaining time in that interval against its full duration — "0:32 of 0:45". The ring is a
+  **176dp** canvas with an **11dp** stroke and round caps: a full-circle track in `line` and an arc
+  in the kind's colour that depletes as the interval runs out. The countdown digits are
+  `timer.large` (`DS-030`) at **51sp**. Above them sit the kind label, an 8dp dot and the 13sp bold
+  kind name, and below them the "of 0:45" line in 13sp `dim`. *(manual: the ring's own rendering —
+  colour, arc, digits — is a screen fact; the kind, the remaining time and the full duration it
+  draws from are `:core` arithmetic, `RunningScreenContent.Active` below, `:core`-tested via
   `RunningScreenContentTest.kt`.)*
-- **SCREEN-023** The rail lists every interval in the schedule in order, the current one
-  emphasised and each other one shrinking and dimming with its distance from it, per the settled
-  design. It is a preview, not a control: no interval in the rail is tappable. *(manual: the rail is
-  screen rendering over `TimerState.schedule` and the current schedule position directly — nothing
-  here is arithmetic beyond reading an index, so there is no separate `:core` function to test.)*
+- **SCREEN-021** A "Total left" readout shows the total remaining time across the whole workout
+  (`TIMER-025`): a 13sp `dim` label and a bold `timer.stat` (`DS-031`) value. It sits at the **top
+  centre** of the screen, its centre line **35dp** from the top. #151 derives that as the mute
+  button's (`SCREEN-030`) centre, 16dp padding plus half its 38dp drawn size; the button's 48dp
+  minimum touch target (`DS-005`) actually places its drawn centre at 40dp, so the two sit 5dp
+  apart. *(manual: the readout's rendering is a screen fact; the value it
+  shows is already `:core`-tested via `TIMER-025`, and again directly via
+  `RunningScreenContentTest.kt`.)*
+- **SCREEN-023** Two lists around the ring preview the schedule. The **past list**, above the ring,
+  shows the **two** intervals before the current one, oldest at the top. The **upcoming list**,
+  below the ring, shows the **four** intervals after the current one, next at the top. The current
+  interval is not repeated in either list; the ring shows it. Each row's distance is the absolute
+  difference between its schedule position and the current one, and it is drawn at alpha
+  `1 − 0.18 × distance` clamped to 0.3–1.0 and scale `1 − 0.06 × distance` clamped to 0.75–1.0,
+  scaled around the row's centre. A row is a 3 × 14dp bar in the kind's colour, the kind name in
+  11sp `dim` and the interval's duration in 11sp `dim`, with 6dp horizontal and 4dp vertical
+  padding; it fills its list's width, name on the left and duration at the right edge. Rows are
+  `spacing.sm` (8dp) apart. Where fewer than two intervals precede the current one, or fewer than
+  four follow it, a list just shows fewer rows: there is no placeholder text and no "Last interval"
+  line. It is a preview, not a control: no row is tappable. *(manual: the lists' rendering is a
+  screen fact; which intervals each list holds, their distances, alphas and scales are `:core`
+  arithmetic — `runningScreenSchedule()` below, `:core`-tested via
+  `RunningScreenScheduleTest.kt`.)*
 - **SCREEN-024** During the lead-in (`TIMER-030`–`036`), the screen shows a distinct "get ready"
   state rather than a partially-formed interval display, per
-  `prototypes/screens/running-screen/States.dc.html`. *(manual: the get-ready layout's own rendering
-  is a screen fact; that the lead-in produces a different shape at all —
-  `RunningScreenContent.GetReady`, carrying no full duration to show progress against — is `:core`,
-  `:core`-tested via `RunningScreenContentTest.kt`.)*
+  `prototypes/screens/running-screen/States.dc.html`. It takes the ring's place, in the same 176dp
+  slot, and its large number is `timer.large` at **51sp**. For the strip (`SCREEN-025`) and the
+  lists (`SCREEN-023`), the interval the lead-in counts into **is the current interval**: its
+  segment is the bright one and the lists are positioned around it, two before and four after.
+  *(manual: the get-ready layout's own rendering is a screen fact; that the lead-in produces a
+  different shape at all — `RunningScreenContent.GetReady`, carrying no full duration to show
+  progress against — is `:core`, `:core`-tested via `RunningScreenContentTest.kt`; which interval
+  counts as current during it is `runningScreenSchedule()`, `:core`-tested via
+  `RunningScreenScheduleTest.kt`.)*
+- **SCREEN-025** A timeline strip runs across the top of the screen, its top edge **66dp** from the
+  top (#151 derives it as 12dp below the mute button's bottom edge, taking the button as 38dp tall;
+  `SCREEN-021` notes the 48dp touch target that moves that edge), inset `spacing.xl` (20dp) on the left and right
+  and filling the width between. It has **one segment per schedule entry**, in schedule order,
+  warm-up and cool-down included, and every segment has **equal width** whatever its interval's
+  duration. A segment is **8dp** tall with a **2dp** corner radius, filled with its kind's colour
+  (`CUE-030`: work `work`, recovery `recovery`, warm-up and cool-down `neutral`). The current
+  interval's segment is drawn at alpha **1.0** and every other segment, finished or upcoming, at
+  alpha **0.25**; alpha is the only difference, so the current segment has no outline, no extra
+  height and no progress fill. There is no text beside the strip — no count, no labels — and it is
+  not tappable. *(manual: the strip's rendering is a screen fact; its segments, their kinds and
+  their alphas are `runningScreenSchedule()`, `:core`-tested via `RunningScreenScheduleTest.kt`.)*
+- **SCREEN-026** The gap between strip segments is **3dp** when the schedule has fewer than 40
+  intervals and **1dp** when it has 40 or more. Segment height, radius and alpha do not change with
+  the schedule's length. *(manual: the gap's rendering is a screen fact; which gap applies is
+  `runningScreenSchedule()`, `:core`-tested via `RunningScreenScheduleTest.kt`.)*
+- **SCREEN-027** The running screen is **locked to portrait** while it is shown, and only while it
+  is shown: leaving it — to the summary, or to another screen while paused (`SCREEN-041`) —
+  releases the lock, and every other screen keeps the platform's default orientation behaviour. No
+  landscape layout of the running screen exists. *(manual: an activity's orientation is not
+  reachable from a JVM runner.)*
+- **SCREEN-028** The past list, the ring's slot and the upcoming list are one column, horizontally
+  centred, filling the space from **92dp** below the top to **100dp** above the bottom, its children
+  vertically centred as a group with **18dp** between them. The past list is **190dp** wide with a
+  **minimum height of 64dp** and its rows bottom-aligned, so the nearest past interval sits closest
+  to the ring. The ring's slot is 176dp square (`SCREEN-020`, `SCREEN-024`). The upcoming list is
+  **190dp** wide with a **minimum height of 140dp** and its rows top-aligned. While paused, the
+  strip, the lists and the ring show the held position and nothing on the screen differs from
+  running except the pause/resume control's icon (`SCREEN-031`). *(manual: layout is a screen
+  fact.)*
 
-`SCREEN-020`–`022`, `SCREEN-022a` and `SCREEN-024` are one `:core` function together:
-`runningScreenContent(clock)` on `TimerState`
+*Retired by [#151](https://github.com/derekwinters/Interval-trainer-android/issues/151):*
+`SCREEN-022` (a "Round 2 of 4" indicator of the round in progress against rounds planned) and
+`SCREEN-022a` (its definition of the round in progress as the ordinal of the last work interval
+reached). "Round" read as confusing — it counted work intervals, so a work interval with no
+recovery after it still counted as a round — and what was wanted was a sense of how many intervals
+are left, which the timeline strip (`SCREEN-025`) shows directly. The `:core` function behind them,
+`currentRound`, was removed with them. Rounds **completed** (`TIMER-061`), which only the summary
+shows (§4), is a separate value and is unchanged.
+
+`SCREEN-020`, `SCREEN-021` and `SCREEN-024`'s ring and get-ready content are one `:core` function
+together: `runningScreenContent(clock)` on `TimerState`
 (`core/src/main/kotlin/com/derekwinters/intervaltrainer/RunningScreenContent.kt`), returning
 `RunningScreenContent.GetReady` or `.Active` — two shapes, not one shape with optional fields, so a
 lead-in cannot be rendered as a partially-formed interval by construction (`SCREEN-024`) — or `null`
 for idle or ended, the same split `WorkoutNotificationContent` (`SVC-025`) already uses for the
-notification's own content. This is the "pure state-derivation function for its own display" this
-issue's own description asked for, so the running screen reads one answer rather than reassembling
+notification's own content. The running screen reads one answer rather than reassembling
 `TimerState` into a display ad hoc, per this page's third invariant.
+
+`SCREEN-023`, `SCREEN-024`'s current-interval rule, `SCREEN-025` and `SCREEN-026` are a second
+`:core` function: `runningScreenSchedule()` on `TimerState`
+(`core/src/main/kotlin/com/derekwinters/intervaltrainer/RunningScreenSchedule.kt`), returning the
+current schedule position, the past and upcoming rows with their distances, alphas and scales, the
+strip's segments with their alphas, and the strip's gap — or `null` for idle or ended. It takes no
+clock, because nothing in it depends on time within an interval, only on the schedule position.
 
 ### 3.2 Controls
 
@@ -366,15 +431,14 @@ Never mocked up (`DS-061`); this section is deliberately the whole of what is de
 `SCREEN-050`'s three values are one `:core` function together: `summaryContent()` on `TimerState`
 (`core/src/main/kotlin/com/derekwinters/intervaltrainer/SummaryContent.kt`), `null` outside
 `TimerState.Ended` — the same "a screen shows only what a `:core` reducer computed for it" split
-`runningScreenContent` (`SCREEN-020`–`022`) and `WorkoutNotificationContent`
+`runningScreenContent` (`SCREEN-020`–`021`, `SCREEN-024`) and `WorkoutNotificationContent`
 (`docs/spec/service.md` `SVC-025`) already give their own screens, so the summary reads one answer
 rather than reassembling `TimerState.Ended`'s fields ad hoc. Its rounds-completed pair is
 `List<ScheduleEntry>.roundsCompleted()` (`TIMER-060`–`061`) itself, read directly rather than a
 second copy of it — a skipped work interval never counts, however far skip has since moved the
-schedule past it. This is a different question from `SCREEN-022a`'s round *in progress*, which
-counts a skipped round as still under way until the next one begins: that question no longer
-applies once a workout has ended, which is exactly why the running screen and the summary never
-show the same number for it.
+schedule past it. The running screen shows no round count at all (its round indicator was retired
+by [#151](https://github.com/derekwinters/Interval-trainer-android/issues/151), §3), so rounds
+completed appears only here.
 
 *(All of §4 is manual: a summary screen's rendering is not reachable from a JVM runner; the three
 values it renders are `:core`-tested already, via `TIMER-011`, `TIMER-054` and `TIMER-061`
@@ -608,7 +672,7 @@ via `CrashReportPopupTest.kt`.)*
 |---|---|---|
 | Home | SCREEN-001–008 | `PresetSummaryTest.kt` (SCREEN-003's round count and total, SCREEN-004's colour-strip segments); *(manual)* SCREEN-001–008 |
 | The preset editor | SCREEN-010–019, SCREEN-014a | `PresetSummaryTest.kt` (SCREEN-018's total); `IntervalKindTest.kt` (SCREEN-014a's cycle); `ScheduleGeneratorTest.kt` (SCREEN-017's splice); `KindLabelTest.kt` (the kind-to-colour mapping SCREEN-012's rows and SCREEN-017's duration labels share); `PresetTest.kt` (SCREEN-019's save rule); *(manual)* SCREEN-010–019, SCREEN-014a |
-| The running screen — content | SCREEN-020–024, SCREEN-022a | `RunningScreenContentTest.kt` (SCREEN-020's ring content, SCREEN-021's total-left value again, SCREEN-022's/SCREEN-022a's round in progress, SCREEN-024's distinct get-ready shape); *(manual)* SCREEN-020–024, SCREEN-022a |
+| The running screen — content | SCREEN-020, SCREEN-021, SCREEN-023–028 | `RunningScreenContentTest.kt` (SCREEN-020's ring content, SCREEN-021's total-left value again, SCREEN-024's distinct get-ready shape); `RunningScreenScheduleTest.kt` (SCREEN-023's past and upcoming rows with their alphas and scales, SCREEN-024's current interval during a lead-in, SCREEN-025's segments and their alphas, SCREEN-026's gap); *(manual)* SCREEN-020, SCREEN-021, SCREEN-023–028 |
 | The running screen — controls | SCREEN-030–033 | *(manual)* |
 | The running screen — navigation lock | SCREEN-040–046 | *(manual)* |
 | Summary | SCREEN-050–053 | `SummaryContentTest.kt` (SCREEN-050's three values, again as `summaryContent()`'s packaged shape); *(manual)* SCREEN-050–053 |
@@ -617,7 +681,7 @@ via `CrashReportPopupTest.kt`.)*
 | Storage for settings and first-run state | SCREEN-080 | *(manual)* |
 | Crash report popup | SCREEN-090–095 | `LaunchPlanTest.kt` (SCREEN-090's show-when-a-report-exists, independent of first run); `CrashReportPopupTest.kt` (SCREEN-092–094's copy and delete outcomes); *(manual)* SCREEN-090–095 |
 
-**55 requirements, 0 `auto` and 55 `manual`.**
+**57 requirements, 0 `auto` and 57 `manual`.**
 
 **Every requirement on this page is `manual`, and that is by design, not by omission.** No
 screen's layout, control set, content or navigation is assertable on a JVM runner without a
@@ -625,12 +689,12 @@ simulated Android runtime — that is
 [`docs/spec/design-system.md`](design-system.md)'s territory (`DS-091`, `DS-093`), and this page
 does not duplicate it. Several requirements here — a preset's round count and total, and its
 colour-strip proportions (`SCREEN-003`, `SCREEN-004`, `SCREEN-018`), a row's kind-cycling
-(`SCREEN-014a`), the generator's own splice (`SCREEN-017`), the running screen's own ring, round
-indicator and get-ready state (`SCREEN-020`, `SCREEN-022`, `SCREEN-022a`, `SCREEN-024`), and the
-timer values the running screen and the summary read (`SCREEN-021`–`022`, `SCREEN-050`) — merely
+(`SCREEN-014a`), the generator's own splice (`SCREEN-017`), the running screen's own ring,
+get-ready state, schedule lists and timeline strip (`SCREEN-020`, `SCREEN-023`–`026`), and the
+timer values the running screen and the summary read (`SCREEN-021`, `SCREEN-050`) — merely
 *display* or *invoke* arithmetic that lives in `:core`; that coverage counts against the `:core`
 function computing the value, not against the `SCREEN` requirement that a screen renders or wires it
-correctly, which is what stays `manual` here regardless. `SCREEN-021`–`022` and `SCREEN-050` cite
+correctly, which is what stays `manual` here regardless. `SCREEN-021` and `SCREEN-050` cite
 `TIMER-025`, `TIMER-060`, `TIMER-061`, `TIMER-011` and `TIMER-054`, already covered in
 `TimerStateTest.kt`; `SCREEN-050` is additionally its own packaged `:core` shape, `summaryContent()`
 (`SummaryContent.kt`, this pull request's own new `:core`, following exactly the same "pure
@@ -643,12 +707,14 @@ cites `appendGeneratedRounds` (`ScheduleGenerator.kt`), via `ScheduleGeneratorTe
 added or extended by the preset editor itself
 ([#80](https://github.com/derekwinters/Interval-trainer-android/issues/80)). `SCREEN-019`'s save
 rule cites `isSavable` (`Preset.kt`), via `PresetTest.kt`
-([#147](https://github.com/derekwinters/Interval-trainer-android/issues/147)). `SCREEN-020`, `022`,
-`022a` and `024` cite `runningScreenContent` and `currentRound`
-(`RunningScreenContent.kt`, `Timer.kt`), this pull request's own new `:core`, via
+([#147](https://github.com/derekwinters/Interval-trainer-android/issues/147)). `SCREEN-020` and `024` cite `runningScreenContent`
+(`RunningScreenContent.kt`), via
 `RunningScreenContentTest.kt` — the same "pure state-derivation function for its own display" split
 `WorkoutNotificationContent` (`docs/spec/service.md` `SVC-025`) already established for the
 notification, applied here to the screen that motivated the pattern in the first place.
+`SCREEN-023`–`026` cite `runningScreenSchedule()` (`RunningScreenSchedule.kt`), via
+`RunningScreenScheduleTest.kt`, added with the stacked layout
+([#151](https://github.com/derekwinters/Interval-trainer-android/issues/151)).
 `SCREEN-003` and `SCREEN-004` are this page's own first new `:core` test file, added alongside home
 itself ([#79](https://github.com/derekwinters/Interval-trainer-android/issues/79)):
 `PresetSummary.kt` and `PresetSummaryTest.kt`, cited directly in each requirement's own text above
