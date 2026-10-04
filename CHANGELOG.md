@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.4.0](https://github.com/derekwinters/Interval-trainer-android/compare/v0.3.1...v0.4.0) (2026-10-04)
+
+
+### Features
+
+* **app:** record the last crash and offer to copy it on the next launch ([#158](https://github.com/derekwinters/Interval-trainer-android/issues/158)) ([869ff71](https://github.com/derekwinters/Interval-trainer-android/commit/869ff71c78c623e28a9991db6bc170c04eee27a6)), closes [#146](https://github.com/derekwinters/Interval-trainer-android/issues/146)
+* **app:** stack the running screen around a smaller ring and replace the round counter with a timeline strip ([#159](https://github.com/derekwinters/Interval-trainer-android/issues/159)) ([3b1db7a](https://github.com/derekwinters/Interval-trainer-android/commit/3b1db7a0e0836803c71ddad3eecaa507a51c0dc9)), closes [#151](https://github.com/derekwinters/Interval-trainer-android/issues/151)
+
+
+### Fixes
+
+* **app:** mark the round generator's work and recovery pickers with their kind's dot and name ([#157](https://github.com/derekwinters/Interval-trainer-android/issues/157)) ([4f2eed3](https://github.com/derekwinters/Interval-trainer-android/commit/4f2eed304bf38a653b7fcc3ebf99b6d88d4a72e4)), closes [#136](https://github.com/derekwinters/Interval-trainer-android/issues/136)
+* **app:** scroll the round generator dialog so every control is reachable ([#155](https://github.com/derekwinters/Interval-trainer-android/issues/155)) ([ddaebdf](https://github.com/derekwinters/Interval-trainer-android/commit/ddaebdf66c8d4d30264a2386a0d47d6c2282d7d2)), closes [#135](https://github.com/derekwinters/Interval-trainer-android/issues/135)
+* **designsystem:** centre the duration picker on its value and stop it reporting on open ([#152](https://github.com/derekwinters/Interval-trainer-android/issues/152)) ([b72a257](https://github.com/derekwinters/Interval-trainer-android/commit/b72a2576eba5e2ef2a1f6f8860b138184bdbc673)), closes [#133](https://github.com/derekwinters/Interval-trainer-android/issues/133)
+* **designsystem:** shrink the duration picker to a form field and label it in the editor ([#154](https://github.com/derekwinters/Interval-trainer-android/issues/154)) ([f00c54c](https://github.com/derekwinters/Interval-trainer-android/commit/f00c54cc239b2e5f747254dba6648bee208b1f92)), closes [#134](https://github.com/derekwinters/Interval-trainer-android/issues/134)
+
 ## [0.3.1](https://github.com/derekwinters/Interval-trainer-android/compare/v0.3.0...v0.3.1) (2026-09-29)
 
 
