@@ -475,7 +475,9 @@ scope the map did not originally carry.
   launched, not after it resolves: an app process interrupted in the gap between the tap and the
   system's own callback must still never show this screen a second time, and the explanation's own
   job — being shown and acted on — is already done the instant the button is pressed, regardless of
-  how the async permission request that follows it comes back.
+  how the async permission request that follows it comes back. A pending crash report's popup
+  (§8, `SCREEN-090`) shows over whichever destination the app opens to, this screen included, and
+  neither reads nor sets the first-run-seen flag: when this screen is shown is unchanged by it.
 - **SCREEN-071** The screen explains, in plain language and before the system permission prompt
   appears, what the notification is for — status, pause/resume and skip while the screen is off or
   another app is in front — and that the app is about to ask the system for the notification
@@ -557,6 +559,47 @@ and nothing else" split `WorkoutSession.handle` (`docs/spec/service.md` `SVC-014
 
 *(Manual: a storage-mechanism choice, visible in the dependency list.)*
 
+## 8. Crash report popup
+
+**Component:** `AlertDialog` (`DS-010`–`012`), over the start destination rather than a route of its
+own. **Vocabulary:** stock Material 3 (`DS-061`).
+
+Decided on [#146](https://github.com/derekwinters/Interval-trainer-android/issues/146): a popup,
+shown before the first-run screen rather than after it, offering Copy and Dismiss and no Share.
+The report it offers is the one `docs/spec/service.md` §9 records.
+
+- **SCREEN-090** On launch, if a crash report exists (`docs/spec/service.md` `SVC-072`), the popup
+  shows over whichever destination the app opens to — `first_run`, `running` or `home`
+  (`SCREEN-070`, `SCREEN-043`). Whether it shows depends on the report existing and on nothing
+  else: not on the first-run-seen flag, and not on whether a workout is active. It does not change
+  which destination the app opens to. The report is read once, synchronously, before the first
+  frame, the same convention `SCREEN-070`'s first-run-seen read uses.
+- **SCREEN-091** The popup's title is "App crashed" and its text is exactly "The last launch
+  crashed. Do you want to copy the crash logs for a bug report?". Its affirmative action, on the
+  right, is **Copy**; its cancel action, on the left, is **Dismiss** (`DS-011`). There is no Share
+  action and no third button.
+- **SCREEN-092** **Copy** puts the report's full text on the clipboard as plain text and closes the
+  popup for this launch. It does **not** delete the report, so the popup shows again on the next
+  launch until Dismiss is pressed.
+- **SCREEN-093** **Dismiss** deletes the report and closes the popup. A later launch shows no popup
+  until another crash is recorded.
+- **SCREEN-094** Closing the popup any other way — system back, or tapping outside it — closes it
+  for this launch without copying anything and without deleting the report, like Copy without the
+  copy.
+- **SCREEN-095** "For this launch" lasts as long as the activity's saved state: a configuration
+  change does not bring a closed popup back, and a new launch of the activity does.
+
+> **Invariant — the report is deleted only by Dismiss.** Not by Copy, not by being shown, and not
+> by being closed with back or a tap outside. A report deleted by anything short of an explicit
+> Dismiss is a crash lost before the user acted on it.
+
+*(The popup itself is manual: a dialog's presence and the clipboard are not reachable from a JVM
+runner. Two pieces of it are pure functions and are tested: whether the popup shows, alongside the
+start destination it does not affect (`SCREEN-090`), is `launchPlan()` in `LaunchPlan.kt`, via
+`LaunchPlanTest.kt`; and what each of the three ways of closing it does to the report
+(`SCREEN-092`–`094`, the invariant above) is `crashReportOutcome()` in `crash/CrashReportPopup.kt`,
+via `CrashReportPopupTest.kt`.)*
+
 ---
 
 ## Traceability
@@ -572,8 +615,9 @@ and nothing else" split `WorkoutSession.handle` (`docs/spec/service.md` `SVC-014
 | Settings | SCREEN-060–063 | `NotificationSettingsDeepLinkTest.kt` (SCREEN-063's deep-link action/extra); *(manual)* SCREEN-060–063 |
 | First-run | SCREEN-070–073 | `StartDestinationTest.kt` (SCREEN-070's start-destination consequence); *(manual)* SCREEN-070–073 |
 | Storage for settings and first-run state | SCREEN-080 | *(manual)* |
+| Crash report popup | SCREEN-090–095 | `LaunchPlanTest.kt` (SCREEN-090's show-when-a-report-exists, independent of first run); `CrashReportPopupTest.kt` (SCREEN-092–094's copy and delete outcomes); *(manual)* SCREEN-090–095 |
 
-**49 requirements, 0 `auto` and 49 `manual`.**
+**55 requirements, 0 `auto` and 55 `manual`.**
 
 **Every requirement on this page is `manual`, and that is by design, not by omission.** No
 screen's layout, control set, content or navigation is assertable on a JVM runner without a

@@ -1,6 +1,8 @@
 package com.derekwinters.intervaltrainer
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -17,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -30,9 +33,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.derekwinters.intervaltrainer.crash.CrashReportStore
+import com.derekwinters.intervaltrainer.crash.crashReportOutcome
 import com.derekwinters.intervaltrainer.database.IntervalTrainerDatabase
 import com.derekwinters.intervaltrainer.database.RoomPresetStore
 import com.derekwinters.intervaltrainer.designsystem.AppTheme
+import com.derekwinters.intervaltrainer.screens.crash.CrashReportDialog
 import com.derekwinters.intervaltrainer.screens.editor.PresetEditorScreen
 import com.derekwinters.intervaltrainer.screens.firstrun.FirstRunScreen
 import com.derekwinters.intervaltrainer.screens.home.HomeScreen
@@ -116,6 +122,11 @@ class MainActivity : ComponentActivity() {
         // than a collectAsState default that would show the first-run screen again, every launch,
         // until DataStore's own async read completed (FirstRunStore.kt's own doc comment).
         val firstRunSeenAtLaunch = runBlocking { firstRunStore.firstRunSeen.first() }
+        // SCREEN-090: the last crash's report, if any (SVC-072), read once before the first frame
+        // for the same reason as the first-run flag above — so the popup is decided up front, not
+        // after an async read has already shown the start destination without it.
+        val crashReportStore = applicationContext.crashReportStore()
+        val crashReportAtLaunch = crashReportStore.read()
         setContent {
             AppTheme {
                 IntervalTrainerNavHost(
@@ -123,6 +134,8 @@ class MainActivity : ComponentActivity() {
                     defaultMuteStore = defaultMuteStore,
                     firstRunStore = firstRunStore,
                     firstRunSeenAtLaunch = firstRunSeenAtLaunch,
+                    crashReportStore = crashReportStore,
+                    crashReportAtLaunch = crashReportAtLaunch,
                     openRunningRequests = openRunningRequests,
                 )
             }
@@ -178,23 +191,48 @@ private fun IntervalTrainerNavHost(
     defaultMuteStore: DefaultMuteStore,
     firstRunStore: FirstRunStore,
     firstRunSeenAtLaunch: Boolean,
+    crashReportStore: CrashReportStore,
+    crashReportAtLaunch: String?,
     openRunningRequests: SharedFlow<Unit>,
 ) {
     val navController = rememberNavController()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val clock = remember { ElapsedRealtimeClock() }
+    // SCREEN-090: the start destination and whether the crash report popup shows over it are
+    // decided together by launchPlan() (LaunchPlan.kt), which keeps the two independent: a report
+    // never changes the destination, and the first-run flag never changes the popup.
+    val plan = remember {
+        launchPlan(
+            firstRunSeen = firstRunSeenAtLaunch,
+            workoutActive = WorkoutServiceState.current.value.timer.isActiveWorkout(),
+            crashReportExists = crashReportAtLaunch != null,
+        )
+    }
     val startRoute = remember {
-        when (
-            startDestination(
-                firstRunSeen = firstRunSeenAtLaunch,
-                workoutActive = WorkoutServiceState.current.value.timer.isActiveWorkout(),
-            )
-        ) {
+        when (plan.destination) {
             StartDestination.FIRST_RUN -> ROUTE_FIRST_RUN
             StartDestination.RUNNING -> ROUTE_RUNNING
             StartDestination.HOME -> ROUTE_HOME
         }
+    }
+    // SCREEN-092–095: closed "for this launch" survives a configuration change through saved
+    // state; a new launch of the activity starts from the plan again.
+    var crashReportOpen by rememberSaveable { mutableStateOf(plan.showCrashReport) }
+    if (crashReportOpen && crashReportAtLaunch != null) {
+        // SCREEN-090: drawn alongside the NavHost below, not as a route of its own, so it sits
+        // over whichever destination the app opened to — first_run included.
+        CrashReportDialog(
+            onChoice = { choice ->
+                // SCREEN-092–094 and §8's invariant: only Dismiss deletes the report.
+                val outcome = crashReportOutcome(choice)
+                if (outcome.copiesReport) context.copyCrashReport(crashReportAtLaunch)
+                if (outcome.deletesReport) {
+                    coroutineScope.launch(Dispatchers.IO) { crashReportStore.delete() }
+                }
+                crashReportOpen = false
+            },
+        )
     }
     LaunchedEffect(Unit) {
         openRunningRequests.collect {
@@ -408,6 +446,13 @@ private fun Context.startWorkoutService(presetId: String) {
  * only ever fire from the running screen while the app itself is in the foreground. */
 private fun Context.sendWorkoutCommand(intent: Intent) {
     startService(intent)
+}
+
+/** `SCREEN-092`: the report's full text onto the clipboard as plain text. Nothing else sends it
+ * anywhere (`docs/spec/service.md` `SVC-074`); it leaves the device only if the user pastes it. */
+private fun Context.copyCrashReport(report: String) {
+    getSystemService(ClipboardManager::class.java)
+        ?.setPrimaryClip(ClipData.newPlainText("Interval Trainer crash report", report))
 }
 
 /** `SCREEN-063`: the same `NotificationManagerCompat.areNotificationsEnabled()` check

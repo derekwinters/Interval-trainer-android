@@ -14,7 +14,10 @@
          MainActivity.kt's `first_run` route, the app's one call site for it. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- SVC-070: IntervalTrainerApplication installs the crash handler once, at process start,
+         covering MainActivity and WorkoutService alike. -->
     <application
+        android:name=".IntervalTrainerApplication"
         android:allowBackup="true"
         android:label="@string/app_name"
         android:supportsRtl="true"

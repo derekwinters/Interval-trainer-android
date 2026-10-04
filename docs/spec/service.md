@@ -68,6 +68,18 @@ because this page is where their observable consequences are specified:
 > What a declined or unanswered permission actually costs is scoped to `SVC-020`–`026` alone — the
 > notification's own content, its two actions, and its presence in the shade or on the lock screen.
 
+> **Invariant — the crash handler always hands off to the handler it replaced, even when recording
+> the crash fails.** Recording a crash (§9) is a side effect bolted onto the platform's own crash
+> path, never a replacement for it: a report that cannot be formatted or written is lost, and the
+> process still dies exactly as it would have with no handler installed. Failing to record a crash
+> must never hide, delay indefinitely, or change the crash itself
+> ([#146](https://github.com/derekwinters/Interval-trainer-android/issues/146)).
+
+> **Invariant — a crash report never leaves the device on its own.** It is written only to
+> app-private storage that is excluded from backup, and nothing in the app sends, shares or uploads
+> it. The only way it leaves the phone is the user copying it (`docs/spec/screens.md` `SCREEN-092`)
+> and pasting it somewhere themselves.
+
 ---
 
 ## 1. What produces a workout's schedule, named accurately
@@ -301,6 +313,36 @@ runner.)*
 *(All of §8 is manual: an absence of a guard and a consequence of state already covered by
 `TIMER-002`–`003`'s own tests.)*
 
+## 9. Crash recording
+
+The app is sideloaded, so no store console collects its crashes, and without this section the only
+way to see a crash's stack trace is `adb logcat` from a computer. Recording the last crash, and
+offering it on the next launch (`docs/spec/screens.md` §8), makes a bug report possible from the
+phone alone ([#146](https://github.com/derekwinters/Interval-trainer-android/issues/146)).
+
+- **SVC-070** One uncaught-exception handler is installed as the process's default handler, once,
+  at process start — in the app's `Application.onCreate`, before any activity or service is
+  created — so it covers `MainActivity` and `WorkoutService` alike, which share the one process. It
+  ships in debug and release builds alike: release is what gets sideloaded. *(manual: where the
+  handler is installed is a fact of the `Application` class and the manifest.)*
+- **SVC-071** A crash report is plain text holding the crashing thread's name, the app's version
+  (`versionName` and `versionCode`), the Android version (release name and API level), and the
+  throwable's full stack trace, causes included. *(auto: `CrashReportTest.kt`.)*
+- **SVC-072** The report is kept in **one** file in app-private storage that is excluded from
+  backup (`Context.noBackupFilesDir`). Recording a crash replaces whatever report that file
+  already held, so only the most recent crash is kept. *(auto: `CrashReportStoreTest.kt`, for the
+  one-file store; the directory it lives in is manual.)*
+- **SVC-073** Having recorded the crash, the handler calls the default handler it replaced,
+  exactly once, so the process dies as it would have without it. It does so whether recording
+  succeeded or threw: per the invariant above, a failure to format or write the report is
+  swallowed, and the hand-off still happens. *(auto: `CrashRecordingHandlerTest.kt`.)*
+- **SVC-074** Nothing in the app sends the report anywhere — no network, no share sheet, no
+  backup. What leaves the device is only what the user pastes after copying it
+  (`docs/spec/screens.md` `SCREEN-092`). *(manual: an absence, visible in the diff and in the
+  manifest, which declares no network permission.)*
+
+*(Showing the recorded report on the next launch, and deleting it, is `docs/spec/screens.md` §8.)*
+
 ---
 
 ## Traceability
@@ -317,8 +359,9 @@ runner.)*
 | Task removal | SVC-041–042 | *(manual)* |
 | Stop | SVC-050–053 | *(manual)* |
 | Preset edited or deleted mid-workout | SVC-060–062 | *(manual)*, consequence of `TIMER-002`–`003` |
+| Crash recording | SVC-070–074 | `CrashReportTest.kt` (SVC-071), `CrashReportStoreTest.kt` (SVC-072's one-file store), `CrashRecordingHandlerTest.kt` (SVC-073); *(manual)* SVC-070, SVC-074, and SVC-072's storage location |
 
-**31 requirements, 5 `auto` and 26 `manual`.**
+**36 requirements, 8 `auto` and 28 `manual`.**
 
 **Why almost every requirement here is `manual`.** This page is almost entirely the far side of
 the boundary [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md) drew: a foreground
@@ -349,3 +392,11 @@ added `SVC-017`, `auto` for the one decision in it that is a pure function: whet
 the state it produced count as a start that left no workout, which is where the invariant above
 could be broken. That the service then posts, removes and stops is the platform's side of the
 boundary and is checked on a device, by starting a preset that has no intervals.
+
+Crash recording ([#146](https://github.com/derekwinters/Interval-trainer-android/issues/146))
+added `SVC-070`–`074`, three of them `auto`. The report's content (`SVC-071`), the one-file store
+(`SVC-072`) and the handler's hand-off (`SVC-073`) are each plain Kotlin over `java.io` and
+`Thread.UncaughtExceptionHandler`, with no `android.*` import, so each is tested on the JVM. That
+the handler is installed at process start, and that a real crash on a device writes the file and
+still kills the process, is checked on a device — for example with `adb shell am crash` and a
+relaunch.
