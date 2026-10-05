@@ -194,13 +194,14 @@ dependencies {
     // The unit tests run on the JVM alone (BUILD-021), so nothing here needs a device.
     testImplementation("junit:junit:4.13.2")
 
-    // Screenshot spike (throwaway): Robolectric + Compose UI test + Roborazzi.
+    // Screenshot spike (throwaway): Robolectric + Compose UI test + Roborazzi. Roborazzi 1.61.0+
+    // is compiled with Kotlin metadata 2.3.0, which the Kotlin 2.0.21 compiler cannot read.
     testImplementation("org.robolectric:robolectric:4.16.1")
     testImplementation("androidx.compose.ui:ui-test-junit4")
     testImplementation("androidx.compose.ui:ui-test-manifest")
-    testImplementation("io.github.takahirom.roborazzi:roborazzi:1.76.0")
-    testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.76.0")
-    testImplementation("io.github.takahirom.roborazzi:roborazzi-junit-rule:1.76.0")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi:1.60.0")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.60.0")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi-junit-rule:1.60.0")
 }
 
 // Diagnosability (#78, #107), the same reasoning `:designsystem`'s own build file already carries:
