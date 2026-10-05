@@ -55,6 +55,13 @@ android {
         jvmTarget = "17"
     }
 
+    // Screenshot spike: Robolectric needs merged resources for Compose rendering.
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
+
     buildFeatures {
         buildConfig = true
         compose = true
@@ -186,6 +193,14 @@ dependencies {
 
     // The unit tests run on the JVM alone (BUILD-021), so nothing here needs a device.
     testImplementation("junit:junit:4.13.2")
+
+    // Screenshot spike (throwaway): Robolectric + Compose UI test + Roborazzi.
+    testImplementation("org.robolectric:robolectric:4.16.1")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    testImplementation("androidx.compose.ui:ui-test-manifest")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi:1.76.0")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.76.0")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi-junit-rule:1.76.0")
 }
 
 // Diagnosability (#78, #107), the same reasoning `:designsystem`'s own build file already carries:
@@ -195,6 +210,9 @@ dependencies {
 // the workflow log. `TestExceptionFormat.FULL` prints the `AssertionError`'s own message alongside
 // the stack trace, in the console output `pr.yml` and `release-candidate.yml` already capture.
 tasks.withType<Test>().configureEach {
+    // Screenshot spike: without the Roborazzi Gradle plugin, captureRoboImage only writes a file
+    // when this property says the run is a recording run.
+    systemProperty("roborazzi.test.record", "true")
     testLogging {
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
         showCauses = true
