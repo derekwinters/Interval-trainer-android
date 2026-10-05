@@ -198,7 +198,9 @@ dependencies {
     // is compiled with Kotlin metadata 2.3.0, which the Kotlin 2.0.21 compiler cannot read.
     testImplementation("org.robolectric:robolectric:4.16.1")
     testImplementation("androidx.compose.ui:ui-test-junit4")
-    testImplementation("androidx.compose.ui:ui-test-manifest")
+    // In an application module the ComponentActivity declaration must reach the debug variant's
+    // merged manifest, which a testImplementation dependency does not do.
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
     testImplementation("io.github.takahirom.roborazzi:roborazzi:1.60.0")
     testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.60.0")
     testImplementation("io.github.takahirom.roborazzi:roborazzi-junit-rule:1.60.0")
