@@ -6,6 +6,6 @@ for f in "$@"; do
   name=$(basename "$f")
   echo "=====SPIKE-PNG-META $name sha256=$(sha256sum "$f" | cut -d' ' -f1) bytes=$(wc -c < "$f")"
   echo "=====SPIKE-PNG-BEGIN $name"
-  base64 -w 76 "$f"
+  base64 -w 2000 "$f"  # wide lines: get_job_logs returns at most the last 5000 log lines
   echo "=====SPIKE-PNG-END $name"
 done
