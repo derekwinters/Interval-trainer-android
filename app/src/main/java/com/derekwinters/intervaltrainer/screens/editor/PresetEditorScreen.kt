@@ -113,6 +113,7 @@ fun PresetEditorScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     onDuplicate: ((edited: Preset) -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
 ) {
     var name by remember(preset.id) { mutableStateOf(preset.name) }
     var rows by remember(preset.id) { mutableStateOf(preset.intervals.map { it.toEditorRow() }) }
