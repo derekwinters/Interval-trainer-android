@@ -343,7 +343,56 @@ clock, because nothing in it depends on time within an interval, only on the sch
 - **SCREEN-032** A secondary control skips to the next interval (`TIMER-040`–`045`).
 - **SCREEN-033** A secondary control raises the stop confirmation (`SVC-050`).
 
-### 3.3 The navigation lock
+### 3.3 Accessibility
+
+Decided on [#162](https://github.com/derekwinters/Interval-trainer-android/issues/162),
+2026-10-06: what TalkBack reads, how the screen behaves at a large system font scale, and where the
+controls sit for one-handed use. Colour is already covered by `docs/spec/cues.md`'s "never hue
+alone" rule and is not restated here. Every time below is written with the same `m:ss` formatter
+the screen draws with (`docs/spec/build.md` §4, `formatSeconds`), so what TalkBack reads and what
+the screen shows cannot drift apart.
+
+- **SCREEN-034** The ring (`SCREEN-020`) is **one TalkBack focus stop**, whose description reads
+  **"{kind}, {remaining} remaining of {duration}"** — for example "Work, 0:32 remaining of 0:45".
+  The kind name, the countdown digits and the "of" line are not separate focus stops. The
+  description is read when TalkBack lands on the ring; it is not announced as the digits change
+  (`SCREEN-035`). The lead-in's get-ready content (`SCREEN-024`), which takes the ring's place, is
+  not the ring and is not covered by this requirement. *(auto: `RunningScreenSemanticsTest.kt`.)*
+- **SCREEN-035** When the current interval changes, a **polite live announcement** gives the new
+  interval's kind and duration, **"{kind}, {duration}"** — for example "Recovery, 1:30". There are
+  no per-tick announcements and no announcements at remaining-time marks. "The current interval"
+  is `SCREEN-024`'s: during a lead-in it is the interval the lead-in counts into, so the end of a
+  lead-in is not a change and is not announced. *(auto: `RunningScreenSemanticsTest.kt` asserts one
+  polite live region holding the current interval, that it changes when the interval does, and
+  that it does not change on a tick; that TalkBack actually speaks it once per change is manual.)*
+- **SCREEN-036** "Total left" (`SCREEN-021`) is **one focus stop**, its label and its value read
+  together. Each past and upcoming row (`SCREEN-023`) is **one focus stop** with the combined label
+  **"{kind}, {duration}"** — for example "Recovery, 0:30". The timeline strip (`SCREEN-025`) is
+  **hidden from TalkBack**. No "N of M" count is spoken anywhere on the screen, as none is drawn
+  (`SCREEN-022`, retired). *(auto: `RunningScreenSemanticsTest.kt`.)*
+- **SCREEN-037** The ring's slot and everything inside it — the ring itself, its kind label, its
+  countdown digits and its "of" line, and the get-ready content that takes the slot during a
+  lead-in (`SCREEN-024`) — are **fixed-size**: they do not scale with the system font scale, and
+  draw at the sizes `SCREEN-020` and `SCREEN-024` give at a font scale of 1.0. Every other piece of
+  text on the running screen scales with the font scale, and **nothing clips or overlaps at any
+  font scale up to 2.0**, the largest Android 14 and later offer. *(manual: an emulator at font
+  scale 2.0.)*
+- **SCREEN-038** The controls stay where `SCREEN-030`–`033` and the control row put them: the
+  transport row bottom-centre, `spacing.xxl` (24dp) above the bottom edge, and the mute button
+  top-right. This is the screen's **one-handed requirement, and the current position meets it**.
+  An accidental tap on stop is covered by the stop confirmation (`SVC-050`), not by moving stop
+  away from the others. Every control's touch target is **at least 48dp** (`DS-005`, `DS-006`).
+  *(manual: a screen fact.)*
+- **SCREEN-039** *(invariant)* **The interval-change announcement is for screen readers only.**
+  The announcement of `SCREEN-035` must not be a vibration, a sound or a spoken cue produced by the
+  app, and it must not fire when no screen reader is running. It is an accessibility live region,
+  which only an accessibility service reads aloud, so the app makes no sound of its own for it and
+  nothing is announced to anyone not using one. `docs/spec/cues.md` is unchanged by it: v1's
+  ruling that the app has no spoken cues still holds for everyone not using a screen reader. A
+  `TextToSpeech` call, or an announcement pushed whether or not a service is listening, is the
+  technically plausible way to get this wrong. *(manual: a screen-reader fact.)*
+
+### 3.4 The navigation lock
 
 Decided in full on [#31](https://github.com/derekwinters/Interval-trainer-android/issues/31),
 2026-09-11.
@@ -466,7 +515,7 @@ needs a default to come from, and nothing else has been decided to belong here
   request's correction of `DS-014`'s previously-wrong claim about which component this row uses.
 - **SCREEN-062** Settings is reachable while a workout is paused, as part of the rest of the app
   being reachable then (`SCREEN-041`); it is not reachable while a workout is running. This needs
-  no code of its own: `SCREEN-040`'s own lock (§3.3) already makes `running` the only reachable
+  no code of its own: `SCREEN-040`'s own lock (§3.4) already makes `running` the only reachable
   screen while a workout runs, and settings is reached the same way every other screen is,
   through home's own navigation.
 - **SCREEN-063** Settings contains a second item: a `ListItem` row for the notification
@@ -674,6 +723,7 @@ via `CrashReportPopupTest.kt`.)*
 | The preset editor | SCREEN-010–019, SCREEN-014a | `PresetSummaryTest.kt` (SCREEN-018's total); `IntervalKindTest.kt` (SCREEN-014a's cycle); `ScheduleGeneratorTest.kt` (SCREEN-017's splice); `KindLabelTest.kt` (the kind-to-colour mapping SCREEN-012's rows and SCREEN-017's duration labels share); `PresetTest.kt` (SCREEN-019's save rule); *(manual)* SCREEN-010–019, SCREEN-014a |
 | The running screen — content | SCREEN-020, SCREEN-021, SCREEN-023–028 | `RunningScreenContentTest.kt` (SCREEN-020's ring content, SCREEN-021's total-left value again, SCREEN-024's distinct get-ready shape); `RunningScreenScheduleTest.kt` (SCREEN-023's past and upcoming rows with their alphas and scales, SCREEN-024's current interval during a lead-in, SCREEN-025's segments and their alphas, SCREEN-026's gap); *(manual)* SCREEN-020, SCREEN-021, SCREEN-023–028 |
 | The running screen — controls | SCREEN-030–033 | *(manual)* |
+| The running screen — accessibility | SCREEN-034–039 | `RunningScreenSemanticsTest.kt` in `:app`, under Robolectric (SCREEN-034's ring description, SCREEN-035's polite live region and its silence on a tick, SCREEN-036's row labels, "Total left" as one stop and the hidden strip); *(manual)* SCREEN-035's announcement as TalkBack speaks it, SCREEN-037–039 |
 | The running screen — navigation lock | SCREEN-040–046 | *(manual)* |
 | Summary | SCREEN-050–053 | `SummaryContentTest.kt` (SCREEN-050's three values, again as `summaryContent()`'s packaged shape); *(manual)* SCREEN-050–053 |
 | Settings | SCREEN-060–063 | `NotificationSettingsDeepLinkTest.kt` (SCREEN-063's deep-link action/extra); *(manual)* SCREEN-060–063 |
@@ -681,13 +731,18 @@ via `CrashReportPopupTest.kt`.)*
 | Storage for settings and first-run state | SCREEN-080 | *(manual)* |
 | Crash report popup | SCREEN-090–095 | `LaunchPlanTest.kt` (SCREEN-090's show-when-a-report-exists, independent of first run); `CrashReportPopupTest.kt` (SCREEN-092–094's copy and delete outcomes); *(manual)* SCREEN-090–095 |
 
-**57 requirements, 0 `auto` and 57 `manual`.**
+**63 requirements, 3 `auto` and 60 `manual`.**
 
-**Every requirement on this page is `manual`, and that is by design, not by omission.** No
-screen's layout, control set, content or navigation is assertable on a JVM runner without a
-simulated Android runtime — that is
+**Every requirement on this page but `SCREEN-034`–`036` is `manual`, and that is by design, not by
+omission.** No screen's layout, control set, content or navigation is assertable on a JVM runner
+without a simulated Android runtime — that is
 [`docs/spec/design-system.md`](design-system.md)'s territory (`DS-091`, `DS-093`), and this page
-does not duplicate it. Several requirements here — a preset's round count and total, and its
+does not duplicate it. The three exceptions are the running screen's TalkBack labels
+([#162](https://github.com/derekwinters/Interval-trainer-android/issues/162)): what TalkBack reads
+exists only in a semantics tree, so `RunningScreenSemanticsTest.kt` asserts it there, under the
+Robolectric dependency `docs/spec/build.md` `BUILD-023` allows in `:app` for exactly these tests.
+How the screen looks at font scale 2.0 (`SCREEN-037`) and what TalkBack actually speaks stay a
+person's check on an emulator. Several requirements here — a preset's round count and total, and its
 colour-strip proportions (`SCREEN-003`, `SCREEN-004`, `SCREEN-018`), a row's kind-cycling
 (`SCREEN-014a`), the generator's own splice (`SCREEN-017`), the running screen's own ring,
 get-ready state, schedule lists and timeline strip (`SCREEN-020`, `SCREEN-023`–`026`), and the

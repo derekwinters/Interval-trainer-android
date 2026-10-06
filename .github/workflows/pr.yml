@@ -49,8 +49,9 @@ jobs:
       # default resolver (MavenDependencyResolver) downloads the android-all(-instrumented) jar
       # into — `~/.m2/repository`, its own hard-coded default — rather than leaving `./gradlew
       # test` to download it live on every run. Keyed on both modules' build files — each pins the
-      # Robolectric version — and on app's LauncherIconTest.kt, whose @Config names the API levels
-      # (one android-all jar each) that `:app` needs, so a change to either invalidates this cache
+      # Robolectric version — and on app's LauncherIconTest.kt and RunningScreenSemanticsTest.kt,
+      # whose @Config annotations name the API levels (one android-all jar each) that `:app` needs,
+      # so a change to any of them invalidates this cache
       # instead of silently reusing it without the jar now needed (BUILD-023). See
       # designsystem/build.gradle.kts for why `robolectric.dependency.dir` / `robolectric.offline`
       # are not used for this.
@@ -59,7 +60,7 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.m2/repository
-          key: robolectric-m2-android-all-${{ hashFiles('designsystem/build.gradle.kts', 'app/build.gradle.kts', 'app/src/test/java/com/derekwinters/intervaltrainer/LauncherIconTest.kt') }}
+          key: robolectric-m2-android-all-${{ hashFiles('designsystem/build.gradle.kts', 'app/build.gradle.kts', 'app/src/test/java/com/derekwinters/intervaltrainer/LauncherIconTest.kt', 'app/src/test/java/com/derekwinters/intervaltrainer/screens/running/RunningScreenSemanticsTest.kt') }}
 
       # The one step allowed to reach the network for these jars, and only on a cache miss: run with
       # Robolectric's ordinary defaults (no special properties — see designsystem/build.gradle.kts)
@@ -74,6 +75,7 @@ jobs:
           --tests "com.derekwinters.intervaltrainer.designsystem.DesignSystemConsistencyTest"
           :app:testDebugUnitTest
           --tests "com.derekwinters.intervaltrainer.LauncherIconTest"
+          --tests "com.derekwinters.intervaltrainer.screens.running.RunningScreenSemanticsTest"
           --stacktrace
 
       # A deliberately unreachable repository URL, not robolectric.offline (see
