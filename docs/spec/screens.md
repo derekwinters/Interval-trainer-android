@@ -362,7 +362,10 @@ the screen shows cannot drift apart.
   interval's kind and duration, **"{kind}, {duration}"** — for example "Recovery, 1:30". There are
   no per-tick announcements and no announcements at remaining-time marks. "The current interval"
   is `SCREEN-024`'s: during a lead-in it is the interval the lead-in counts into, so the end of a
-  lead-in is not a change and is not announced. *(auto: `RunningScreenSemanticsTest.kt` asserts one
+  lead-in is not a change and is not announced. The announcement is the live region's content
+  changing, so two adjacent intervals with the same kind and duration — which read identically —
+  produce no announcement between them; adding words to tell them apart is not decided here.
+  *(auto: `RunningScreenSemanticsTest.kt` asserts one
   polite live region holding the current interval, that it changes when the interval does, and
   that it does not change on a tick; that TalkBack actually speaks it once per change is manual.)*
 - **SCREEN-036** "Total left" (`SCREEN-021`) is **one focus stop**, its label and its value read
