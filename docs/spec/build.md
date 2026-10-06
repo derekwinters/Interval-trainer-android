@@ -195,8 +195,8 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
   `database/build.gradle.kts` made `test` depend on it
   ([#144](https://github.com/derekwinters/Interval-trainer-android/issues/144)) — until then the
   aggregate reported `NO-SOURCE` and passed having run nothing. *(manual: a test cannot assert the
-  behaviour of the runner that is running it; the workflow is the check, and it was checked by
-  breaking an assertion in `PresetDaoTest.kt` and watching `pr` go red.)*
+  behaviour of the runner that is running it; the workflow is the check: an assertion broken on
+  purpose in `PresetDaoTest.kt` must turn `pr` red.)*
 - **BUILD-021** The unit tests run on the JVM alone — no emulator, no connected device, no
   simulated Android runtime — so they need nothing but a JDK and the dependencies on the test
   classpath. *(manual: absence of such a dependency; adding one would show in the diff.)*
