@@ -581,8 +581,9 @@ request.
 - **BUILD-080** `:app` declares `testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"`
   and an `androidTest` source set with exactly these dependencies: `androidx.test:runner`,
   `androidx.test:rules` (for `GrantPermissionRule`), `androidx.test.ext:junit`, and
-  `androidx.compose.ui:ui-test-junit4` (versioned by the Compose BOM, `BUILD-017`), each pinned
-  to a literal version. `ScreenshotTourTest.kt` is their only user. `./gradlew test` and
+  `androidx.compose.ui:ui-test-junit4`. The last is versioned by the Compose BOM (`BUILD-017`),
+  imported for `androidTest` from the same single literal, because `androidTestImplementation` does
+  not inherit `implementation`'s platform. Each of the others is pinned to a literal version. `ScreenshotTourTest.kt` is their only user. `./gradlew test` and
   `./gradlew assembleDebug` neither compile nor run `androidTest`, so `BUILD-020`, `BUILD-021` and
   `pr.yml` are unchanged. The test is compiled and run only by `screenshots.yml`. *(manual: a
   dependency-scope fact; `screenshots.yml` building the test APK is the check.)*
