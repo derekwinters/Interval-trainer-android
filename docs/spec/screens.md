@@ -40,11 +40,13 @@ lock.
 
 > **Invariant — Edit and Start are always two separate, independently tappable controls.** A row's
 > Edit and Start actions are never merged into one combined tap target, and no other part of the row
-> — the name, the meta line, the colour strip — is ever wired to either action as a shortcut. This is
-> what `SCREEN-005`'s "a tap can never start a workout by accident" actually excludes: an
-> implementation that reacts to a tap anywhere on the row, or that treats a long-press or a swipe as
-> an alternate way to start or edit, would still have "two controls" while reintroducing exactly the
-> accidental-start risk the row exists to rule out.
+> — the name, the meta line, the colour strip, the drag handle — is ever wired to either action as a
+> shortcut. This is what `SCREEN-005`'s "a tap can never start a workout by accident" actually
+> excludes: an implementation that reacts to a tap anywhere on the row, or that treats a long-press
+> or a swipe as an alternate way to start or edit, would still have "two controls" while
+> reintroducing exactly the accidental-start risk the row exists to rule out. Edit and Start are the
+> only controls on the row that act on the preset. The drag handle (`SCREEN-009`) only moves the row:
+> it has no tap action at all, and neither it nor any gesture on it starts or edits anything.
 
 ---
 
@@ -58,8 +60,8 @@ actions, and nothing else on the row is tappable, so a tap can never start a wor
 
 - **SCREEN-001** `ScreenHeader` shows the title "Presets" and one trailing action: an icon button
   opening settings (§5).
-- **SCREEN-002** The preset list is read in the schema's insertion order (`SCHEMA-012`) — no
-  reordering control exists in v1.
+- **SCREEN-002** The preset list is shown in the schema's stored order (`SCHEMA-012`), which the
+  drag handle on each row changes (`SCREEN-009`).
 - **SCREEN-003** Each row shows the preset's name, and beneath it: the number of rounds it plans
   (`TIMER-060`) and the schedule's total duration, formatted as `formatSeconds` does
   (`BUILD-030`–`033`) — for example "4 rounds · 15:30". A preset with no work intervals shows no
@@ -88,13 +90,20 @@ actions, and nothing else on the row is tappable, so a tap can never start a wor
   dividing by zero. *(manual: the strip's own rendering is a screen fact; the segments it draws are
   `:core` arithmetic, covered by
   `core/src/test/kotlin/com/derekwinters/intervaltrainer/PresetSummaryTest.kt`.)*
-- **SCREEN-005** Each row has exactly two controls, both always visible: **Edit** and **Start**.
-  Nothing else on the row responds to a tap — not the name, not the meta line, not the colour strip.
+- **SCREEN-005** Each row has exactly two controls that act on the preset, both always visible:
+  **Edit** and **Start**. Nothing else on the row responds to a tap — not the name, not the meta
+  line, not the colour strip, and not the drag handle (`SCREEN-009`), which responds only to a drag.
 - **SCREEN-006** Tapping **Start** starts a workout from that preset immediately (`TIMER-013`) and
   navigates to the running screen.
 - **SCREEN-007** Tapping **Edit** opens the preset editor (§2) loaded with that preset.
 - **SCREEN-008** A floating action button (`DS-007`) opens the preset editor loaded with a new,
   empty preset.
+- **SCREEN-009** Each row carries a drag handle at its leading edge, the same `⠿` grip the editor's
+  interval rows use (`SCREEN-012`, `SCREEN-013`), and it works the same way: dragging it moves the
+  row up or down the list, a step at a time, and the drag starts off the handle itself, never off a
+  long-press on the row. When the drag ends, the list's new order is persisted (`SCHEMA-015`) and is
+  the order home shows from then on, across relaunches. The handle only reorders
+  ([#163](https://github.com/derekwinters/Interval-trainer-android/issues/163)).
 
 `SCREEN-006`, `SCREEN-007` and `SCREEN-008` land ahead of what they name, the same way this
 project's build has staged v1 ahead of its own pieces before now
@@ -192,9 +201,38 @@ duration times one recovery duration times a round count (`TIMER-001`).
   `docs/spec/service.md` `SVC-017`'s case
   ([#147](https://github.com/derekwinters/Interval-trainer-android/issues/147)).
 
+- **SCREEN-019a** A **Duplicate** button (`SecondaryButton`, `DS-002`) sits at the bottom of the
+  editor, below the interval list and its footer (`SCREEN-018`). It is shown only for a preset that
+  is already saved — opened from home's Edit (`SCREEN-007`) — and never for a new one opened from the
+  floating action button (`SCREEN-008`). It shares that bottom area with the preset editor's Delete
+  button when that lands
+  ([#164](https://github.com/derekwinters/Interval-trainer-android/issues/164)), side by side; the
+  header keeps exactly one trailing action, Save (`SCREEN-010`). Like Save, it is disabled while the
+  schedule on screen holds no intervals (`SCREEN-019`), because what it does is save a preset, and a
+  preset with no intervals cannot be saved.
+- **SCREEN-019b** Tapping **Duplicate** saves a copy of the preset *as currently edited* — its name
+  and intervals including any changes not yet saved — and then opens that copy in the editor, in
+  place of the original. The original stays exactly as it was last saved: Duplicate never saves it,
+  and its unsaved edits go into the copy, not into it. The copy:
+  - is a new preset with its own id (`SCHEMA-011`) and its own interval rows (`SCHEMA-017`);
+  - is named `<name> (copy)`, or, if a saved preset already has that name, the first of
+    `<name> (copy 2)`, `<name> (copy 3)`, … that none has, where `<name>` is the name as currently
+    edited — `copyName()` in `:core` (`Preset.kt`);
+  - is placed directly after the original in home's list (`SCHEMA-017`).
+
+  ([#163](https://github.com/derekwinters/Interval-trainer-android/issues/163).) *(manual: the
+  button, its availability and the navigation are screen facts; the name is `:core`'s `copyName()`,
+  covered by `PresetTest.kt`, and the placement and deep copy are `PresetDaoTest.kt`'s and
+  `RoomPresetStoreTest.kt`'s.)*
+
 > **Invariant — Save's enabled state follows the schedule on screen, never the preset the editor
 > opened with.** It is recomputed on every edit, so deleting the last row disables Save and adding
 > a row enables it; a check made once when the editor opens would let an emptied preset be saved.
+
+> **Invariant — Duplicate copies what is on screen and never writes the original.** It reads the
+> name and intervals from the editor's current state, not from the stored preset, and its only
+> write is the new row. A Duplicate that saved the original first, or copied the stored version,
+> would each look correct until someone duplicated a preset they were in the middle of changing.
 
 *(All of §2 is manual: screen structure, controls and navigation. SCREEN-018's own content — the
 total it shows — is `:core` arithmetic, covered by `PresetSummaryTest.kt`. SCREEN-019's rule for
@@ -722,8 +760,8 @@ via `CrashReportPopupTest.kt`.)*
 
 | Section | IDs | Tests |
 |---|---|---|
-| Home | SCREEN-001–008 | `PresetSummaryTest.kt` (SCREEN-003's round count and total, SCREEN-004's colour-strip segments); *(manual)* SCREEN-001–008 |
-| The preset editor | SCREEN-010–019, SCREEN-014a | `PresetSummaryTest.kt` (SCREEN-018's total); `IntervalKindTest.kt` (SCREEN-014a's cycle); `ScheduleGeneratorTest.kt` (SCREEN-017's splice); `KindLabelTest.kt` (the kind-to-colour mapping SCREEN-012's rows and SCREEN-017's duration labels share); `PresetTest.kt` (SCREEN-019's save rule); *(manual)* SCREEN-010–019, SCREEN-014a |
+| Home | SCREEN-001–009 | `PresetSummaryTest.kt` (SCREEN-003's round count and total, SCREEN-004's colour-strip segments); `PresetDaoTest.kt` (the order SCREEN-009 persists, `SCHEMA-015`); *(manual)* SCREEN-001–009 |
+| The preset editor | SCREEN-010–019, SCREEN-014a, SCREEN-019a–019b | `PresetSummaryTest.kt` (SCREEN-018's total); `IntervalKindTest.kt` (SCREEN-014a's cycle); `ScheduleGeneratorTest.kt` (SCREEN-017's splice); `KindLabelTest.kt` (the kind-to-colour mapping SCREEN-012's rows and SCREEN-017's duration labels share); `PresetTest.kt` (SCREEN-019's save rule, SCREEN-019b's copy name); `PresetDaoTest.kt`, `RoomPresetStoreTest.kt` (SCREEN-019b's placement and deep copy, `SCHEMA-017`); *(manual)* SCREEN-010–019, SCREEN-014a, SCREEN-019a–019b |
 | The running screen — content | SCREEN-020, SCREEN-021, SCREEN-023–028 | `RunningScreenContentTest.kt` (SCREEN-020's ring content, SCREEN-021's total-left value again, SCREEN-024's distinct get-ready shape); `RunningScreenScheduleTest.kt` (SCREEN-023's past and upcoming rows with their alphas and scales, SCREEN-024's current interval during a lead-in, SCREEN-025's segments and their alphas, SCREEN-026's gap); *(manual)* SCREEN-020, SCREEN-021, SCREEN-023–028 |
 | The running screen — controls | SCREEN-030–033 | *(manual)* |
 | The running screen — accessibility | SCREEN-034–039 | `RunningScreenSemanticsTest.kt` in `:app`, under Robolectric (SCREEN-034's ring description, SCREEN-035's polite live region and its silence on a tick, SCREEN-036's row labels, "Total left" as one stop and the hidden strip); *(manual)* SCREEN-035's announcement as TalkBack speaks it, SCREEN-037–039 |
@@ -734,7 +772,7 @@ via `CrashReportPopupTest.kt`.)*
 | Storage for settings and first-run state | SCREEN-080 | *(manual)* |
 | Crash report popup | SCREEN-090–095 | `LaunchPlanTest.kt` (SCREEN-090's show-when-a-report-exists, independent of first run); `CrashReportPopupTest.kt` (SCREEN-092–094's copy and delete outcomes); *(manual)* SCREEN-090–095 |
 
-**63 requirements, 3 `auto` and 60 `manual`.**
+**66 requirements, 3 `auto` and 63 `manual`.**
 
 **Every requirement on this page but `SCREEN-034`–`036` is `manual`, and that is by design, not by
 omission.** No screen's layout, control set, content or navigation is assertable on a JVM runner
@@ -783,6 +821,10 @@ in `:app` (not `:core`, since combining a workout's own liveness with the first-
 concern of `:app`'s NavHost, not of `:core`'s domain), taking both facts as plain booleans its
 caller already resolved — the same "no `android.*` import" split `WorkoutSession.handle`
 (`SVC-014`) and `notificationSettingsDeepLink` (`SVC-033`) already use — via `StartDestinationTest.kt`.
+`SCREEN-019b`'s copy name cites `copyName()` (`Preset.kt`), via `PresetTest.kt`, and
+`SCREEN-009`'s persisted order and `SCREEN-019b`'s placement and deep copy cite `SCHEMA-015` and
+`SCHEMA-017`, via `PresetDaoTest.kt` and `RoomPresetStoreTest.kt`
+([#163](https://github.com/derekwinters/Interval-trainer-android/issues/163)).
 `SCREEN-012`'s and `SCREEN-017`'s colour dots both resolve through one `:app` function,
 `IntervalKind.dotColor` (`screens/editor/KindLabel.kt`), via `KindLabelTest.kt`
 ([#136](https://github.com/derekwinters/Interval-trainer-android/issues/136)); that checks which

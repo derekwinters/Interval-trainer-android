@@ -16,14 +16,23 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.derekwinters.intervaltrainer.ColorRole
 import com.derekwinters.intervaltrainer.Interval
 import com.derekwinters.intervaltrainer.IntervalKind
@@ -32,6 +41,7 @@ import com.derekwinters.intervaltrainer.ScheduleSegment
 import com.derekwinters.intervaltrainer.formatSeconds
 import com.derekwinters.intervaltrainer.presetSummary
 import com.derekwinters.intervaltrainer.scheduleSegments
+import com.derekwinters.intervaltrainer.screens.common.DragHandle
 import com.derekwinters.intervaltrainer.designsystem.AppTheme
 import com.derekwinters.intervaltrainer.designsystem.DesignSystemColors
 import com.derekwinters.intervaltrainer.designsystem.FabIconButton
@@ -41,14 +51,21 @@ import com.derekwinters.intervaltrainer.designsystem.ScreenHeaderAction
 import com.derekwinters.intervaltrainer.designsystem.StatusIconButton
 
 /**
- * The home screen (`docs/spec/screens.md` §1, `SCREEN-001`–`008`): `ScreenHeader` with the title
- * "Presets" and a settings action, the preset list in insertion order, and a FAB that opens the
- * editor loaded with a new preset.
+ * The home screen (`docs/spec/screens.md` §1, `SCREEN-001`–`009`): `ScreenHeader` with the title
+ * "Presets" and a settings action, the preset list in stored order with a drag handle on each row,
+ * and a FAB that opens the editor loaded with a new preset.
  *
- * [presets] is read once by the caller (`RoomPresetStore.presets()`, `SCHEMA-012`'s own insertion
- * order) and handed down; this composable does no I/O of its own; per this page's own invariant,
- * every value a row shows — the round count, the total, the colour-strip segments — is `:core`
+ * [presets] is read once by the caller (`RoomPresetStore.presets()`, `SCHEMA-012`'s stored order)
+ * and handed down; this composable does no I/O of its own; per this page's own invariant, every
+ * value a row shows — the round count, the total, the colour-strip segments — is `:core`
  * arithmetic ([presetSummary], [scheduleSegments]) read here, not recomputed ad hoc.
+ *
+ * **Drag reorder** (`SCREEN-009`, #163) works the way the editor's interval rows do
+ * (`SCREEN-013`): index-swap-on-threshold, the dragged row moving one place each time it passes
+ * half of its neighbour's height. Home's rows are not one fixed height — a preset with no strip is
+ * shorter, and text scales — so each row's measured height is what the threshold reads, rather than
+ * the editor's single constant. The order is local state while the drag runs, and [onReorder] gets
+ * every preset's id in the new order once, when the drag ends, if the order changed.
  */
 @Composable
 fun HomeScreen(
@@ -57,8 +74,31 @@ fun HomeScreen(
     onNewPreset: () -> Unit,
     onEditPreset: (presetId: String) -> Unit,
     onStartPreset: (preset: Preset) -> Unit,
+    onReorder: (orderedIds: List<String>) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var rows by remember(presets) { mutableStateOf(presets) }
+    var draggingId by remember { mutableStateOf<String?>(null) }
+    var dragOffsetPx by remember { mutableFloatStateOf(0f) }
+    var orderAtDragStart by remember { mutableStateOf<List<String>>(emptyList()) }
+    val rowHeightsPx = remember { mutableStateMapOf<String, Int>() }
+
+    fun moveDragged(id: String) {
+        while (true) {
+            val from = rows.indexOfFirst { it.id == id }
+            if (from < 0) return
+            val to = when {
+                dragOffsetPx > 0 && from < rows.lastIndex -> from + 1
+                dragOffsetPx < 0 && from > 0 -> from - 1
+                else -> return
+            }
+            val neighbourHeight = rowHeightsPx[rows[to].id]?.toFloat() ?: return
+            if (kotlin.math.abs(dragOffsetPx) <= neighbourHeight / 2) return
+            rows = rows.toMutableList().apply { add(to, removeAt(from)) }
+            dragOffsetPx += if (to > from) -neighbourHeight else neighbourHeight
+        }
+    }
+
     ListLayout(
         title = "Presets",
         modifier = modifier,
@@ -75,13 +115,33 @@ fun HomeScreen(
             )
         },
     ) {
-        items(presets, key = { it.id }) { preset ->
+        items(rows, key = { it.id }) { preset ->
+            val isDragging = preset.id == draggingId
             PresetRow(
                 preset = preset,
                 onEdit = { onEditPreset(preset.id) },
                 onStart = { onStartPreset(preset) },
+                onDragStart = {
+                    draggingId = preset.id
+                    dragOffsetPx = 0f
+                    orderAtDragStart = rows.map { it.id }
+                },
+                onDragDelta = { deltaY ->
+                    dragOffsetPx += deltaY
+                    moveDragged(preset.id)
+                },
+                onDragEnd = {
+                    draggingId = null
+                    dragOffsetPx = 0f
+                    val newOrder = rows.map { it.id }
+                    if (newOrder != orderAtDragStart) onReorder(newOrder)
+                },
                 modifier = Modifier
                     .fillMaxWidth()
+                    .onSizeChanged { rowHeightsPx[preset.id] = it.height }
+                    .zIndex(if (isDragging) 1f else 0f)
+                    .graphicsLayer { translationY = if (isDragging) dragOffsetPx else 0f }
+                    .then(if (isDragging) Modifier else Modifier.animateItem())
                     .padding(horizontal = AppTheme.spacing.lg, vertical = AppTheme.spacing.sm),
             )
         }
@@ -89,12 +149,14 @@ fun HomeScreen(
 }
 
 /**
- * One home-screen row (`SCREEN-003`–`005`): the preset's name and meta line, the colour strip, and
- * exactly two controls — Edit and Start — both always visible.
+ * One home-screen row (`SCREEN-003`–`005`, `SCREEN-009`): the drag handle, the preset's name and
+ * meta line, the colour strip, and exactly two controls that act on the preset — Edit and Start —
+ * both always visible.
  *
  * This invariant page's own safety property holds structurally, not by convention: [onEdit] and
  * [onStart] are the row's *only* two click handlers. Nothing else here — the surrounding [Column],
- * the name, the meta line, the colour strip — carries a `clickable` modifier, so there is no third
+ * the name, the meta line, the colour strip — carries a `clickable` modifier, and the drag handle
+ * reports only drags ([onDragStart], [onDragDelta], [onDragEnd]), never a tap, so there is no third
  * way, accidental or otherwise, to trigger either action (`docs/spec/screens.md`'s "Edit and Start
  * are always two separate, independently tappable controls" invariant).
  */
@@ -103,6 +165,9 @@ fun PresetRow(
     preset: Preset,
     onEdit: () -> Unit,
     onStart: () -> Unit,
+    onDragStart: () -> Unit,
+    onDragDelta: (Float) -> Unit,
+    onDragEnd: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = AppTheme.colors
@@ -134,9 +199,18 @@ fun PresetRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = spacing.sm),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column {
+            DragHandle(
+                onDragStart = onDragStart,
+                onDragDelta = onDragDelta,
+                onDragEnd = onDragEnd,
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = spacing.sm),
+            ) {
                 BasicText(
                     text = preset.name,
                     style = TextStyle(color = colors.fg, fontSize = 16.sp, fontWeight = FontWeight.Bold),
@@ -213,6 +287,7 @@ private fun HomeScreenPreview() {
             onNewPreset = {},
             onEditPreset = {},
             onStartPreset = {},
+            onReorder = {},
         )
     }
 }

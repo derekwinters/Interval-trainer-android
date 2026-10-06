@@ -5,6 +5,7 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.derekwinters.intervaltrainer.Interval
 import com.derekwinters.intervaltrainer.IntervalKind
 import com.derekwinters.intervaltrainer.Preset
+import com.derekwinters.intervaltrainer.duplicate
 import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.runBlocking
@@ -103,5 +104,47 @@ class RoomPresetStoreTest {
 
         assertNull(store.preset("preset-1"))
         assertEquals(emptyList<Preset>(), store.presets())
+    }
+
+    /** SCHEMA-015: `reorder` is the order `presets()` returns afterwards. */
+    @Test
+    fun `reorder changes the order presets are listed in`() = runBlocking<Unit> {
+        store.save(Preset(id = "preset-1", name = "One", intervals = emptyList()))
+        store.save(Preset(id = "preset-2", name = "Two", intervals = emptyList()))
+
+        store.reorder(listOf("preset-2", "preset-1"))
+
+        assertEquals(listOf("preset-2", "preset-1"), store.presets().map { it.id })
+    }
+
+    /**
+     * SCHEMA-017, docs/spec/screens.md SCREEN-019b: a duplicate saved with `saveAfter` sits
+     * directly after its original and is a deep copy — editing it leaves the original as it was,
+     * and deleting the original leaves the copy intact.
+     */
+    @Test
+    fun `a duplicate saved after its original is placed next to it and is independent of it`() = runBlocking<Unit> {
+        val original = Preset(
+            id = "original",
+            name = "Hills",
+            intervals = listOf(
+                Interval(IntervalKind.WARM_UP, durationSeconds = 180),
+                Interval(IntervalKind.WORK, durationSeconds = 60),
+            ),
+        )
+        store.save(original)
+        store.save(Preset(id = "other", name = "Other", intervals = emptyList()))
+
+        val copy = original.duplicate(newId = "copy", takenNames = store.presets().map { it.name })
+        store.saveAfter(copy, afterId = "original")
+
+        assertEquals(listOf("original", "copy", "other"), store.presets().map { it.id })
+        assertEquals(copy, store.preset("copy"))
+
+        store.save(copy.copy(intervals = listOf(Interval(IntervalKind.COOL_DOWN, durationSeconds = 300))))
+        assertEquals(original, store.preset("original"))
+
+        store.delete("original")
+        assertEquals(listOf(Interval(IntervalKind.COOL_DOWN, durationSeconds = 300)), store.preset("copy")?.intervals)
     }
 }

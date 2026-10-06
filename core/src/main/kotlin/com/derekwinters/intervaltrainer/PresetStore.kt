@@ -12,8 +12,8 @@ package com.derekwinters.intervaltrainer
  * main thread still chooses the dispatcher it reads on (`SVC-015`) — and no main source set
  * bridges these calls with `runBlocking`.
  *
- * The method set below is this issue's own minimal, reasonable choice — plain CRUD over
- * [Preset] — rather than something a requirement pins down; a later issue may need to add to it.
+ * The method set below started as plain CRUD over [Preset]; [reorder] and [saveAfter] were added
+ * for reordering the list and duplicating a preset (#163).
  */
 interface PresetStore {
     suspend fun presets(): List<Preset>
@@ -23,4 +23,17 @@ interface PresetStore {
     suspend fun save(preset: Preset)
 
     suspend fun delete(id: String)
+
+    /**
+     * `docs/spec/schema.md` `SCHEMA-015` (#163): stores [orderedIds] — every preset's id, in the
+     * order home now shows them — as the list's order. Changes nothing but the order.
+     */
+    suspend fun reorder(orderedIds: List<String>)
+
+    /**
+     * `SCHEMA-017` (#163): saves [preset], which does not exist yet, directly after the preset
+     * [afterId] in the list, or at the end if [afterId] no longer exists. What a duplicate is
+     * saved with (`docs/spec/screens.md` `SCREEN-019b`).
+     */
+    suspend fun saveAfter(preset: Preset, afterId: String)
 }

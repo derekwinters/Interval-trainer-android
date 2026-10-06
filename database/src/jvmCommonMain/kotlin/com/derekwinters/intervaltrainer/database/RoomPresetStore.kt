@@ -24,22 +24,40 @@ class RoomPresetStore(private val dao: PresetDao) : PresetStore {
     override suspend fun preset(id: String): Preset? =
         dao.getPreset(id)?.let { it.toPreset(dao.getIntervals(id)) }
 
+    /** SCHEMA-016: an existing preset keeps its place in the list; a new one is appended. */
     override suspend fun save(preset: Preset) {
-        val intervals = preset.intervals.mapIndexed { index, interval ->
-            IntervalEntity(
-                presetId = preset.id,
-                kind = interval.kind.toColumnValue(),
-                durationSeconds = interval.durationSeconds,
-                position = index,
-            )
-        }
-        dao.savePresetWithIntervals(PresetEntity(id = preset.id, name = preset.name), intervals)
+        dao.savePreset(id = preset.id, name = preset.name, intervals = preset.intervalEntities())
     }
 
     override suspend fun delete(id: String) {
         dao.deletePreset(id)
     }
+
+    /** SCHEMA-015. */
+    override suspend fun reorder(orderedIds: List<String>) {
+        dao.reorderPresets(orderedIds)
+    }
+
+    /** SCHEMA-017: [preset]'s intervals become new rows of its own, keyed by its own id. */
+    override suspend fun saveAfter(preset: Preset, afterId: String) {
+        dao.insertPresetAfter(
+            afterId = afterId,
+            id = preset.id,
+            name = preset.name,
+            intervals = preset.intervalEntities(),
+        )
+    }
 }
+
+private fun Preset.intervalEntities(): List<IntervalEntity> =
+    intervals.mapIndexed { index, interval ->
+        IntervalEntity(
+            presetId = id,
+            kind = interval.kind.toColumnValue(),
+            durationSeconds = interval.durationSeconds,
+            position = index,
+        )
+    }
 
 private fun PresetEntity.toPreset(intervals: List<IntervalEntity>): Preset =
     Preset(

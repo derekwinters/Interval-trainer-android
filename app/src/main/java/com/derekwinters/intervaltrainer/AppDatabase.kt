@@ -3,6 +3,7 @@ package com.derekwinters.intervaltrainer
 import android.content.Context
 import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import com.derekwinters.intervaltrainer.database.ALL_MIGRATIONS
 import com.derekwinters.intervaltrainer.database.IntervalTrainerDatabase
 import com.derekwinters.intervaltrainer.database.SeedDataCallback
 
@@ -21,7 +22,8 @@ object AppDatabase {
 
     /**
      * Opens the on-device database, seeding it (`SCHEMA-030`) the one time it is created from
-     * nothing. [context] should be an application context; this is the only place `:app` names
+     * nothing, and upgrading a file written at an earlier schema version through every migration
+     * (`SCHEMA-045`, #163). [context] should be an application context; this is the only place `:app` names
      * [DATABASE_NAME] or constructs the builder.
      */
     fun open(context: Context): IntervalTrainerDatabase =
@@ -30,6 +32,7 @@ object AppDatabase {
             name = context.applicationContext.getDatabasePath(DATABASE_NAME).absolutePath,
         )
             .setDriver(BundledSQLiteDriver())
+            .addMigrations(*ALL_MIGRATIONS)
             .addCallback(SeedDataCallback)
             .build()
 }

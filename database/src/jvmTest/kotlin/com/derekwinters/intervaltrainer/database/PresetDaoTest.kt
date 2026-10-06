@@ -40,19 +40,158 @@ class PresetDaoTest {
     }
 
     /**
-     * SCHEMA-012: the preset list comes back in the order the rows were inserted — the table's
-     * own row order — never a stored `position` column, which `presets` does not have.
+     * SCHEMA-012: the preset list comes back in stored `position` order — not insertion order,
+     * id order or name order. The rows are inserted in an order that matches none of those, so a
+     * query still ordering on `rowid` fails here (schema.md's "read from `presets.position`, never
+     * from `rowid`" invariant).
      */
     @Test
-    fun `lists presets in the order they were inserted, not id or name order`() = runBlocking<Unit> {
-        dao.upsertPreset(PresetEntity(id = "preset-c", name = "Zebra"))
-        dao.upsertPreset(PresetEntity(id = "preset-a", name = "Apple"))
-        dao.upsertPreset(PresetEntity(id = "preset-b", name = "Mango"))
+    fun `lists presets in stored position order, not insertion, id or name order`() = runBlocking<Unit> {
+        dao.upsertPreset(PresetEntity(id = "preset-c", name = "Apple", position = 2))
+        dao.upsertPreset(PresetEntity(id = "preset-a", name = "Zebra", position = 1))
+        dao.upsertPreset(PresetEntity(id = "preset-b", name = "Mango", position = 0))
 
         val ids = dao.getPresets().map { it.id }
 
-        assertEquals(listOf("preset-c", "preset-a", "preset-b"), ids)
+        assertEquals(listOf("preset-b", "preset-a", "preset-c"), ids)
     }
+
+    /**
+     * SCHEMA-016: a preset saved for the first time goes to the end of the list, and re-saving an
+     * existing one — an edit — keeps it where it was.
+     */
+    @Test
+    fun `a new preset is appended at the end, and re-saving one does not move it`() = runBlocking<Unit> {
+        dao.savePreset(id = "preset-1", name = "One", intervals = emptyList())
+        dao.savePreset(id = "preset-2", name = "Two", intervals = emptyList())
+        dao.savePreset(id = "preset-3", name = "Three", intervals = emptyList())
+
+        assertEquals(listOf("preset-1", "preset-2", "preset-3"), dao.getPresets().map { it.id })
+        assertEquals(listOf(0, 1, 2), dao.getPresets().map { it.position })
+
+        dao.savePreset(id = "preset-1", name = "One, renamed", intervals = emptyList())
+
+        assertEquals(listOf("preset-1", "preset-2", "preset-3"), dao.getPresets().map { it.id })
+        assertEquals("One, renamed", dao.getPresets().first().name)
+    }
+
+    /** SCHEMA-016: a new preset appends after the largest stored position, not at the row count. */
+    @Test
+    fun `a new preset is appended after the largest stored position`() = runBlocking<Unit> {
+        dao.upsertPreset(PresetEntity(id = "preset-1", name = "One", position = 5))
+
+        dao.savePreset(id = "preset-2", name = "Two", intervals = emptyList())
+
+        assertEquals(listOf("preset-1", "preset-2"), dao.getPresets().map { it.id })
+    }
+
+    /**
+     * SCHEMA-015: a reorder is what the list reads afterwards, renumbered from zero, and it
+     * changes nothing but `position` — names and interval rows come through untouched.
+     */
+    @Test
+    fun `reordering persists the new order and touches nothing else`() = runBlocking<Unit> {
+        dao.savePreset(id = "preset-1", name = "One", intervals = intervalsFor("preset-1", 180, 60))
+        dao.savePreset(id = "preset-2", name = "Two", intervals = intervalsFor("preset-2", 300))
+        dao.savePreset(id = "preset-3", name = "Three", intervals = emptyList())
+        val intervalsBefore = dao.getIntervals("preset-1")
+
+        dao.reorderPresets(listOf("preset-3", "preset-1", "preset-2"))
+
+        val presets = dao.getPresets()
+        assertEquals(listOf("preset-3", "preset-1", "preset-2"), presets.map { it.id })
+        assertEquals(listOf(0, 1, 2), presets.map { it.position })
+        assertEquals(listOf("Three", "One", "Two"), presets.map { it.name })
+        assertEquals(intervalsBefore, dao.getIntervals("preset-1"))
+        assertEquals(listOf(300), dao.getIntervals("preset-2").map { it.durationSeconds })
+    }
+
+    /** SCHEMA-015: the reordered list is still that order after the database is closed and reopened. */
+    @Test
+    fun `a reorder survives closing and reopening the database`() = runBlocking<Unit> {
+        dao.savePreset(id = "preset-1", name = "One", intervals = emptyList())
+        dao.savePreset(id = "preset-2", name = "Two", intervals = emptyList())
+        dao.reorderPresets(listOf("preset-2", "preset-1"))
+        database.close()
+
+        database = Room.databaseBuilder<IntervalTrainerDatabase>(name = databaseFile.absolutePath)
+            .setDriver(BundledSQLiteDriver())
+            .build()
+        dao = database.presetDao()
+
+        assertEquals(listOf("preset-2", "preset-1"), dao.getPresets().map { it.id })
+    }
+
+    /**
+     * SCHEMA-017: a preset inserted after another sits directly after it; the presets that were
+     * after it move down one place.
+     */
+    @Test
+    fun `a preset inserted after another sits directly after it`() = runBlocking<Unit> {
+        dao.savePreset(id = "preset-1", name = "One", intervals = emptyList())
+        dao.savePreset(id = "preset-2", name = "Two", intervals = emptyList())
+        dao.savePreset(id = "preset-3", name = "Three", intervals = emptyList())
+
+        dao.insertPresetAfter(afterId = "preset-1", id = "copy", name = "One (copy)", intervals = emptyList())
+
+        assertEquals(listOf("preset-1", "copy", "preset-2", "preset-3"), dao.getPresets().map { it.id })
+        assertEquals(listOf(0, 1, 2, 3), dao.getPresets().map { it.position })
+    }
+
+    /** SCHEMA-017: inserting after the last preset puts the new one last. */
+    @Test
+    fun `a preset inserted after the last one goes last`() = runBlocking<Unit> {
+        dao.savePreset(id = "preset-1", name = "One", intervals = emptyList())
+        dao.savePreset(id = "preset-2", name = "Two", intervals = emptyList())
+
+        dao.insertPresetAfter(afterId = "preset-2", id = "copy", name = "Two (copy)", intervals = emptyList())
+
+        assertEquals(listOf("preset-1", "preset-2", "copy"), dao.getPresets().map { it.id })
+    }
+
+    /** SCHEMA-017: if the preset to insert after no longer exists, the new one is appended. */
+    @Test
+    fun `a preset inserted after a missing one is appended`() = runBlocking<Unit> {
+        dao.savePreset(id = "preset-1", name = "One", intervals = emptyList())
+
+        dao.insertPresetAfter(afterId = "gone", id = "copy", name = "Gone (copy)", intervals = emptyList())
+
+        assertEquals(listOf("preset-1", "copy"), dao.getPresets().map { it.id })
+    }
+
+    /**
+     * SCHEMA-017 and the "move rows, never rewrite them" invariant: a duplicate is a deep copy —
+     * its own `presets` row and its own `intervals` rows — so editing it leaves the original's
+     * rows unchanged, and deleting either leaves the other intact.
+     */
+    @Test
+    fun `a duplicate is a deep copy with its own rows`() = runBlocking<Unit> {
+        dao.savePreset(id = "original", name = "Hills", intervals = intervalsFor("original", 180, 60, 120))
+        val originalIntervals = dao.getIntervals("original")
+
+        dao.insertPresetAfter(
+            afterId = "original",
+            id = "copy",
+            name = "Hills (copy)",
+            intervals = intervalsFor("copy", 180, 60, 120),
+        )
+        val copyIntervals = dao.getIntervals("copy")
+        assertEquals(originalIntervals.map { it.durationSeconds }, copyIntervals.map { it.durationSeconds })
+        assertTrue(originalIntervals.map { it.id }.intersect(copyIntervals.map { it.id }.toSet()).isEmpty())
+
+        dao.savePreset(id = "copy", name = "Hills, edited", intervals = intervalsFor("copy", 30))
+        assertEquals(originalIntervals, dao.getIntervals("original"))
+        assertEquals("Hills", dao.getPreset("original")?.name)
+
+        dao.deletePreset("original")
+        assertEquals(listOf(30), dao.getIntervals("copy").map { it.durationSeconds })
+        assertEquals(listOf("copy"), dao.getPresets().map { it.id })
+    }
+
+    private fun intervalsFor(presetId: String, vararg durations: Int): List<IntervalEntity> =
+        durations.mapIndexed { index, seconds ->
+            IntervalEntity(presetId = presetId, kind = "work", durationSeconds = seconds, position = index)
+        }
 
     /**
      * SCHEMA-014, SCHEMA-021: deleting a preset removes every `intervals` row that references it.
@@ -61,7 +200,7 @@ class PresetDaoTest {
      */
     @Test
     fun `deleting a preset cascades to every one of its intervals`() = runBlocking<Unit> {
-        dao.upsertPreset(PresetEntity(id = "preset-1", name = "Short Example"))
+        dao.upsertPreset(PresetEntity(id = "preset-1", name = "Short Example", position = 0))
         dao.insertIntervals(
             listOf(
                 IntervalEntity(presetId = "preset-1", kind = "warm_up", durationSeconds = 180, position = 0),
@@ -82,8 +221,8 @@ class PresetDaoTest {
      */
     @Test
     fun `deleting a preset leaves another preset's intervals alone`() = runBlocking<Unit> {
-        dao.upsertPreset(PresetEntity(id = "preset-1", name = "Short Example"))
-        dao.upsertPreset(PresetEntity(id = "preset-2", name = "Long Example"))
+        dao.upsertPreset(PresetEntity(id = "preset-1", name = "Short Example", position = 0))
+        dao.upsertPreset(PresetEntity(id = "preset-2", name = "Long Example", position = 1))
         dao.insertIntervals(
             listOf(
                 IntervalEntity(presetId = "preset-1", kind = "warm_up", durationSeconds = 180, position = 0),
@@ -116,18 +255,17 @@ class PresetDaoTest {
 
     /**
      * SCHEMA-030, SCHEMA-034: a freshly created, seeded database has exactly the two endurance
-     * presets, "Short Example" first and "Long Example" second — the order [SeedDataCallback]
-     * inserts them in, read back per SCHEMA-012's insertion order.
+     * presets, "Short Example" first at `position` 0 and "Long Example" second at `position` 1,
+     * read back in SCHEMA-012's stored order.
      */
     @Test
     fun `onCreate seeds exactly the two endurance presets, Short Example then Long Example`() = runBlocking<Unit> {
         val file = newTempDatabaseFile()
         val seeded = buildSeededDatabase(file)
         try {
-            assertEquals(
-                listOf("Short Example", "Long Example"),
-                seeded.presetDao().getPresets().map { it.name },
-            )
+            val presets = seeded.presetDao().getPresets()
+            assertEquals(listOf("Short Example", "Long Example"), presets.map { it.name })
+            assertEquals(listOf(0, 1), presets.map { it.position })
         } finally {
             seeded.close()
             file.delete()

@@ -2,7 +2,6 @@ package com.derekwinters.intervaltrainer.screens.editor
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,7 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -46,6 +44,7 @@ import com.derekwinters.intervaltrainer.formatSeconds
 import com.derekwinters.intervaltrainer.isSavable
 import com.derekwinters.intervaltrainer.next
 import com.derekwinters.intervaltrainer.presetSummary
+import com.derekwinters.intervaltrainer.screens.common.DragHandle
 import java.util.UUID
 
 /** `SCREEN-016`: a freshly added row's starting kind and duration — a reasonable, immediately
@@ -100,6 +99,12 @@ private fun Interval.toEditorRow() = EditorRow(
  * open-for-editing row. This is this screen's own reasonable implementation choice for "dragging a
  * row's handle reorders it", not a value either settled design or an existing decision pins down —
  * see this pull request's Deviations section.
+ *
+ * **Duplicate** (`SCREEN-019a`, `SCREEN-019b`, #163) is offered only when [onDuplicate] is
+ * non-null, which the caller passes only for a preset that is already saved. It hands over the
+ * preset *as currently edited* — the same `currentPreset` Save would persist — and never saves
+ * the original itself (§2's Duplicate invariant); naming, saving and opening the copy are the
+ * caller's. Like Save, it is disabled while the schedule on screen is empty.
  */
 @Composable
 fun PresetEditorScreen(
@@ -107,6 +112,7 @@ fun PresetEditorScreen(
     onSave: (Preset) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onDuplicate: ((edited: Preset) -> Unit)? = null,
 ) {
     var name by remember(preset.id) { mutableStateOf(preset.name) }
     var rows by remember(preset.id) { mutableStateOf(preset.intervals.map { it.toEditorRow() }) }
@@ -245,6 +251,25 @@ fun PresetEditorScreen(
                     .fillMaxWidth()
                     .padding(AppTheme.spacing.lg),
             )
+        }
+        if (onDuplicate != null) {
+            // SCREEN-019a: below the list and its footer, in a row the preset editor's Delete
+            // (#164) joins side by side; the header keeps Save as its only trailing action.
+            item(key = "preset-actions") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = AppTheme.spacing.lg, vertical = AppTheme.spacing.md),
+                    horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm),
+                ) {
+                    SecondaryButton(
+                        text = "Duplicate",
+                        modifier = Modifier.weight(1f),
+                        enabled = currentPreset.isSavable(),
+                        onClick = { onDuplicate(currentPreset) },
+                    )
+                }
+            }
         }
     }
 
@@ -390,40 +415,6 @@ private fun EditorRowView(
                 }
             }
         }
-    }
-}
-
-/** The plain-text drag handle (`SCREEN-013`) — two glyph columns, the same "no vector icon
- * dependency" choice `CountStepper.kt`'s own `−`/`+` glyphs already made. Drag starts directly off
- * this handle, per the settled design's own grip control, never off a long-press on the row. */
-@Composable
-private fun DragHandle(
-    onDragStart: () -> Unit,
-    onDragDelta: (Float) -> Unit,
-    onDragEnd: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val colors = AppTheme.colors
-    Box(
-        modifier = modifier
-            .size(32.dp)
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { onDragStart() },
-                    onDragEnd = { onDragEnd() },
-                    onDragCancel = { onDragEnd() },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        onDragDelta(dragAmount.y)
-                    },
-                )
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        BasicText(
-            text = "⠿",
-            style = TextStyle(color = colors.dim, fontSize = 16.sp),
-        )
     }
 }
 
