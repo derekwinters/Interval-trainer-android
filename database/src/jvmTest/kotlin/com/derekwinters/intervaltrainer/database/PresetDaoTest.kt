@@ -92,7 +92,7 @@ class PresetDaoTest {
 
         dao.deletePreset("preset-1")
 
-        assertEquals(1, dao.getIntervals("preset-2").size)
+        assertEquals(2, dao.getIntervals("preset-2").size)
     }
 
     /**
