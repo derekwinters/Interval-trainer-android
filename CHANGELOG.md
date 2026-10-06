@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.5.0](https://github.com/derekwinters/Interval-trainer-android/compare/v0.4.0...v0.5.0) (2026-10-06)
+
+
+### Features
+
+* **app:** add the stopwatch launcher icon and the Interval Trainer logo ([#170](https://github.com/derekwinters/Interval-trainer-android/issues/170)) ([ef55e5b](https://github.com/derekwinters/Interval-trainer-android/commit/ef55e5b71ff6ac42ee5382bc2d26d29542f58e99))
+* **app:** delete a preset from the preset editor, with a confirmation ([#173](https://github.com/derekwinters/Interval-trainer-android/issues/173)) ([c864894](https://github.com/derekwinters/Interval-trainer-android/commit/c864894c038419e7c7d149544ec86d5f3941cf09)), closes [#164](https://github.com/derekwinters/Interval-trainer-android/issues/164)
+* **app:** make the running screen readable with TalkBack and large text ([#171](https://github.com/derekwinters/Interval-trainer-android/issues/171)) ([a18b92f](https://github.com/derekwinters/Interval-trainer-android/commit/a18b92fabd2a932641bcc9fd9ab3900a818cfdd6)), closes [#162](https://github.com/derekwinters/Interval-trainer-android/issues/162)
+* **app:** reorder presets on home and duplicate a preset from the editor ([#172](https://github.com/derekwinters/Interval-trainer-android/issues/172)) ([7f965f9](https://github.com/derekwinters/Interval-trainer-android/commit/7f965f9e4eae7ead486f92acf1643642b2331f0c)), closes [#163](https://github.com/derekwinters/Interval-trainer-android/issues/163)
+
+
+### Fixes
+
+* **app:** draw light system-bar icons whatever the system's light/dark setting ([#169](https://github.com/derekwinters/Interval-trainer-android/issues/169)) ([8b5b1e4](https://github.com/derekwinters/Interval-trainer-android/commit/8b5b1e4bf64cda9248581ada05dee0da62756cc5)), closes [#160](https://github.com/derekwinters/Interval-trainer-android/issues/160)
+* **database:** make ./gradlew test run :database's JVM tests ([#165](https://github.com/derekwinters/Interval-trainer-android/issues/165)) ([31868cc](https://github.com/derekwinters/Interval-trainer-android/commit/31868cc8f1d7627e4a1a5875bfa6b0537f91ad92)), closes [#144](https://github.com/derekwinters/Interval-trainer-android/issues/144)
+* **database:** make the preset store suspend so :database compiles for its JVM target ([#167](https://github.com/derekwinters/Interval-trainer-android/issues/167)) ([300b51d](https://github.com/derekwinters/Interval-trainer-android/commit/300b51d505b46351d78d3ead5f538fc1fdf15d9e)), closes [#166](https://github.com/derekwinters/Interval-trainer-android/issues/166)
+
 ## [0.4.0](https://github.com/derekwinters/Interval-trainer-android/compare/v0.3.1...v0.4.0) (2026-10-04)
 
 
