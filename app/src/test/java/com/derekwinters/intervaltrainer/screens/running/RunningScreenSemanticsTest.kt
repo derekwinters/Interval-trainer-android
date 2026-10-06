@@ -1,5 +1,7 @@
 package com.derekwinters.intervaltrainer.screens.running
 
+import android.content.ComponentName
+import androidx.activity.ComponentActivity
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -23,8 +25,12 @@ import com.derekwinters.intervaltrainer.runningScreenContent
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.ExternalResource
+import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 /**
@@ -37,6 +43,13 @@ import org.robolectric.annotation.Config
  * paused, so nothing ticks on its own and every change below is one this test makes; a change to
  * the held remaining time stands in for a tick, since the screen reads both the same way.
  *
+ * `createComposeRule()` launches an empty [ComponentActivity], which an application module's own
+ * merged manifest does not declare. `ui-test-manifest` would declare it, but only in the variant it
+ * is added to: `debugImplementation` never reaches `testReleaseUnitTest`, which `./gradlew test`
+ * also runs, and `testImplementation` never reaches an application's merged manifest at all. So
+ * the test registers the activity with Robolectric's package manager itself, before the compose
+ * rule launches it, which works the same in both variants and adds nothing to either APK.
+ *
  * `@Config(sdk = [34])`, the same pinned API level `:designsystem`'s semantics tests use, so this
  * needs no `android-all` jar CI does not already pre-fetch (`DS-092`).
  */
@@ -44,8 +57,19 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34])
 class RunningScreenSemanticsTest {
 
+    private val composeTestRule = createComposeRule()
+
+    /** Declares the host activity `createComposeRule()` launches; see the class comment. */
+    private val hostActivity = object : ExternalResource() {
+        override fun before() {
+            val application = RuntimeEnvironment.getApplication()
+            shadowOf(application.packageManager)
+                .addActivityIfNotPresent(ComponentName(application, ComponentActivity::class.java))
+        }
+    }
+
     @get:Rule
-    val composeTestRule = createComposeRule()
+    val rules: RuleChain = RuleChain.outerRule(hostActivity).around(composeTestRule)
 
     private val clock = object : Clock {
         override fun nowMillis(): Long = 0L
