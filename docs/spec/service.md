@@ -290,7 +290,7 @@ state and releases the wake lock the moment the command's own `TimerState.Ended`
 exactly as it does for the workout completing on its own. The running screen does not navigate to
 the summary itself on confirm, either: it observes `TimerState.Ended` the same way regardless of
 cause, so a confirmed stop and a natural finish reach the summary through the one code path
-(`docs/spec/screens.md` §3.3's own note on `SCREEN-044`), not two call sites that have to agree.
+(`docs/spec/screens.md` §3.4's own note on `SCREEN-044`), not two call sites that have to agree.
 
 *(All of §7 is manual: a dialog's presence and a service's shutdown are not reachable from a JVM
 runner.)*

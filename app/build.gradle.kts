@@ -200,6 +200,16 @@ dependencies {
     // (docs/spec/brand.md BRAND-052), at the same literal version :designsystem pins, so the two
     // modules share one android-all resolver and one CI cache (DS-092).
     testImplementation("org.robolectric:robolectric:4.16.1")
+
+    // BUILD-023's second named `:app` use: the running screen's TalkBack labels
+    // (docs/spec/screens.md SCREEN-034–036, #162) exist only in a Compose semantics tree, so
+    // RunningScreenSemanticsTest.kt asserts them through `createComposeRule()`. Its version comes
+    // from the Compose BOM imported above (BUILD-017), which `testImplementation` inherits from
+    // `implementation`. `ui-test-manifest` is deliberately absent: in an application module it
+    // could only reach the merged manifest as `debugImplementation`, which leaves
+    // `testReleaseUnitTest` unable to launch the activity, so the test registers that activity
+    // with Robolectric itself (see its class comment).
+    testImplementation("androidx.compose.ui:ui-test-junit4")
 }
 
 // Diagnosability (#78, #107), the same reasoning `:designsystem`'s own build file already carries:
