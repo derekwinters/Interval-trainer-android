@@ -593,9 +593,11 @@ request.
   per screen, taken with `UiAutomation.takeScreenshot()` so the real status and navigation bars
   are in the image, under the app's `files/screenshots/`:
   `01-first-run.png`, `02-home.png`, `03-editor.png` (Short Example loaded),
-  `04-running-paused.png`, `05-summary.png` (after a confirmed stop) and `06-settings.png`. It
-  waits for the UI to be idle before each capture, so no loading state or animation frame is
-  recorded. `POST_NOTIFICATIONS` is granted before launch, both by the install
+  `04-running-paused.png`, `05-summary.png` (after a confirmed stop) and `06-settings.png`.
+  Before each capture it waits until the screen it left is gone from the tree and the UI is idle.
+  It then keeps taking screenshots until two in a row are identical, so no loading state,
+  transition or stale frame is recorded. The first run of this test showed that a capture taken
+  as soon as the UI was idle could still show the previous screen. `POST_NOTIFICATIONS` is granted before launch, both by the install
   (`adb install -g`) and by `GrantPermissionRule`. The first-run screen's Continue therefore goes
   straight to home with no system dialog, and the settings screen shows the permission as granted
   every run. *(manual: runs only on the emulator in `screenshots.yml`.)*

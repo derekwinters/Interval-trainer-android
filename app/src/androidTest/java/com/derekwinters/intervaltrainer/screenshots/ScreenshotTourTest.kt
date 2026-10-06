@@ -74,15 +74,18 @@ class ScreenshotTourTest {
         // 2. Home, with the two seeded example presets. POST_NOTIFICATIONS is already granted, so
         // Continue goes straight to home with no system dialog.
         composeRule.onNodeWithText("Continue").performClick()
+        waitForNoText("Notifications while you work out")
         waitForText("Short Example")
         waitForText("Long Example")
         capture("02-home.png")
 
         // 3. The preset editor with Short Example loaded.
         composeRule.onAllNodesWithContentDescription("Edit")[0].performClick()
+        waitForNoText("Presets")
         waitForText("SCHEDULE")
         capture("03-editor.png")
         composeRule.onNodeWithContentDescription("Back").performClick()
+        waitForNoText("SCHEDULE")
         waitForText("Short Example")
 
         // 4. Running, paused mid-workout. Short Example is warm-up 3:00, then work 1:00 and
@@ -111,6 +114,7 @@ class ScreenshotTourTest {
         composeRule.onNodeWithText("Done").performClick()
         waitForText("Short Example")
         composeRule.onNodeWithContentDescription("Settings").performClick()
+        waitForNoText("Presets")
         waitForContentDescription("Default mute")
         capture("06-settings.png")
     }
@@ -141,23 +145,54 @@ class ScreenshotTourTest {
         composeRule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
     }
 
+    /** The screen being left is gone from the tree, so a navigation transition has finished. */
+    private fun waitForNoText(text: String) = composeRule.waitUntil(timeoutMillis = WAIT_MILLIS) {
+        composeRule.onAllNodesWithText(text).fetchSemanticsNodes().isEmpty()
+    }
+
     private fun waitForContentDescription(description: String) =
         composeRule.waitUntil(timeoutMillis = WAIT_MILLIS) {
             composeRule.onAllNodesWithContentDescription(description).fetchSemanticsNodes().isNotEmpty()
         }
 
-    /** Waits for the app and the system UI to be idle, then saves the whole screen as a PNG. */
+    /**
+     * Saves the whole screen as a PNG once it has settled. The test's frame clock drives the
+     * composition, but the window is drawn on real frames, so a capture taken straight after
+     * `waitForIdle` can still show the previous frame (the first run of this test caught home,
+     * with the pressed button highlighted, in place of the editor). So: advance a few frames, let
+     * real time pass, and keep taking screenshots until two in a row are identical.
+     */
     private fun capture(name: String) {
+        repeat(SETTLE_FRAMES) { composeRule.mainClock.advanceTimeByFrame() }
         composeRule.waitForIdle()
         instrumentation.waitForIdleSync()
+        Thread.sleep(SETTLE_MILLIS)
+        composeRule.waitForIdle()
         instrumentation.uiAutomation.waitForIdle(IDLE_QUIET_MILLIS, WAIT_MILLIS)
-        val bitmap = instrumentation.uiAutomation.takeScreenshot()
-            ?: throw AssertionError("UiAutomation returned no screenshot for $name")
-        FileOutputStream(File(outputDir, name)).use { stream ->
-            check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)) { "could not write $name" }
+        var previous = screenshot(name)
+        var attempts = 0
+        while (true) {
+            Thread.sleep(STABLE_GAP_MILLIS)
+            val current = screenshot(name)
+            if (current.sameAs(previous)) {
+                previous.recycle()
+                FileOutputStream(File(outputDir, name)).use { stream ->
+                    check(current.compress(Bitmap.CompressFormat.PNG, 100, stream)) { "could not write $name" }
+                }
+                current.recycle()
+                return
+            }
+            previous.recycle()
+            previous = current
+            attempts++
+            if (attempts >= STABLE_ATTEMPTS) {
+                throw AssertionError("$name: the screen did not settle after $attempts captures")
+            }
         }
-        bitmap.recycle()
     }
+
+    private fun screenshot(name: String): Bitmap = instrumentation.uiAutomation.takeScreenshot()
+        ?: throw AssertionError("UiAutomation returned no screenshot for $name")
 
     /** A clock that moves only when the test moves it. */
     private class ManualClock(startMillis: Long) : Clock {
@@ -171,5 +206,9 @@ class ScreenshotTourTest {
     private companion object {
         const val WAIT_MILLIS = 20_000L
         const val IDLE_QUIET_MILLIS = 1_000L
+        const val SETTLE_FRAMES = 5
+        const val SETTLE_MILLIS = 1_500L
+        const val STABLE_GAP_MILLIS = 500L
+        const val STABLE_ATTEMPTS = 10
     }
 }
