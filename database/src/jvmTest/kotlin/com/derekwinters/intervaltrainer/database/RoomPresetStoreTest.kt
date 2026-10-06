@@ -12,6 +12,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -104,6 +105,45 @@ class RoomPresetStoreTest {
 
         assertNull(store.preset("preset-1"))
         assertEquals(emptyList<Preset>(), store.presets())
+    }
+
+    /**
+     * docs/spec/screens.md SCREEN-019d (#164): what the editor's confirmed Delete does to the
+     * store — the preset and its intervals are gone, and every other preset is exactly as it was,
+     * intervals and list order included.
+     */
+    @Test
+    fun `deleting a preset removes it and its intervals and leaves every other preset unchanged`() = runBlocking<Unit> {
+        val before = Preset(
+            id = "before",
+            name = "Before",
+            intervals = listOf(
+                Interval(IntervalKind.WARM_UP, durationSeconds = 120),
+                Interval(IntervalKind.WORK, durationSeconds = 45),
+            ),
+        )
+        val doomed = Preset(
+            id = "doomed",
+            name = "Tabata",
+            intervals = listOf(
+                Interval(IntervalKind.WORK, durationSeconds = 20),
+                Interval(IntervalKind.RECOVERY, durationSeconds = 10),
+            ),
+        )
+        val after = Preset(
+            id = "after",
+            name = "After",
+            intervals = listOf(Interval(IntervalKind.COOL_DOWN, durationSeconds = 300)),
+        )
+        store.save(before)
+        store.save(doomed)
+        store.save(after)
+
+        store.delete("doomed")
+
+        assertNull(store.preset("doomed"))
+        assertTrue(database.presetDao().getIntervals("doomed").isEmpty())
+        assertEquals(listOf(before, after), store.presets())
     }
 
     /** SCHEMA-015: `reorder` is the order `presets()` returns afterwards. */

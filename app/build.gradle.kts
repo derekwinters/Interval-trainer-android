@@ -208,7 +208,10 @@ dependencies {
     // `implementation`. `ui-test-manifest` is deliberately absent: in an application module it
     // could only reach the merged manifest as `debugImplementation`, which leaves
     // `testReleaseUnitTest` unable to launch the activity, so the test registers that activity
-    // with Robolectric itself (see its class comment).
+    // with Robolectric itself (see its class comment). The third named use, the preset editor's
+    // Delete preset button and dialog (docs/spec/screens.md SCREEN-019c–019d, #164,
+    // PresetEditorDeleteTest.kt), needs nothing more than these two and registers its host
+    // activity the same way.
     testImplementation("androidx.compose.ui:ui-test-junit4")
 }
 

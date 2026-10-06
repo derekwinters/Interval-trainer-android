@@ -120,7 +120,9 @@ none of the six v1 screens exists yet. That remains
 - **DS-002** `SecondaryButton` has a dashed border, `chip` fill, `dim` text. It is used for
   optional or additive actions — `+ Interval`, `+ Rounds…`.
 - **DS-003** A destructive action is rendered in red, and is reserved for a confirmed or
-  saved-state deletion — preset deletion, the stop-workout confirmation.
+  saved-state deletion — preset deletion (the preset editor's Delete preset button and its
+  dialog's Delete, `docs/spec/screens.md` `SCREEN-019c`, `SCREEN-019d`), the stop-workout
+  confirmation.
 - **DS-004** Deleting an unsaved row inside an editor is plain: no confirmation dialog, no red. It is
   not a destructive action in the `DS-003` sense, because nothing saved is lost.
 - **DS-005** An icon button in the **status** role is drawn at approximately 36–40dp, with a 48dp
