@@ -31,7 +31,11 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
 > screens themselves. The invariant still forbids speculation — nothing is added because it might be
 > useful, and nothing added stays added once the feature it was for is gone — it no longer forbids
 > a user-interface framework, annotation processing, or a test dependency needing a simulated
-> Android runtime by name, because v1 now needs at least one of each.
+> Android runtime by name, because v1 now needs at least one of each. Amended again for
+> [#161](https://github.com/derekwinters/Interval-trainer-android/issues/161): the screenshot
+> workflow (§11) is the feature that justifies an `androidTest` source set and its instrumented
+> test dependencies (`BUILD-080`). They arrive with the one test it runs, and nothing else uses
+> them.
 
 > **Invariant — `VERSION_CODE` only ever goes up, and nothing but the release workflow changes
 > it.** Google Play refuses any upload whose version code is not strictly greater than the last
@@ -551,6 +555,111 @@ the artifact and a maximally-installable one, its signature-scheme set
 
 ---
 
+## 11. Screenshots of the real app
+
+[#161](https://github.com/derekwinters/Interval-trainer-android/issues/161): the documentation,
+and later the Play Store listing, show the real app rather than mockups. `screenshots.yml` boots an
+Android emulator, installs the debug APK, runs one instrumented Compose UI test that walks six
+screens and captures each one, and commits nothing itself. If a capture differs from the copy
+committed under `docs/screenshots/`, it opens or updates one `docs: update screenshots` pull
+request.
+
+> **Invariant — the capture is deterministic.** Identical code gives byte-identical PNGs. Anything
+> that changes between two runs of the same commit, such as the status-bar clock, the battery,
+> notification icons, an animation frame or a timer reading, is fixed before capture rather than
+> tolerated. If it were tolerated, every triggering push would open a pull request that changes
+> nothing a person would notice, and a real change would be lost among them.
+
+> **Invariant — the workflow never pushes to `main` and never adds commits to another pull
+> request.** Its only push is to its own branch, `screenshots/update`, and the only pull request it
+> opens or edits is the one whose head is that branch.
+
+> **Invariant — the screenshot test stays usable as a launch-and-start-a-preset smoke test.** It
+> launches the real activity, starts a preset by tapping Start, and drives the real foreground
+> service. It never publishes workout state itself. That smoke test is not built here.
+
+- **BUILD-080** `:app` declares `testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"`
+  and an `androidTest` source set with exactly these dependencies: `androidx.test:runner`,
+  `androidx.test:rules` (for `GrantPermissionRule`), `androidx.test.ext:junit`, and
+  `androidx.compose.ui:ui-test-junit4` (versioned by the Compose BOM, `BUILD-017`), each pinned
+  to a literal version. `ScreenshotTourTest.kt` is their only user. `./gradlew test` and
+  `./gradlew assembleDebug` neither compile nor run `androidTest`, so `BUILD-020`, `BUILD-021` and
+  `pr.yml` are unchanged. The test is compiled and run only by `screenshots.yml`. *(manual: a
+  dependency-scope fact; `screenshots.yml` building the test APK is the check.)*
+- **BUILD-081** `ScreenshotTourTest` launches `MainActivity` through
+  `createAndroidComposeRule<MainActivity>()` on a fresh install and taps through the app, using
+  the example presets the database seeds (`docs/spec/schema.md` `SCHEMA-031`). It writes one PNG
+  per screen, taken with `UiAutomation.takeScreenshot()` so the real status and navigation bars
+  are in the image, under the app's `files/screenshots/`:
+  `01-first-run.png`, `02-home.png`, `03-editor.png` (Short Example loaded),
+  `04-running-paused.png`, `05-summary.png` (after a confirmed stop) and `06-settings.png`. It
+  waits for the UI to be idle before each capture, so no loading state or animation frame is
+  recorded. `POST_NOTIFICATIONS` is granted before launch, both by the install
+  (`adb install -g`) and by `GrantPermissionRule`. The first-run screen's Continue therefore goes
+  straight to home with no system dialog, and the settings screen shows the permission as granted
+  every run. *(manual: runs only on the emulator in `screenshots.yml`.)*
+- **BUILD-082** The running and summary captures are made on a clock the test controls. Before the
+  activity launches, the test replaces the workout clock (`docs/spec/service.md` `SVC-018`) with a
+  manual clock, then taps Start on Short Example. It advances that clock by the lead-in
+  (`TIMER-030`, 3 s), then warm-up 3:00, work 1:00 and recovery 2:00, waiting at each step for
+  the service to publish the next interval. It then advances 22 s into the second work interval
+  and taps Pause. The service computes everything the two screens show from that clock, so the
+  running screen reads 0:38 of 1:00, and after Stop and its confirmation the summary reads one
+  round of three in 6:25, on every run. *(manual: as `BUILD-081`.)*
+- **BUILD-083** `.github/workflows/screenshots.yml` runs on `workflow_dispatch`, and on `push` to
+  `main` only when the push touches one of `app/src/main/**`, `designsystem/src/main/**`,
+  `core/src/main/**`, `database/src/**/main/**`, `**/*.gradle.kts`, `gradle/**` or the workflow
+  file itself. A push touching only documentation, only test sources or another workflow does not
+  start it. *(auto: `.github/scripts/tests/test_screenshots.py`, reading the workflow file.)*
+- **BUILD-084** The `capture` job provisions the JDK, the Android SDK and Gradle the same way
+  `pr.yml` does (`BUILD-044`), enables KVM with the runner's documented udev rule, and runs the
+  emulator through `reactivecircus/android-emulator-runner`, pinned by commit SHA (`BUILD-043`).
+  The emulator is API 34, `google_apis`, `x86_64`, with the `pixel` device profile, 1080 × 1920
+  (16:9). `pixel_6`'s 1080 × 2400 is 2.22:1 and fails `BUILD-086`. The runner's `script:` is one
+  line that calls `.github/scripts/capture_screenshots.sh`, because the runner runs each `script:`
+  line in its own shell. *(auto: as `BUILD-083`.)*
+- **BUILD-085** `capture_screenshots.sh` waits for boot to complete and then 30 more seconds. It
+  sets the three global animation scales to 0, and turns on System UI demo mode with the clock at
+  12:00, the battery full and not charging, Wi-Fi and mobile signal full, and notification icons
+  hidden. Only then does it install both APKs with their runtime permissions granted and run the
+  test with `am instrument`. It fails the job unless the run reports `OK`, and copies the PNGs out
+  of the app's private storage with `run-as`. *(auto: as `BUILD-083`, reading the script.)*
+- **BUILD-086** `.github/scripts/screenshot_png.py` takes the captured directory and writes the
+  six PNGs `BUILD-081` names to an output directory. It rejects a missing or unexpected file. Each
+  image is re-encoded as 8-bit RGB with no alpha channel: any alpha is composited over black, and
+  the output is a canonical encoding, so identical pixels always give identical bytes. The job
+  fails if a side is under 320 px or over 3840 px, or if the long side is more than twice the
+  short side. These are the Play Store screenshot limits as stated on #161; Google's help page
+  was not reachable from where this was written, so they are taken from the issue rather than
+  re-read. The script uses the Python standard library only. *(auto:
+  `.github/scripts/tests/test_screenshots.py`.)*
+- **BUILD-087** The `propose` job copies the six PNGs over `docs/screenshots/`. If git then sees no
+  change, it stops and opens nothing. Otherwise it commits only the changed PNGs, as
+  `docs: update screenshots`, onto `main`'s head on the branch `screenshots/update`, and
+  force-pushes that branch. It then opens one pull request from that branch to `main`, titled
+  `docs: update screenshots` and labelled `no-closing-keyword` (ai-sdlc's control label; the pull
+  request closes no issue). If such a pull request is already open, it updates that one instead.
+  This is done with the runner's `gh` CLI rather than a new action, for the reason `BUILD-055`
+  gives. *(auto: as `BUILD-083`, reading `.github/scripts/propose_screenshots.sh`.)*
+- **BUILD-088** `propose` authenticates with the repository secret `SCREENSHOTS_PR_TOKEN` when it
+  exists, for both the push and `gh`, so that the pull request it opens starts `pr` and the other
+  pull-request checks. A pull request opened with `GITHUB_TOKEN` starts none of them. Without the
+  secret it falls back to `GITHUB_TOKEN` and writes a workflow warning saying the pull request's
+  checks will not start; the screenshots are still proposed. *(auto: as `BUILD-083`. Whether a
+  token actually starts `pr` is observable only once the secret exists; see the setup issue linked
+  from #161's pull request.)*
+- **BUILD-089** `screenshots.yml` grants `contents: read` at the workflow level. Only the
+  `propose` job adds `contents: write` and `pull-requests: write`, and it runs only when
+  `github.ref` is `refs/heads/main`. The job that runs Gradle and the emulator never holds a write
+  permission. *(auto: as `BUILD-083`.)*
+- **BUILD-090** The `capture` job prints each PNG's SHA-256 and uploads the six as a workflow
+  artifact named `screenshots`. That lets two runs be compared without downloading anything.
+  *(auto: as `BUILD-083`.)*
+- **BUILD-091** `README.md` shows the six committed PNGs from `docs/screenshots/`. *(manual: the
+  images rendering is seen on GitHub.)*
+
+---
+
 ## Traceability
 
 | Section | IDs | Tests |
@@ -565,8 +674,9 @@ the artifact and a maximally-installable one, its signature-scheme set
 | Recovering a missed release APK | BUILD-066–067 | `.github/scripts/tests/test_bump_version_code.py` |
 | Keeping the verification gate current | BUILD-068 | `.github/scripts/tests/test_verify_release_signature.py` |
 | An artifact a device will install | BUILD-070–075 | `BUILD-070`–`073`, `BUILD-075`: `.github/scripts/tests/test_verify_release_package.py`; `BUILD-074` *(manual)* |
+| Screenshots of the real app | BUILD-080–091 | `BUILD-083`–`090`: `.github/scripts/tests/test_screenshots.py`; `BUILD-080`–`082`, `BUILD-091` *(manual)* |
 
-**54 requirements, 14 `auto` and 40 `manual`.**
+**66 requirements, 22 `auto` and 44 `manual`.**
 
 The proportion is what a build skeleton looks like: almost every requirement here is a fact about
 configuration, verified by the build running at all, and the only executable behaviour outside
@@ -633,3 +743,10 @@ the device in
 [#127](https://github.com/derekwinters/Interval-trainer-android/issues/127) — that needs a
 physical device, and the published artifact this section examined was already sound on every axis
 the gate checks.
+Screenshots of the real app (`BUILD-080`–`091`) splits the same way as the release sections.
+What the workflow and its scripts do is pinned by `test_screenshots.py`: the image re-encoding
+and the Play Store checks are run directly, and the triggers, permissions, emulator settings,
+demo-mode commands and pull-request handling are read from the files. What happens on the emulator
+stays `manual` because `pr` boots no emulator. The test that drives the app runs only in
+`screenshots.yml`, and the determinism invariant is proven by two runs of the same commit
+printing the same SHA-256s (`BUILD-090`).
