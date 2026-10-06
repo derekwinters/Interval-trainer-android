@@ -82,7 +82,8 @@ class WorkoutService : Service() {
     private lateinit var defaultMuteStore: DefaultMuteStore
     private lateinit var cueSink: AndroidCueSink
 
-    private val clock = ElapsedRealtimeClock()
+    // SVC-012, SVC-018: read once, at construction, from the process-wide holder, never built here.
+    private val clock = WorkoutClock.current
     private var wakeLock: PowerManager.WakeLock? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var tickJob: Job? = null

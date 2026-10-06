@@ -42,6 +42,11 @@ android {
         targetSdk = 35
         versionCode = versionCodeProperty
         versionName = versionNameProperty
+
+        // BUILD-080: runs the androidTest source set, which holds only ScreenshotTourTest.kt and
+        // runs only on the emulator in screenshots.yml. `./gradlew test` and `assembleDebug` never
+        // touch it.
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     // Java and Kotlin target the same bytecode version, so the two cannot disagree about the
@@ -137,6 +142,11 @@ androidComponents {
     }
 }
 
+// BUILD-017: the one literal Compose BOM version. Both `implementation` and the androidTest
+// classpath (BUILD-080) import it from here, because `androidTestImplementation` does not inherit
+// `implementation`'s platform constraints.
+val composeBom = "androidx.compose:compose-bom:2024.12.01"
+
 dependencies {
     // formatSeconds lives in :core now (ADR 0005, BUILD-014).
     implementation(project(":core"))
@@ -156,7 +166,7 @@ dependencies {
     // version (BUILD-017); the BOM's own version is itself a literal, per the build's second
     // invariant. androidx.compose.material3 is deliberately not declared here — see BUILD-017 and
     // ADR 0007 — so it is not managed through this platform import either.
-    implementation(platform("androidx.compose:compose-bom:2024.12.01"))
+    implementation(platform(composeBom))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.foundation:foundation")
@@ -213,6 +223,18 @@ dependencies {
     // PresetEditorDeleteTest.kt), needs nothing more than these two and registers its host
     // activity the same way.
     testImplementation("androidx.compose.ui:ui-test-junit4")
+
+    // BUILD-080 (docs/spec/build.md §11, #161): the instrumented screenshot test and nothing else.
+    // These are the dependency invariant's named exception for that feature. `ui-test-junit4` is
+    // versioned by the same Compose BOM literal as `implementation`, imported again here because
+    // the androidTest classpath does not inherit it. The AndroidX Test artifacts are not
+    // BOM-managed, so each carries its own literal version. `createAndroidComposeRule<MainActivity>`
+    // launches the app's own activity, so `ui-test-manifest` is not needed.
+    androidTestImplementation(platform(composeBom))
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:rules:1.6.1")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 }
 
 // Diagnosability (#78, #107), the same reasoning `:designsystem`'s own build file already carries:
