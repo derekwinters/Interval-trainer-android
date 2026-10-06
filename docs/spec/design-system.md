@@ -38,8 +38,8 @@ too ([#76](https://github.com/derekwinters/Interval-trainer-android/issues/76)):
 first screen that needed its vocabulary), so the compile-time enforcement `DS-090` describes now
 genuinely applies to it: a `material3` import inside `:app` is a compile error today, not a
 statement about a boundary with nothing yet on the other side of it. A Robolectric dependency now exists, scoped to `:designsystem`
-alone (`BUILD-023`), and `DesignSystemConsistencyTest.kt` runs `DS-091`'s touch-target and
-content-description assertions against the component gallery
+and to named `:app` tests (`BUILD-023`), and `DesignSystemConsistencyTest.kt` runs `DS-091`'s
+touch-target and content-description assertions against the component gallery
 ([#78](https://github.com/derekwinters/Interval-trainer-android/issues/78), `DS-095`). `DS-093` —
 that a screen's root composable is one of the three layouts in §8 — still has nothing to assert: a
 component or a layout existing and having a `@Preview` is not the same as a screen using it, and
@@ -247,8 +247,8 @@ none of the six v1 screens exists yet. That remains
   `app/src/test/java/com/derekwinters/intervaltrainer/WindowThemeDeclarationTest.kt` — a pure-JVM
   test that reads the manifest and the theme resource the manifest names. It asserts the
   declaration, not a resolved theme: resolving one needs a simulated Android runtime, and
-  [`docs/spec/build.md`](build.md) `BUILD-023` scopes Robolectric to `:designsystem` alone, which
-  this requirement does not widen. This page's fifth invariant is what makes the declaration the
+  [`docs/spec/build.md`](build.md) `BUILD-023` allows Robolectric in `:app` only for named tests,
+  a list this requirement does not widen. This page's fifth invariant is what makes the declaration the
   honest thing to assert.)*
 - **DS-023** `MainActivity` sets its own window up for edge-to-edge explicitly — `enableEdgeToEdge()`,
   or the equivalent `WindowCompat.setDecorFitsSystemWindows(window, false)` — rather than leaving
@@ -274,12 +274,12 @@ none of the six v1 screens exists yet. That remains
   own — a test asserting those would pick one of the two implementations this requirement
   deliberately leaves open. The bar appearance is `manual` for the same reason and one more: it is
   only observable on a window the activity has been created on, which needs a simulated Android
-  runtime, and [`docs/spec/build.md`](build.md) `BUILD-023` scopes Robolectric to `:designsystem`
-  alone; `SystemBarStyle`'s own fields are internal to androidx.activity, so a plain JVM test of
-  the style object would be asserting a library's internals rather than this requirement. Checked
-  by reading the call site, and on a device for the visible result: in system light mode and in
-  system dark mode, the status-bar icons — and, with 3-button navigation, the navigation buttons —
-  are light on every screen.)*
+  runtime, and [`docs/spec/build.md`](build.md) `BUILD-023` allows Robolectric in `:app`
+  only for named tests; `SystemBarStyle`'s own fields are internal to androidx.activity, so a
+  plain JVM test of the style object would be asserting a library's internals rather than this
+  requirement. Checked by reading the call site, and on a device for the visible result: in system
+  light mode and in system dark mode, the status-bar icons — and, with 3-button navigation, the
+  navigation buttons — are light on every screen.)*
 
 ## 4. Timer typography
 
@@ -591,10 +591,10 @@ existing unit-test source set and with no new test dependency. It reads `Android
 the theme resource declared there, and asserts the two attributes this page's fifth invariant
 requires the theme to write out for itself. That is a declaration-level assertion rather than a
 resolved-theme one, and deliberately: resolving a theme needs a simulated Android runtime, and
-[`docs/spec/build.md`](build.md) `BUILD-023` scopes Robolectric to `:designsystem` alone — a scope
-[#132](https://github.com/derekwinters/Interval-trainer-android/issues/132) had no reason to widen,
-since a theme nothing declares is exactly what that defect was. `DS-023`'s own window call stays
-`manual`, for the reason its entry gives.
+[`docs/spec/build.md`](build.md) `BUILD-023` allows Robolectric in `:app` only for named tests —
+a scope [#132](https://github.com/derekwinters/Interval-trainer-android/issues/132) had no reason to
+widen, since a theme nothing declares is exactly what that defect was. `DS-023`'s own window call
+stays `manual`, for the reason its entry gives.
 
 **`DS-080` is this page's fifth `auto` requirement, and its test is deliberately narrower than the
 requirement.** `ScreenLayoutInsetsTest.kt` sits beside `DesignSystemConsistencyTest.kt` rather than

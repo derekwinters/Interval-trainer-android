@@ -48,8 +48,8 @@ data class CueEmission(
 /**
  * The pure half of the cue sink: a [Cue] `:core` selected in, the asset and the waveform out.
  *
- * This is a separate function rather than a few lines inside [SoundPoolCueSink] because `:app`
- * has no Robolectric (`docs/spec/build.md` `BUILD-023` scopes it to `:designsystem`), so a mapping
+ * This is a separate function rather than a few lines inside [SoundPoolCueSink] because
+ * `docs/spec/build.md` `BUILD-023` allows Robolectric in `:app` only for named tests, so a mapping
  * inlined into the adapter would be a mapping no JVM test could reach — the same argument
  * `docs/spec/cues.md`'s fifth invariant makes one level up, about selection against emission.
  * [SoundPoolCueSink] calls this and does nothing but carry its answer to the platform.

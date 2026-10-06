@@ -60,6 +60,15 @@ android {
         compose = true
     }
 
+    testOptions {
+        unitTests {
+            // BRAND-052 / BUILD-023: LauncherIconTest resolves the application's icon under
+            // Robolectric, which needs the merged resources and manifest — the adaptive icon under
+            // mipmap-anydpi-v26 among them — on the unit-test classpath.
+            isIncludeAndroidResources = true
+        }
+    }
+
     signingConfigs {
         if (hasReleaseSigningConfig) {
             create("release") {
@@ -186,6 +195,11 @@ dependencies {
 
     // The unit tests run on the JVM alone (BUILD-021), so nothing here needs a device.
     testImplementation("junit:junit:4.13.2")
+
+    // BUILD-023's named `:app` exception: Robolectric for the launcher-icon test alone
+    // (docs/spec/brand.md BRAND-052), at the same literal version :designsystem pins, so the two
+    // modules share one android-all resolver and one CI cache (DS-092).
+    testImplementation("org.robolectric:robolectric:4.16.1")
 }
 
 // Diagnosability (#78, #107), the same reasoning `:designsystem`'s own build file already carries:
@@ -195,6 +209,13 @@ dependencies {
 // the workflow log. `TestExceptionFormat.FULL` prints the `AssertionError`'s own message alongside
 // the stack trace, in the console output `pr.yml` and `release-candidate.yml` already capture.
 tasks.withType<Test>().configureEach {
+    // DS-092 / BUILD-023, the same switch :designsystem's build file explains in full: CI points
+    // Robolectric's Maven resolver at an unreachable host for the gating `./gradlew test`, so a cold
+    // android-all cache fails loudly instead of downloading. Unset locally.
+    providers.environmentVariable("ROBOLECTRIC_DEPENDENCY_REPO_URL").orNull?.let { repoUrl ->
+        systemProperty("robolectric.dependency.repo.url", repoUrl)
+    }
+
     testLogging {
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
         showCauses = true
