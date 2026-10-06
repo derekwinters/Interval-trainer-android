@@ -105,8 +105,11 @@ dependencies {
 // whose source sets here are empty — so it reported NO-SOURCE and passed having run nothing.
 // Every test this module has lives in `jvmTest`, which only the `jvm()` target's task runs; this
 // makes the aggregate reach it, so the documented command (BUILD-041, `commands.test`) is
-// unchanged and a failing DAO test fails it locally and in CI alike.
-tasks.named("test") {
+// unchanged and a failing DAO test fails it locally and in CI alike. Matched lazily rather than
+// with `tasks.named("test")`: the Android Gradle Plugin registers `test` after this script has
+// been evaluated, so `named` fails with "Task with name 'test' not found" (seen on #144's first
+// CI run).
+tasks.matching { it.name == "test" }.configureEach {
     dependsOn("jvmTest")
 }
 
