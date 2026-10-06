@@ -7,6 +7,7 @@ import com.derekwinters.intervaltrainer.IntervalKind
 import com.derekwinters.intervaltrainer.Preset
 import java.io.File
 import java.util.UUID
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -49,7 +50,7 @@ class RoomPresetStoreTest {
      * `position` column (SCHEMA-025).
      */
     @Test
-    fun `saves and reads back a preset with its intervals in order`() {
+    fun `saves and reads back a preset with its intervals in order`() = runBlocking<Unit> {
         val preset = Preset(
             id = "preset-1",
             name = "Short Example",
@@ -68,7 +69,7 @@ class RoomPresetStoreTest {
 
     /** Saving a preset again with a different interval list replaces the old one, not appends. */
     @Test
-    fun `re-saving a preset replaces its interval list rather than appending to it`() {
+    fun `re-saving a preset replaces its interval list rather than appending to it`() = runBlocking<Unit> {
         val original = Preset(
             id = "preset-1",
             name = "Short Example",
@@ -89,13 +90,13 @@ class RoomPresetStoreTest {
 
     /** `preset(id)` for an id nothing was ever saved under is `null`, not an error. */
     @Test
-    fun `preset returns null for an id that was never saved`() {
+    fun `preset returns null for an id that was never saved`() = runBlocking<Unit> {
         assertNull(store.preset("does-not-exist"))
     }
 
     /** Deleting a preset removes it from both `preset(id)` and the `presets()` list. */
     @Test
-    fun `delete removes a preset from the store`() {
+    fun `delete removes a preset from the store`() = runBlocking<Unit> {
         store.save(Preset(id = "preset-1", name = "Short Example", intervals = emptyList()))
 
         store.delete("preset-1")

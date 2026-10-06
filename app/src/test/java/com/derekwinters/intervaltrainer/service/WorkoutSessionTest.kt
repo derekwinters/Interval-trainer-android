@@ -203,12 +203,12 @@ class WorkoutSessionTest {
 
 private class InMemoryPresetStore(initial: List<Preset>) : PresetStore {
     private val presets = initial.associateBy { it.id }.toMutableMap()
-    override fun presets(): List<Preset> = presets.values.toList()
-    override fun preset(id: String): Preset? = presets[id]
-    override fun save(preset: Preset) {
+    override suspend fun presets(): List<Preset> = presets.values.toList()
+    override suspend fun preset(id: String): Preset? = presets[id]
+    override suspend fun save(preset: Preset) {
         presets[preset.id] = preset
     }
-    override fun delete(id: String) {
+    override suspend fun delete(id: String) {
         presets.remove(id)
     }
 }
@@ -235,21 +235,21 @@ private class CallerThreadRefusingPresetStore(initial: List<Preset>) : PresetSto
         reads++
     }
 
-    override fun presets(): List<Preset> {
+    override suspend fun presets(): List<Preset> {
         checkNotRefusedThread()
         return presets.values.toList()
     }
 
-    override fun preset(id: String): Preset? {
+    override suspend fun preset(id: String): Preset? {
         checkNotRefusedThread()
         return presets[id]
     }
 
-    override fun save(preset: Preset) {
+    override suspend fun save(preset: Preset) {
         throw UnsupportedOperationException("not used by WorkoutSession")
     }
 
-    override fun delete(id: String) {
+    override suspend fun delete(id: String) {
         throw UnsupportedOperationException("not used by WorkoutSession")
     }
 }

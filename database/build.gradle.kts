@@ -11,9 +11,10 @@
 // "Consequences" section is explicit that a Kotlin upgrade "should be named as such when the
 // feature issues are filed; it is not a side-effect to be absorbed quietly into the first
 // database pull request" — this issue names no such upgrade, so this module stays on the line
-// that does not need one. Room 2.7+'s Kotlin Multiplatform DAOs may still be plain (non-`suspend`)
-// functions, which is what lets `RoomPresetStore` implement `:core`'s synchronous `PresetStore`
-// (SCHEMA-004) directly, with no `runBlocking` bridging.
+// that does not need one. Room 2.x allows plain (non-`suspend`) DAO functions on `androidTarget()`
+// only: a source set targeting a non-Android platform, which `jvm()` is, accepts only `suspend`
+// DAO functions. So `PresetDao` is `suspend` throughout, and `RoomPresetStore` implements
+// `:core`'s `suspend` `PresetStore` (SCHEMA-004) directly, with no `runBlocking` bridging (#166).
 //
 // None of this could be resolved or compiled in the sandbox this module was written in — Room and
 // androidx.sqlite are published only to Google's Maven repository, which that sandbox could not
@@ -72,6 +73,9 @@ kotlin {
             dependencies {
                 implementation(project(":core"))
                 implementation("junit:junit:4.13.2")
+                // The DAO and the preset store are `suspend` (SCHEMA-004); the tests call them
+                // from `runBlocking`. Same version :app pins.
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
             }
         }
     }
