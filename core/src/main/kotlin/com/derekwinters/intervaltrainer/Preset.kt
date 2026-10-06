@@ -21,3 +21,26 @@ data class Preset(
  * with.
  */
 fun Preset.isSavable(): Boolean = intervals.isNotEmpty()
+
+/**
+ * `docs/spec/screens.md` `SCREEN-019b` (#163): the name a duplicate of a preset called [name] gets
+ * — "<name> (copy)", or, if that is in [takenNames], the first of "<name> (copy 2)",
+ * "<name> (copy 3)", … that is not. A gap in the numbering is filled before counting past it.
+ */
+fun copyName(name: String, takenNames: Collection<String>): String {
+    val taken = takenNames.toSet()
+    val plain = "$name (copy)"
+    if (plain !in taken) return plain
+    return generateSequence(2) { it + 1 }
+        .map { "$name (copy $it)" }
+        .first { it !in taken }
+}
+
+/**
+ * `SCREEN-019b` (#163): a duplicate of this preset as it stands — the editor calls it on the preset
+ * as currently edited, so unsaved changes come with it — under [newId], named by [copyName] against
+ * [takenNames]. The intervals are values, so the copy shares nothing with this preset once saved
+ * (`docs/spec/schema.md` `SCHEMA-017`).
+ */
+fun Preset.duplicate(newId: String, takenNames: Collection<String>): Preset =
+    Preset(id = newId, name = copyName(name, takenNames), intervals = intervals)

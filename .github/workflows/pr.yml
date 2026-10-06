@@ -104,6 +104,18 @@ jobs:
       #
       # Adds no permission: BUILD-042's `contents: read` is all an artifact upload needs. The SHA
       # is the one release-candidate.yml already pins for this action (BUILD-043).
+      - name: TEMPORARY print exported schema 2
+        if: always()
+        run: |
+          f=database/schemas/com.derekwinters.intervaltrainer.database.IntervalTrainerDatabase/2.json
+          ls -la "$(dirname "$f")" || true
+          sha256sum "$f" || true
+          wc -c "$f" || true
+          echo "=====BEGIN-SCHEMA-2-JSON====="
+          cat "$f" || true
+          echo
+          echo "=====END-SCHEMA-2-JSON====="
+
       - name: Upload the exported Room schemas
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

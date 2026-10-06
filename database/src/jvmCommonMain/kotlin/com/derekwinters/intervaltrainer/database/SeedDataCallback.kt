@@ -27,8 +27,8 @@ import java.util.UUID
 public object SeedDataCallback : RoomDatabase.Callback() {
 
     override fun onCreate(connection: SQLiteConnection) {
-        insertPreset(connection, name = "Short Example", intervals = shortExampleIntervals())
-        insertPreset(connection, name = "Long Example", intervals = longExampleIntervals())
+        insertPreset(connection, name = "Short Example", position = 0, intervals = shortExampleIntervals())
+        insertPreset(connection, name = "Long Example", position = 1, intervals = longExampleIntervals())
     }
 
     /**
@@ -59,7 +59,8 @@ public object SeedDataCallback : RoomDatabase.Callback() {
     }
 
     /**
-     * Inserts one preset row (SCHEMA-010) and its ordered interval rows (SCHEMA-020, SCHEMA-025)
+     * Inserts one preset row (SCHEMA-010) at its list [position] (SCHEMA-012, SCHEMA-030) and its
+     * ordered interval rows (SCHEMA-020, SCHEMA-025)
      * with raw, bound SQL — `onCreate` runs before the [IntervalTrainerDatabase] instance itself
      * exists, so [PresetDao] is not available yet and there is nothing to inject it from
      * (Room's own documented shape for this callback, on the [SQLiteConnection] it hands in).
@@ -70,12 +71,14 @@ public object SeedDataCallback : RoomDatabase.Callback() {
     private fun insertPreset(
         connection: SQLiteConnection,
         name: String,
+        position: Int,
         intervals: List<Pair<IntervalKind, Int>>,
     ) {
         val presetId = UUID.randomUUID().toString()
-        connection.prepare("INSERT INTO presets (id, name) VALUES (?, ?)").use { statement ->
+        connection.prepare("INSERT INTO presets (id, name, position) VALUES (?, ?, ?)").use { statement ->
             statement.bindText(1, presetId)
             statement.bindText(2, name)
+            statement.bindLong(3, position.toLong())
             statement.step()
         }
         intervals.forEachIndexed { position, (kind, durationSeconds) ->

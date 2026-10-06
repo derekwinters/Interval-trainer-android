@@ -294,6 +294,13 @@ private fun IntervalTrainerNavHost(
                     context.startWorkoutService(preset.id)
                     navController.navigate(ROUTE_RUNNING)
                 },
+                onReorder = { orderedIds ->
+                    // SCREEN-009, SCHEMA-015: persists the order home now shows, off the main
+                    // thread; HomeScreen already shows it, so nothing is read back here.
+                    coroutineScope.launch {
+                        withContext(Dispatchers.IO) { presetStore.reorder(orderedIds) }
+                    }
+                },
                 modifier = Modifier,
             )
         }
@@ -315,16 +322,18 @@ private fun IntervalTrainerNavHost(
                     },
                 )
             }
+            // SCREEN-019a: Duplicate is offered only for a preset that is already saved — never
+            // for SCREEN-008's new one, nor for the fresh-empty fallback below.
+            var presetIsSaved by remember(presetId) { mutableStateOf(false) }
             LaunchedEffect(presetId) {
                 if (presetId != NEW_PRESET_ID) {
                     // SCREEN-007: reads the real preset off the main thread (SCHEMA-004). If it
                     // has since been deleted from under this navigation (not possible in v1, with
                     // no delete-preset control anywhere, but not ruled out by the route itself),
                     // the fallback is the same fresh-empty-preset shape rather than a crash.
-                    preset = withContext(Dispatchers.IO) {
-                        presetStore.preset(presetId)
-                            ?: Preset(id = presetId, name = "", intervals = emptyList())
-                    }
+                    val saved = withContext(Dispatchers.IO) { presetStore.preset(presetId) }
+                    presetIsSaved = saved != null
+                    preset = saved ?: Preset(id = presetId, name = "", intervals = emptyList())
                 }
             }
             preset?.let { loadedPreset ->
@@ -341,6 +350,29 @@ private fun IntervalTrainerNavHost(
                         }
                     },
                     modifier = Modifier,
+                    onDuplicate = if (presetIsSaved) {
+                        { edited ->
+                            // SCREEN-019b: saves a copy of the preset as edited, directly after
+                            // the original (SCHEMA-017), named against every saved preset's name
+                            // (copyName), then opens the copy in place of the original — whose
+                            // unsaved edits went into the copy, and which is never saved here.
+                            coroutineScope.launch {
+                                val copy = withContext(Dispatchers.IO) {
+                                    val copy = edited.duplicate(
+                                        newId = UUID.randomUUID().toString(),
+                                        takenNames = presetStore.presets().map { it.name },
+                                    )
+                                    presetStore.saveAfter(copy, afterId = presetId)
+                                    copy
+                                }
+                                navController.navigate(editorRoute(copy.id)) {
+                                    popUpTo(ROUTE_EDITOR) { inclusive = true }
+                                }
+                            }
+                        }
+                    } else {
+                        null
+                    },
                 )
             }
         }
