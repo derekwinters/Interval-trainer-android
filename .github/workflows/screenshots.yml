@@ -20,10 +20,6 @@ on:
       - 'gradle/**'
       - '.github/workflows/screenshots.yml'
   workflow_dispatch:
-  # TEMPORARY, for #161's own pull request only: lets the capture run on the branch that adds it.
-  # Removed before merge; test_screenshots.py fails while it is here.
-  pull_request:
-    branches: [main]
 
 # BUILD-089: read-only by default; only `propose` writes.
 permissions:
@@ -139,27 +135,3 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.SCREENSHOTS_PR_TOKEN || github.token }}
         run: bash .github/scripts/propose_screenshots.sh "$RUNNER_TEMP/screenshots"
-
-  # TEMPORARY, for #161's own pull request only, removed before merge: commits the captured PNGs
-  # to that pull request's branch so the README has images to show and the reviewer can see them.
-  temp-commit-to-pr-branch:
-    needs: capture
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          ref: ${{ github.head_ref }}
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        with:
-          name: screenshots
-          path: docs/screenshots
-      - run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- docs/screenshots
-          if git diff --cached --quiet; then echo "unchanged"; exit 0; fi
-          git commit -m "docs: add the captured screenshots"
-          git push origin "HEAD:refs/heads/${{ github.head_ref }}"
