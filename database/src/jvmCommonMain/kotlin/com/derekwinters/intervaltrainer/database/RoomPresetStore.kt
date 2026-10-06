@@ -12,16 +12,19 @@ import com.derekwinters.intervaltrainer.PresetStore
  * A preset's intervals are always read and written together with it, ordered by
  * [IntervalEntity.position] on the way out and re-assigned from [Preset.intervals]' own list
  * order on the way in (SCHEMA-025) — nothing about that ordering is `:core`'s concern.
+ *
+ * Every operation is `suspend`, like the [PresetDao] calls it makes (SCHEMA-004); none of them is
+ * bridged with `runBlocking`.
  */
 class RoomPresetStore(private val dao: PresetDao) : PresetStore {
 
-    override fun presets(): List<Preset> =
+    override suspend fun presets(): List<Preset> =
         dao.getPresets().map { it.toPreset(dao.getIntervals(it.id)) }
 
-    override fun preset(id: String): Preset? =
+    override suspend fun preset(id: String): Preset? =
         dao.getPreset(id)?.let { it.toPreset(dao.getIntervals(id)) }
 
-    override fun save(preset: Preset) {
+    override suspend fun save(preset: Preset) {
         val intervals = preset.intervals.mapIndexed { index, interval ->
             IntervalEntity(
                 presetId = preset.id,
@@ -33,7 +36,7 @@ class RoomPresetStore(private val dao: PresetDao) : PresetStore {
         dao.savePresetWithIntervals(PresetEntity(id = preset.id, name = preset.name), intervals)
     }
 
-    override fun delete(id: String) {
+    override suspend fun delete(id: String) {
         dao.deletePreset(id)
     }
 }
