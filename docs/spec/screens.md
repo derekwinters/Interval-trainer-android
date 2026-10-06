@@ -204,10 +204,9 @@ duration times one recovery duration times a round count (`TIMER-001`).
 - **SCREEN-019a** A **Duplicate** button (`SecondaryButton`, `DS-002`) sits at the bottom of the
   editor, below the interval list and its footer (`SCREEN-018`). It is shown only for a preset that
   is already saved — opened from home's Edit (`SCREEN-007`) — and never for a new one opened from the
-  floating action button (`SCREEN-008`). It shares that bottom area with the preset editor's Delete
-  button when that lands
-  ([#164](https://github.com/derekwinters/Interval-trainer-android/issues/164)), side by side; the
-  header keeps exactly one trailing action, Save (`SCREEN-010`). Like Save, it is disabled while the
+  floating action button (`SCREEN-008`). It shares that bottom area with the editor's **Delete
+  preset** button (`SCREEN-019c`), side by side, Duplicate on the left; the header keeps exactly one
+  trailing action, Save (`SCREEN-010`). Like Save, it is disabled while the
   schedule on screen holds no intervals (`SCREEN-019`), because what it does is save a preset, and a
   preset with no intervals cannot be saved.
 - **SCREEN-019b** Tapping **Duplicate** saves a copy of the preset *as currently edited* — its name
@@ -224,6 +223,40 @@ duration times one recovery duration times a round count (`TIMER-001`).
   button, its availability and the navigation are screen facts; the name is `:core`'s `copyName()`,
   covered by `PresetTest.kt`, and the placement and deep copy are `PresetDaoTest.kt`'s and
   `RoomPresetStoreTest.kt`'s.)*
+- **SCREEN-019c** A **Delete preset** button (`DestructiveButton`, red, `docs/spec/design-system.md`
+  `DS-003`) sits at the bottom of the editor, below the interval list and its footer
+  (`SCREEN-018`), beside Duplicate (`SCREEN-019a`) on its right. It is shown only for a preset that
+  is already saved — opened from home's Edit (`SCREEN-007`) — and never for a new one opened from
+  the floating action button (`SCREEN-008`), exactly as Duplicate is. It is not disabled by an
+  empty schedule: deleting saves nothing. The header is unchanged: no overflow menu, and Save stays
+  its one trailing action (`SCREEN-010`). *(auto: `PresetEditorDeleteTest.kt`, that the button is
+  shown for a saved preset and absent for a new one; manual: its red rendering and its placement.)*
+- **SCREEN-019d** Tapping **Delete preset** opens an `AlertDialog` (`DS-010`) asking for
+  confirmation, because a deletion cannot be undone. Its strings are exactly these:
+  - title: `Delete "{name}"?`, where `{name}` is the preset's **saved** name — for example
+    `Delete "Tabata"?`;
+  - body: `This can't be undone.`;
+  - dismiss, on the left: `Cancel`;
+  - affirmative, on the right, in destructive red text (`DS-011`): `Delete`.
+
+  **Cancel** (or dismissing the dialog) closes it and leaves the preset and the editor exactly as
+  they were, unsaved edits included. **Delete** removes the preset and its intervals
+  (`PresetStore.delete`, `SCHEMA-014`, `SCHEMA-021`) and returns to home, the same way Save does
+  (`SCREEN-019`), where the preset's row is gone. Unsaved edits are discarded with it. A running or
+  paused workout started from the preset is unaffected and keeps its own schedule (`docs/spec/service.md`
+  `SVC-060`, `SVC-061`, `docs/spec/timer.md` `TIMER-003`): there is no guard and no extra
+  confirmation for that case, and while a workout is running the editor cannot be reached anyway
+  (`SCREEN-040`)
+  ([#164](https://github.com/derekwinters/Interval-trainer-android/issues/164)). *(auto:
+  `PresetEditorDeleteTest.kt`, the dialog's strings, that Cancel deletes nothing and keeps the
+  editor, and that Delete asks for the deletion; `RoomPresetStoreTest.kt`, that deleting removes
+  the preset and its intervals and leaves every other preset unchanged. Manual: the red text and
+  left/right order, the return to home, and a paused workout surviving the deletion.)*
+
+> **Invariant — the delete dialog names the preset as saved, never as edited.** Its title reads the
+> name the editor opened with, not the name field's current text, because the saved preset is what
+> Delete removes. A title built from the name field would look right until someone renamed a preset
+> and then deleted it without saving, and the dialog would name a preset that does not exist.
 
 > **Invariant — Save's enabled state follows the schedule on screen, never the preset the editor
 > opened with.** It is recomputed on every edit, so deleting the last row disables Save and adding
@@ -234,7 +267,8 @@ duration times one recovery duration times a round count (`TIMER-001`).
 > write is the new row. A Duplicate that saved the original first, or copied the stored version,
 > would each look correct until someone duplicated a preset they were in the middle of changing.
 
-*(All of §2 is manual: screen structure, controls and navigation. SCREEN-018's own content — the
+*(All of §2 is manual — screen structure, controls and navigation — except what
+`SCREEN-019c` and `SCREEN-019d` mark auto. SCREEN-018's own content — the
 total it shows — is `:core` arithmetic, covered by `PresetSummaryTest.kt`. SCREEN-019's rule for
 when Save is enabled is `:core`'s `isSavable`, covered by `PresetTest.kt`. SCREEN-014a's cycle is
 also `:core`, covered by `IntervalKindTest.kt`; and SCREEN-017's own splice onto the list is
@@ -761,7 +795,7 @@ via `CrashReportPopupTest.kt`.)*
 | Section | IDs | Tests |
 |---|---|---|
 | Home | SCREEN-001–009 | `PresetSummaryTest.kt` (SCREEN-003's round count and total, SCREEN-004's colour-strip segments); `PresetDaoTest.kt` (the order SCREEN-009 persists, `SCHEMA-015`); *(manual)* SCREEN-001–009 |
-| The preset editor | SCREEN-010–019, SCREEN-014a, SCREEN-019a–019b | `PresetSummaryTest.kt` (SCREEN-018's total); `IntervalKindTest.kt` (SCREEN-014a's cycle); `ScheduleGeneratorTest.kt` (SCREEN-017's splice); `KindLabelTest.kt` (the kind-to-colour mapping SCREEN-012's rows and SCREEN-017's duration labels share); `PresetTest.kt` (SCREEN-019's save rule, SCREEN-019b's copy name); `PresetDaoTest.kt`, `RoomPresetStoreTest.kt` (SCREEN-019b's placement and deep copy, `SCHEMA-017`); *(manual)* SCREEN-010–019, SCREEN-014a, SCREEN-019a–019b |
+| The preset editor | SCREEN-010–019, SCREEN-014a, SCREEN-019a–019d | `PresetEditorDeleteTest.kt` in `:app`, under Robolectric (SCREEN-019c's availability, SCREEN-019d's dialog strings, Cancel and Delete); `RoomPresetStoreTest.kt` (SCREEN-019d's deletion leaving every other preset unchanged); `PresetSummaryTest.kt` (SCREEN-018's total); `IntervalKindTest.kt` (SCREEN-014a's cycle); `ScheduleGeneratorTest.kt` (SCREEN-017's splice); `KindLabelTest.kt` (the kind-to-colour mapping SCREEN-012's rows and SCREEN-017's duration labels share); `PresetTest.kt` (SCREEN-019's save rule, SCREEN-019b's copy name); `PresetDaoTest.kt`, `RoomPresetStoreTest.kt` (SCREEN-019b's placement and deep copy, `SCHEMA-017`); *(manual)* SCREEN-010–019, SCREEN-014a, SCREEN-019a–019b, and SCREEN-019c–019d's red rendering, placement, return to home and paused-workout case |
 | The running screen — content | SCREEN-020, SCREEN-021, SCREEN-023–028 | `RunningScreenContentTest.kt` (SCREEN-020's ring content, SCREEN-021's total-left value again, SCREEN-024's distinct get-ready shape); `RunningScreenScheduleTest.kt` (SCREEN-023's past and upcoming rows with their alphas and scales, SCREEN-024's current interval during a lead-in, SCREEN-025's segments and their alphas, SCREEN-026's gap); *(manual)* SCREEN-020, SCREEN-021, SCREEN-023–028 |
 | The running screen — controls | SCREEN-030–033 | *(manual)* |
 | The running screen — accessibility | SCREEN-034–039 | `RunningScreenSemanticsTest.kt` in `:app`, under Robolectric (SCREEN-034's ring description, SCREEN-035's polite live region and its silence on a tick, SCREEN-036's row labels, "Total left" as one stop and the hidden strip); *(manual)* SCREEN-035's announcement as TalkBack speaks it, SCREEN-037–039 |
@@ -772,16 +806,21 @@ via `CrashReportPopupTest.kt`.)*
 | Storage for settings and first-run state | SCREEN-080 | *(manual)* |
 | Crash report popup | SCREEN-090–095 | `LaunchPlanTest.kt` (SCREEN-090's show-when-a-report-exists, independent of first run); `CrashReportPopupTest.kt` (SCREEN-092–094's copy and delete outcomes); *(manual)* SCREEN-090–095 |
 
-**66 requirements, 3 `auto` and 63 `manual`.**
+**68 requirements, 5 `auto` and 63 `manual`.**
 
-**Every requirement on this page but `SCREEN-034`–`036` is `manual`, and that is by design, not by
-omission.** No screen's layout, control set, content or navigation is assertable on a JVM runner
+**Every requirement on this page but `SCREEN-019c`, `SCREEN-019d` and `SCREEN-034`–`036` is
+`manual`, and that is by design, not by omission.** No screen's layout, control set, content or navigation is assertable on a JVM runner
 without a simulated Android runtime — that is
 [`docs/spec/design-system.md`](design-system.md)'s territory (`DS-091`, `DS-093`), and this page
 does not duplicate it. The three exceptions are the running screen's TalkBack labels
 ([#162](https://github.com/derekwinters/Interval-trainer-android/issues/162)): what TalkBack reads
 exists only in a semantics tree, so `RunningScreenSemanticsTest.kt` asserts it there, under the
 Robolectric dependency `docs/spec/build.md` `BUILD-023` allows in `:app` for exactly these tests.
+The preset editor's Delete preset button and its confirmation dialog (`SCREEN-019c`, `SCREEN-019d`,
+[#164](https://github.com/derekwinters/Interval-trainer-android/issues/164)) are the other two,
+for the same reason and under the same allowance: whether the button is offered, what the dialog
+says and what each of its buttons does exist only in a composition, so `PresetEditorDeleteTest.kt`
+asserts them there. Their colour, placement and the navigation back to home stay manual.
 How the screen looks at font scale 2.0 (`SCREEN-037`) and what TalkBack actually speaks stay a
 person's check on an emulator. Several requirements here — a preset's round count and total, and its
 colour-strip proportions (`SCREEN-003`, `SCREEN-004`, `SCREEN-018`), a row's kind-cycling

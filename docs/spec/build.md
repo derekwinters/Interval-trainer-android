@@ -206,8 +206,10 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
 - **BUILD-023** Robolectric is a test dependency of `:designsystem` and of `:app` only, and in each
   it is scoped to named tests: in `:designsystem`, its Compose semantics-tree tests
   ([`docs/spec/design-system.md`](design-system.md) `DS-091`, `DS-093`); in `:app`, the
-  launcher-icon test ([`docs/spec/brand.md`](brand.md) `BRAND-052`) and the running screen's
-  accessibility tests ([#162](https://github.com/derekwinters/Interval-trainer-android/issues/162)),
+  launcher-icon test ([`docs/spec/brand.md`](brand.md) `BRAND-052`), the running screen's
+  accessibility tests ([#162](https://github.com/derekwinters/Interval-trainer-android/issues/162))
+  and the preset editor's delete tests ([`docs/spec/screens.md`](screens.md) `SCREEN-019c`,
+  `SCREEN-019d`, [#164](https://github.com/derekwinters/Interval-trainer-android/issues/164)),
   together with the Compose UI test dependencies those need. It is not adopted for `:core` or for
   `:database`, both of which are tested with no simulated Android runtime at all
   ([ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md),
