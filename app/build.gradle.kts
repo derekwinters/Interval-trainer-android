@@ -42,6 +42,11 @@ android {
         targetSdk = 35
         versionCode = versionCodeProperty
         versionName = versionNameProperty
+
+        // BUILD-080: runs the androidTest source set, which holds only ScreenshotTourTest.kt and
+        // runs only on the emulator in screenshots.yml. `./gradlew test` and `assembleDebug` never
+        // touch it.
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     // Java and Kotlin target the same bytecode version, so the two cannot disagree about the
@@ -213,6 +218,17 @@ dependencies {
     // PresetEditorDeleteTest.kt), needs nothing more than these two and registers its host
     // activity the same way.
     testImplementation("androidx.compose.ui:ui-test-junit4")
+
+    // BUILD-080 (docs/spec/build.md §11, #161): the instrumented screenshot test and nothing else.
+    // These are the dependency invariant's named exception for that feature. `ui-test-junit4` is
+    // versioned by the Compose BOM above, which `androidTestImplementation` inherits from
+    // `implementation`; the AndroidX Test artifacts are not BOM-managed and carry their own
+    // literal versions. `createAndroidComposeRule<MainActivity>` launches the app's own activity,
+    // so `ui-test-manifest` is not needed.
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:rules:1.6.1")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 }
 
 // Diagnosability (#78, #107), the same reasoning `:designsystem`'s own build file already carries:

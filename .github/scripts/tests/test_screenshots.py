@@ -46,6 +46,11 @@ def _read(path):
         return handle.read()
 
 
+def _read_bytes(path):
+    with open(path, "rb") as handle:
+        return handle.read()
+
+
 # ---------------------------------------------------------------------------------------------
 # A reference PNG writer, independent of the module under test, that can apply any row filter.
 
@@ -230,7 +235,7 @@ class MainTests(unittest.TestCase):
                     handle.write("not an image")
             code = shots.main([src, dst], min_side=10)
             written = sorted(os.listdir(dst))
-            colour_types = {n: _ihdr(open(os.path.join(dst, n), "rb").read())[3] for n in written}
+            colour_types = {n: _ihdr(_read_bytes(os.path.join(dst, n)))[3] for n in written}
         return code, written, colour_types
 
     def test_six_valid_captures_are_written_as_rgb(self):

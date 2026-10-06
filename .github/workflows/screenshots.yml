@@ -1,0 +1,165 @@
+name: screenshots
+
+# Screenshots of the real app, for the docs and the Play Store listing (docs/spec/build.md §11,
+# #161). `capture` boots an emulator, runs ScreenshotTourTest against the debug APK and re-encodes
+# the six PNGs. `propose` compares them with docs/screenshots/ and, only if any differ, opens or
+# updates one `docs: update screenshots` pull request. Nothing here pushes to main or touches any
+# other pull request.
+
+on:
+  # BUILD-083: only pushes that can change what is on screen. Docs-only, test-only and
+  # other-workflow changes do not start an emulator.
+  push:
+    branches: [main]
+    paths:
+      - 'app/src/main/**'
+      - 'designsystem/src/main/**'
+      - 'core/src/main/**'
+      - 'database/src/**/main/**'
+      - '**/*.gradle.kts'
+      - 'gradle/**'
+      - '.github/workflows/screenshots.yml'
+  workflow_dispatch:
+  # TEMPORARY, for #161's own pull request only: lets the capture run on the branch that adds it.
+  # Removed before merge; test_screenshots.py fails while it is here.
+  pull_request:
+    branches: [main]
+
+# BUILD-089: read-only by default; only `propose` writes.
+permissions:
+  contents: read
+
+# A newer push supersedes a capture still running for an older one.
+concurrency:
+  group: screenshots
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    name: capture on an emulator
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      # BUILD-084: provisioned the same way pr.yml does (BUILD-044).
+      - name: Set up the JDK
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+
+      # BUILD-080: the only place the instrumented test is compiled.
+      - name: Build the debug APK and the instrumented test APK
+        run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace
+
+      # BUILD-084: hardware acceleration for the emulator, with the runner's documented udev rule.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # BUILD-084: API 34, google_apis, x86_64, the `pixel` profile (1080 × 1920, 16:9). The
+      # runner runs each `script:` line in its own shell, so the steps live in one script file.
+      - name: Capture the screenshots on an emulator
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          script: bash .github/scripts/capture_screenshots.sh build/screenshots/raw
+
+      # BUILD-086: 8-bit RGB with no alpha, canonical bytes, and the Play Store size limits.
+      - name: Re-encode as RGB and check the Play Store limits
+        run: python3 .github/scripts/screenshot_png.py build/screenshots/raw build/screenshots/png
+
+      # BUILD-090: two runs of the same commit can be compared from their logs alone.
+      - name: Print each screenshot's SHA-256
+        run: |
+          cd build/screenshots/png
+          sha256sum *.png
+          wc -c *.png
+
+      - name: Upload the screenshots
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: screenshots
+          path: build/screenshots/png/
+          if-no-files-found: error
+          retention-days: 14
+
+  propose:
+    name: propose changed screenshots
+    needs: capture
+    # BUILD-089: only main's screenshots are ever proposed.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # BUILD-088: SCREENSHOTS_PR_TOKEN, when it exists, so the pull request this opens starts its
+      # checks; GITHUB_TOKEN otherwise, which proposes the screenshots but starts no checks.
+      - name: Say which token is in use
+        env:
+          HAS_PR_TOKEN: ${{ secrets.SCREENSHOTS_PR_TOKEN != '' }}
+        run: |
+          if [ "$HAS_PR_TOKEN" != "true" ]; then
+            echo "::warning::SCREENSHOTS_PR_TOKEN is not set, so this uses GITHUB_TOKEN. A pull request it opens or updates will not start its checks (pr, pr-title-lint, closing-keyword)."
+          fi
+
+      - name: Check out main
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          token: ${{ secrets.SCREENSHOTS_PR_TOKEN || github.token }}
+
+      - name: Download the screenshots
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: screenshots
+          path: ${{ runner.temp }}/screenshots
+
+      # BUILD-087: nothing changed means nothing opened; otherwise one pull request, updated in
+      # place on later runs.
+      - name: Open or update the screenshots pull request
+        env:
+          GH_TOKEN: ${{ secrets.SCREENSHOTS_PR_TOKEN || github.token }}
+        run: bash .github/scripts/propose_screenshots.sh "$RUNNER_TEMP/screenshots"
+
+  # TEMPORARY, for #161's own pull request only, removed before merge: commits the captured PNGs
+  # to that pull request's branch so the README has images to show and the reviewer can see them.
+  temp-commit-to-pr-branch:
+    needs: capture
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: screenshots
+          path: docs/screenshots
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- docs/screenshots
+          if git diff --cached --quiet; then echo "unchanged"; exit 0; fi
+          git commit -m "docs: add the captured screenshots"
+          git push origin "HEAD:refs/heads/${{ github.head_ref }}"
