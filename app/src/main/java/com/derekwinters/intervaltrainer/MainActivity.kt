@@ -267,8 +267,8 @@ private fun IntervalTrainerNavHost(
         }
         composable(ROUTE_HOME) {
             var presets by remember { mutableStateOf<List<Preset>>(emptyList()) }
-            // SCHEMA-004: presetStore.presets() is a blocking Room call (PresetDao.kt), read off
-            // the main thread here rather than inside the composition itself.
+            // SCHEMA-004: presetStore.presets() is a Room read (PresetDao.kt), dispatched off
+            // the main thread here rather than run inside the composition itself.
             LaunchedEffect(Unit) {
                 presets = withContext(Dispatchers.IO) { presetStore.presets() }
             }
