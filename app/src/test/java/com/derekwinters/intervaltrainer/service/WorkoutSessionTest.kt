@@ -211,6 +211,12 @@ private class InMemoryPresetStore(initial: List<Preset>) : PresetStore {
     override suspend fun delete(id: String) {
         presets.remove(id)
     }
+    override suspend fun reorder(orderedIds: List<String>) {
+        throw UnsupportedOperationException("not used by WorkoutSession")
+    }
+    override suspend fun saveAfter(preset: Preset, afterId: String) {
+        throw UnsupportedOperationException("not used by WorkoutSession")
+    }
 }
 
 /**
@@ -250,6 +256,14 @@ private class CallerThreadRefusingPresetStore(initial: List<Preset>) : PresetSto
     }
 
     override suspend fun delete(id: String) {
+        throw UnsupportedOperationException("not used by WorkoutSession")
+    }
+
+    override suspend fun reorder(orderedIds: List<String>) {
+        throw UnsupportedOperationException("not used by WorkoutSession")
+    }
+
+    override suspend fun saveAfter(preset: Preset, afterId: String) {
         throw UnsupportedOperationException("not used by WorkoutSession")
     }
 }

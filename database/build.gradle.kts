@@ -76,6 +76,10 @@ kotlin {
                 // The DAO and the preset store are `suspend` (SCHEMA-004); the tests call them
                 // from `runBlocking`. Same version :app pins.
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+                // SCHEMA-041, SCHEMA-045 (#163): the upgrade-path test's MigrationTestHelper, at
+                // the same literal as room-runtime/room-compiler. Its jvm() artifact is a plain
+                // JUnit 4 rule — no Robolectric, no instrumentation (BUILD-023).
+                implementation("androidx.room:room-testing:2.7.0")
             }
         }
     }
