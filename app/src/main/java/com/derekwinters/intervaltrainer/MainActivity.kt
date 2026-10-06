@@ -5,8 +5,10 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -100,7 +102,15 @@ class MainActivity : ComponentActivity() {
         // No new dependency: `enableEdgeToEdge` ships in androidx.activity:activity, the artifact
         // androidx.activity:activity-compose already puts on this module's compile classpath —
         // the same one ComponentActivity above comes from.
-        enableEdgeToEdge()
+        // DS-023 and that page's eighth invariant: both bars draw light icons over a transparent
+        // bar whatever the system's light/dark setting, because the app's palette (DS-050) is
+        // always dark. The no-argument default, SystemBarStyle.auto, picks the icons from the
+        // system's night mode instead, and drew dark icons on the dark background in system light
+        // mode (#160).
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+        )
         super.onCreate(savedInstanceState)
         // SCHEMA-004: opened once here, the same way AppDatabase.open documents, so this activity
         // and WorkoutService never read two different database files.

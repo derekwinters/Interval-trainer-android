@@ -101,6 +101,16 @@ none of the six v1 screens exists yet. That remains
 > draws as selected; the round trip shown-then-dismissed is a no-op by construction, not because the
 > two readings happen to agree.
 
+> **Invariant — the system bars' icons are light whatever the system's light/dark setting, because
+> the app's palette has no light variant.** The surface behind both bars is always the near-black
+> `bg` (`DS-050`), so the clock, signal and battery icons and the navigation buttons are always
+> drawn light. An appearance chosen from the system's night-mode setting — `enableEdgeToEdge()`'s
+> default `SystemBarStyle.auto` — is correct only while the phone happens to be in dark mode, and
+> draws dark icons on a dark surface the moment it is not
+> ([#160](https://github.com/derekwinters/Interval-trainer-android/issues/160)). The bar appearance
+> follows the app's palette, not the system's theme; a light system theme is not a reason to change
+> it, and only a light palette, which this page does not have, would be.
+
 ---
 
 ## 1. Buttons and actions
@@ -248,11 +258,28 @@ none of the six v1 screens exists yet. That remains
   [#131](https://github.com/derekwinters/Interval-trainer-android/issues/131) — and not of this
   requirement. Both halves exist now, and they meet: this one opens the window to the bars, `DS-080`
   keeps the content out from under them. A screen's `ScreenHeader` sitting under the status bar
-  would today be a failure of `DS-080`, not of this requirement. *(manual: `setDecorFitsSystemWindows` has no public getter to
+  would today be a failure of `DS-080`, not of this requirement.
+  The same setup states the bars' appearance rather than inheriting it: both the status bar and the
+  navigation bar draw **light** icons over a **transparent** bar, in system light mode and system
+  dark mode alike, so the app's own `bg` (`DS-050`) shows behind both and the icons stay legible on
+  it — this page's eighth invariant. With `enableEdgeToEdge`, that is `SystemBarStyle.dark` with a
+  transparent scrim passed for both bars, never the default `SystemBarStyle.auto`, which picks the
+  icons from the system's night-mode setting
+  ([#160](https://github.com/derekwinters/Interval-trainer-android/issues/160)); with
+  `setDecorFitsSystemWindows`, it is the equivalent `WindowInsetsControllerCompat` appearance
+  (`isAppearanceLightStatusBars` and `isAppearanceLightNavigationBars` both `false`) and transparent
+  bar colours. Either implementation remains open; the appearance is the requirement.
+  *(manual: `setDecorFitsSystemWindows` has no public getter to
   assert against, and the further window properties `enableEdgeToEdge()` sets are that function's
   own — a test asserting those would pick one of the two implementations this requirement
-  deliberately leaves open. Checked by reading the call site, and on a device for the visible
-  result.)*
+  deliberately leaves open. The bar appearance is `manual` for the same reason and one more: it is
+  only observable on a window the activity has been created on, which needs a simulated Android
+  runtime, and [`docs/spec/build.md`](build.md) `BUILD-023` scopes Robolectric to `:designsystem`
+  alone; `SystemBarStyle`'s own fields are internal to androidx.activity, so a plain JVM test of
+  the style object would be asserting a library's internals rather than this requirement. Checked
+  by reading the call site, and on a device for the visible result: in system light mode and in
+  system dark mode, the status-bar icons — and, with 3-button navigation, the navigation buttons —
+  are light on every screen.)*
 
 ## 4. Timer typography
 
