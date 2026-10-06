@@ -38,9 +38,22 @@ One new invariant, specific to what this page adds:
 
 > **Invariant — an interval's position in its preset is explicit, stored data, and is never
 > inferred from anything else.** Interval order is authored, not incidental: the user dragged that
-> row there. It is stored in its own column and read back unchanged, unlike the *preset* list's own
-> order, which is insertion order and has no column at all — the two orderings are different things
+> row there. It is stored in its own column and read back unchanged. The *preset* list's own order
+> is a different thing, stored in a different column on a different table (`SCHEMA-012`)
 > ([ADR 0003, Amendment 2026-09-12](../adr/0003-room-with-the-schema-treated-as-an-api.md#amendment-2026-09-12)).
+
+Two more, added with preset-list reordering and duplication
+([#163](https://github.com/derekwinters/Interval-trainer-android/issues/163)):
+
+> **Invariant — the preset list's order is read from `presets.position`, never from `rowid`.** Since
+> schema version 2 the stored column is the order. Ordering on `rowid`, or on anything else that
+> happens to match insertion order, would still pass a test that only inserts and reads, and would
+> silently undo every reorder the user made.
+
+> **Invariant — reordering and duplicating move rows, they never rewrite them.** A reorder changes
+> `presets.position` and nothing else: no name, no interval row. A duplicate inserts a new `presets`
+> row and new `intervals` rows of its own; it shares no row with the preset it was copied from, so
+> editing or deleting either one never touches the other.
 
 ---
 
@@ -51,16 +64,20 @@ One new invariant, specific to what this page adds:
   [ADR 0003](../adr/0003-room-with-the-schema-treated-as-an-api.md). `:app` consumes the Android
   target. *(manual: a build-configuration fact.)*
 - **SCHEMA-002** `:database` holds one `@Database` class, `IntervalTrainerDatabase`, at schema
-  version `1`, declaring the `presets` and `intervals` entities below.
+  version `2`, declaring the `presets` and `intervals` entities below. Version `1` had no
+  `presets.position` column; `SCHEMA-045` is the migration between the two.
 - **SCHEMA-003** The exported schema JSON is committed at `database/schemas/`, Room's own
-  convention — `database/schemas/com.derekwinters.intervaltrainer.database.IntervalTrainerDatabase/1.json`
-  for this version. It ships in version control and never in the APK.
+  convention — `database/schemas/com.derekwinters.intervaltrainer.database.IntervalTrainerDatabase/2.json`
+  for this version, beside `1.json` for the version before it, which stays committed because the
+  upgrade-path test (`SCHEMA-041`) builds its starting database from it. It ships in version
+  control and never in the APK.
   *(manual: a file-location fact; visible in the diff and excluded from `assembleDebug`'s output.)*
 - **SCHEMA-004** `:core` defines the preset store as an interface and does not implement it;
   `:database` implements it, and `:core` depends on the interface only, never on `:database`
   itself, per [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md). A fake
-  implementation is what `:core`'s own tests substitute. The preset store's four operations —
-  `presets`, `preset`, `save` and `delete` — are `suspend` functions, and so is every function of
+  implementation is what `:core`'s own tests substitute. The preset store's operations —
+  `presets`, `preset`, `save`, `delete`, and, since #163, `reorder` and `saveAfter` — are `suspend`
+  functions, and so is every function of
   `:database`'s DAO beneath them: Room's Kotlin Multiplatform compiler accepts only `suspend` DAO
   functions in a source set targeting a non-Android platform, and `:database`'s `jvm()` target
   (`SCHEMA-001`) is one. Being `suspend` does not move a call off the caller's thread; a caller
@@ -73,19 +90,23 @@ One new invariant, specific to what this page adds:
 
 ## 2. The `presets` table
 
-- **SCHEMA-010** `presets` has exactly two columns: `id` (`TEXT`, primary key) and `name`
-  (`TEXT`, not null). Nothing else is stored about a preset — no created-at timestamp, no seeded
-  marker, no position — because nothing else has been decided to be worth the migration it would
-  later cost. *(manual: an absence from the stored model, visible in the exported schema.)*
+- **SCHEMA-010** `presets` has exactly three columns: `id` (`TEXT`, primary key), `name`
+  (`TEXT`, not null), and `position` (`INTEGER`, not null, default `0`), the preset's place in the
+  home screen's list (`SCHEMA-012`). Nothing else is stored about a preset — no created-at
+  timestamp, no seeded marker — because nothing else has been decided to be worth the migration it
+  would later cost. The `0` default exists only because SQLite cannot add a not-null column to a
+  table that already has rows without one (`SCHEMA-045`); it is declared on the entity as well, so
+  a database created fresh at version 2 and one migrated from version 1 have the same column.
+  Nothing relies on it: every write states `position` explicitly (`SCHEMA-015`–`017`).
+  *(manual: the shape of the stored model, visible in the exported schema.)*
 - **SCHEMA-011** `id` is a generated UUID string, assigned at creation, never an auto-incrementing
   integer, per [ADR 0003](../adr/0003-room-with-the-schema-treated-as-an-api.md). It is what a
   workout's copied schedule and a preset row have in common with nothing else: neither refers back
   to the other by anything but this value, and the workout does not depend on it continuing to
   resolve (`TIMER-003`).
-- **SCHEMA-012** The preset list is read in **insertion order**. No `position` column exists for
-  it: the query orders on the table's own row-insertion order (its implicit `rowid`, which a `TEXT`
-  primary key does not disable), never on a stored column. Reordering the preset list is out of
-  scope for v1; when it arrives, it arrives as an additive migration.
+- **SCHEMA-012** The preset list is read in **stored order**: ascending `presets.position`. Until
+  #163 it was read in insertion order, on the table's implicit `rowid`, with no column for it;
+  `SCHEMA-045` turned that order into the stored one, so nobody's list changed order on upgrade.
   *(auto: `PresetDaoTest.kt`.)*
 - **SCHEMA-013** A preset row carries no marker distinguishing a seeded preset from a user's own.
   The user may rename or delete either seeded preset exactly like one they authored, and no
@@ -94,6 +115,22 @@ One new invariant, specific to what this page adds:
 - **SCHEMA-014** Deleting a preset cascades to every interval row in `intervals` that references it
   (`SCHEMA-021`). Nothing else in the schema references a preset, so nothing else needs a cascade
   rule. *(auto: `PresetDaoTest.kt`.)*
+- **SCHEMA-015** Reordering the list (`docs/spec/screens.md` `SCREEN-009`) writes the new order as
+  `position` values `0, 1, 2, …` over the ids it is given, in that order, in one transaction, and
+  touches no other column and no `intervals` row. The list read afterwards (`SCHEMA-012`) is that
+  order, and stays that order across closing and reopening the database. The store operation is
+  `PresetStore.reorder(orderedIds)`, given every preset's id. *(auto: `PresetDaoTest.kt`.)*
+- **SCHEMA-016** Saving a preset that does not exist yet appends it to the end of the list: its
+  `position` is one more than the largest stored, or `0` in an empty table. Saving a preset that
+  already exists keeps the `position` it has — editing a preset never moves it.
+  *(auto: `PresetDaoTest.kt`.)*
+- **SCHEMA-017** `PresetStore.saveAfter(preset, afterId)` saves a new preset directly after the
+  preset `afterId`: every preset after `afterId` moves down one place, and the new one takes the
+  place they vacated, in one transaction. If `afterId` no longer exists, the new preset is appended
+  as `SCHEMA-016` says. This is what a duplicate (`docs/spec/screens.md` `SCREEN-019b`) is saved
+  with; the copy is a new `presets` row with its own id and new `intervals` rows of its own, so
+  editing the copy leaves the original unchanged, and deleting either leaves the other intact
+  (this page's third invariant). *(auto: `PresetDaoTest.kt`, `RoomPresetStoreTest.kt`.)*
 
 ## 3. The `intervals` table
 
@@ -138,7 +175,8 @@ high-intensity protocol charted and later rejected for this app
 [ADR 0003's amendment](../adr/0003-room-with-the-schema-treated-as-an-api.md#amendment-2026-09-12)).
 
 - **SCHEMA-030** Seeding runs once, in `RoomDatabase.Callback.onCreate()`, inserting both presets
-  and every one of their interval rows in a single transaction. It does not run on every app
+  and every one of their interval rows in a single transaction, "Short Example" at `position` `0`
+  and "Long Example" at `position` `1`. It does not run on every app
   launch and does not run again after a migration, only on a database created from nothing.
   *(auto: `PresetDaoTest.kt` reopens an already-seeded database file and asserts the preset count
   did not double — the closest a v1 schema with no migration yet can come to proving "not on a
@@ -180,11 +218,19 @@ Restated here as requirements, from [ADR 0003](../adr/0003-room-with-the-schema-
 - **SCHEMA-042** If the upgrade-path test in `SCHEMA-041` cannot be written for a proposed change,
   the change is not made in that shape. The test is the gate, not a review comment.
   *(manual: a policy statement; nothing automated enforces the refusal itself.)*
-- **SCHEMA-043** At v1 there is exactly one schema version and no migration to test, so
-  `SchemaMigrationTest.kt` ([#75](https://github.com/derekwinters/Interval-trainer-android/issues/75))
-  exists, in `:database`'s `jvmTest` source set, with nothing to assert yet — the harness invariant
-  above, honoured before it has a job, the same way `TimerStateTest.kt` and `CueSelectionTest.kt`
-  were named ahead of their own tests.
+- **SCHEMA-043** `SchemaMigrationTest.kt` ([#75](https://github.com/derekwinters/Interval-trainer-android/issues/75))
+  exists in `:database`'s `jvmTest` source set. It was built at v1 with nothing to assert, the
+  harness invariant above honoured before it had a job; since version 2 it holds the upgrade-path
+  test for `SCHEMA-045`, using `androidx.room:room-testing`'s `MigrationTestHelper` on the JVM.
+- **SCHEMA-045** `MIGRATION_1_2` takes version 1 to version 2: it adds `presets.position`
+  (`INTEGER NOT NULL DEFAULT 0`) and backfills it from version 1's insertion order — each row's
+  `position` is the number of rows with a smaller `rowid` — so the list reads in the same order after
+  the upgrade as before it, numbered `0` to `n − 1`. No `intervals` row and no `name` is touched.
+  The on-device builder registers it (`AppDatabase.open`). Adding a not-null column is a breaking
+  change under `SCHEMA-041`, so it ships with the upgrade-path test that rule asks for: a version 1
+  database built from the committed `1.json`, presets and intervals inserted through raw SQL,
+  migrated and validated against `2.json`, and every row asserted on afterwards — names, interval
+  rows and the backfilled order. *(auto: `SchemaMigrationTest.kt`.)*
 - **SCHEMA-044** A future `workouts` table, if history arrives in v2, is an **additive** change
   under this policy — a new table, not a change to `presets` or `intervals` — and needs nothing
   beyond `SCHEMA-040`.
@@ -196,12 +242,12 @@ Restated here as requirements, from [ADR 0003](../adr/0003-room-with-the-schema-
 | Section | IDs | Tests |
 |---|---|---|
 | The module and the schema files | SCHEMA-001–004 | *(manual)* |
-| The `presets` table | SCHEMA-010–014 | `PresetDaoTest.kt` (SCHEMA-012, 014); *(manual)* SCHEMA-010–011, 013 |
+| The `presets` table | SCHEMA-010–017 | `PresetDaoTest.kt` (SCHEMA-012, 014, 015, 016, 017); `RoomPresetStoreTest.kt` (SCHEMA-017's deep copy through the store); *(manual)* SCHEMA-010–011, 013 |
 | The `intervals` table | SCHEMA-020–027 | *(manual)*, all — schema shape and an absent constraint |
 | Seeding | SCHEMA-030–034 | `PresetDaoTest.kt` (SCHEMA-030's once-only guarantee, SCHEMA-031–034); *(manual)* SCHEMA-030's single-transaction insert |
-| The contract-test policy | SCHEMA-040–044 | `SchemaMigrationTest.kt` (SCHEMA-041, 043); *(manual)* SCHEMA-042, 044 |
+| The contract-test policy | SCHEMA-040–045 | `SchemaMigrationTest.kt` (SCHEMA-041, 043, 045); *(manual)* SCHEMA-040, 042, 044 |
 
-**27 requirements, 9 `auto` and 18 `manual`.**
+**31 requirements, 13 `auto` and 18 `manual`.**
 
 **`:database` and `PresetDaoTest.kt` now exist**, at
 `database/src/jvmTest/kotlin/com/derekwinters/intervaltrainer/database/PresetDaoTest.kt`
@@ -213,19 +259,19 @@ schema, with no migration to drive it through yet, can come to testing `SCHEMA-0
 later migration". `SchemaMigrationTest.kt` now exists too, at
 `database/src/jvmTest/kotlin/com/derekwinters/intervaltrainer/database/SchemaMigrationTest.kt`
 ([#75](https://github.com/derekwinters/Interval-trainer-android/issues/75)), satisfying
-`SCHEMA-043`: at v1 there is exactly one schema version and no migration to test, so the file is a
-documented, empty harness — its KDoc names the exact `androidx.room.testing.MigrationTestHelper`
-shape a future test will use, verified against Room 2.7.0's own source rather than assumed from
-this page's Room-3-era research note — rather than a test with something to assert.
-`SCHEMA-041` stays unmet until a breaking change actually needs it: that requirement is a promise
-about the *next* migration's test, not a claim this file makes today. The committed v1 schema JSON
-that test reads from is now in place (`SCHEMA-003`); what is still missing is an actual v2 to
-migrate to.
+`SCHEMA-043`. It was a documented, empty harness while there was one schema version; since
+[#163](https://github.com/derekwinters/Interval-trainer-android/issues/163) added
+`presets.position` and schema version 2, it holds the first real upgrade-path test (`SCHEMA-041`,
+`SCHEMA-045`), built on the committed `1.json` and validated against the committed `2.json`. The
+same issue extended `PresetDaoTest.kt` with stored order, reordering, appending and inserting after
+a preset (`SCHEMA-012`, `SCHEMA-015`–`017`), and `RoomPresetStoreTest.kt` with a duplicate being a
+deep copy through the store (`SCHEMA-017`).
 
 **Why the proportion is mostly `manual`.** Most of this page is the shape of a table — a column, a
 type, a foreign key, an index — which is a configuration fact the exported schema and Room's own
 diff checks make visible, not something a JVM assertion adds value by re-stating. What *is*
-genuinely behaviour rather than shape — insertion order surviving a read, a cascade delete actually
+genuinely behaviour rather than shape — the stored order surviving a read and a reorder, a new
+preset landing at the end and a duplicate directly after its original, a cascade delete actually
 removing the child rows, the seed producing the right rows and not producing them twice, and a
-migration proving data survival — are exactly the nine marked `auto`, and they are the ones this
+migration proving data survival — are exactly the thirteen marked `auto`, and they are the ones this
 page's tests exist to catch a regression in.

@@ -8,7 +8,8 @@ generated: { by: claude-code, at: 2026-09-12T17:15:15Z }
 
 # 3. Room from v1, with the schema treated as an API
 
-- **Status:** accepted; amended 2026-09-12, see [Amendment, 2026-09-12](#amendment-2026-09-12)
+- **Status:** accepted; amended 2026-09-12, see [Amendment, 2026-09-12](#amendment-2026-09-12),
+  and 2026-10-06, see [Amendment, 2026-10-06](#amendment-2026-10-06)
 - **Date:** 2026-09-11
 - **Decided by:** @derekwinters
 - **Issue:** [#32](https://github.com/derekwinters/Interval-trainer-android/issues/32)
@@ -16,6 +17,18 @@ generated: { by: claude-code, at: 2026-09-12T17:15:15Z }
   (issue [#27](https://github.com/derekwinters/Interval-trainer-android/issues/27))
 - **Specification:** the `presets` columns and the rest of the storage behaviour land with the v1
   specification, [#33](https://github.com/derekwinters/Interval-trainer-android/issues/33)
+
+## Amendment, 2026-10-06
+
+**The preset list can now be reordered, so its order is stored.** Under
+[#163](https://github.com/derekwinters/Interval-trainer-android/issues/163) @derekwinters decided
+that home gets a drag handle per row and that the order it sets is persisted. That is the case the
+"no `position` column" decision below anticipated — "when reordering arrives, it arrives as a
+migration" — and it arrived that way: `presets` gained a `position` column at schema version 2, with
+a migration that backfills it from the old insertion order and an upgrade-path test that proves the
+rows and their order survive (`docs/spec/schema.md` `SCHEMA-010`, `SCHEMA-012`, `SCHEMA-045`).
+Nothing else this ADR records changes. The bullet below that said otherwise is edited in place and
+points back here.
 
 ## Amendment, 2026-09-12
 
@@ -48,6 +61,8 @@ preset* is the one just described — authored, explicit, and preserved. *The or
 list* is what the "no `position` column" decision below is about, and that decision is unchanged:
 preset list order is insertion order, reordering the list is out of scope for v1, and no column
 exists for it. Stating the first is not an argument for the second, and nothing here reopens it.
+(Reordering the list was later decided on its own terms; see
+[Amendment, 2026-10-06](#amendment-2026-10-06).)
 
 **What that means for the schema is still not decided here.** The column list was already deferred
 to the v1 specification on
@@ -153,9 +168,10 @@ The `presets` table is decided as far as this decision depends on it, and no fur
   integer. The integer is Room's default and marginally simpler, but a UUID costs nothing now and
   leaves export, sharing and sync possible later without renumbering rows. An identifier is then
   meaningful outside the one device that minted it.
-- **Ordering is insertion order, with no `position` column.** Reordering the preset list is out of
-  scope for v1, and an unused column is schema that has to be migrated later for no benefit. When
-  reordering arrives, it arrives as a migration — which is what the harness above is for. **This is
+- **Ordering was insertion order, with no `position` column, until reordering arrived.**
+  Reordering the preset list was out of scope for v1, and an unused column is schema that has to be
+  migrated later for no benefit. When reordering arrived, it arrived as a migration — which is what
+  the harness above is for — see [Amendment, 2026-10-06](#amendment-2026-10-06). **This is
   the order of presets in the list, not the order of intervals within a preset**, which is authored
   data and is stored — see [Amendment, 2026-09-12](#amendment-2026-09-12).
 - **A seeded preset is an ordinary row, with no marker** distinguishing it from one the user made.
