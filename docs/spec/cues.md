@@ -328,10 +328,10 @@ page draws between what a test can reach and what it cannot is no longer the `:c
 boundary. It now runs *through* the adapter. On the reachable side is a pure function from a `Cue` to
 what is emitted for it: which bundled tone asset, and which vibration waveform. On the far side are
 the `SoundPool` load and play, the `Vibrator` call and the focus request, which no JVM runner can
-observe — `:app` has no Robolectric, and [`build.md`](build.md)'s `BUILD-023` scopes Robolectric to
-`:designsystem` alone. That split is the reason the mapping is a separate function rather than a few
-lines inside the adapter: a mapping inlined into the adapter is a mapping no test can reach, which is
-the same argument this page's fifth invariant makes one level up.
+observe — [`build.md`](build.md)'s `BUILD-023` allows Robolectric in `:app` only for named tests,
+and the cue sink is not among them. That split is the reason the mapping is a separate function
+rather than a few lines inside the adapter: a mapping inlined into the adapter is a mapping no test
+can reach, which is the same argument this page's fifth invariant makes one level up.
 
 `CueEmissionTest.kt` at
 `app/src/test/java/com/derekwinters/intervaltrainer/service/CueEmissionTest.kt` asserts the reachable

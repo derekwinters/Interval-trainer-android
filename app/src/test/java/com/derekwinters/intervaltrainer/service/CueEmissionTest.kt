@@ -21,8 +21,8 @@ import org.junit.Test
  * **Why this seam exists.** `:app`'s cue sink has to do three things at once — resolve a tone to a
  * bundled asset, resolve a vibration pattern to a waveform, and drive `SoundPool`, `Vibrator` and
  * an audio focus request with the results. The last of those is not reachable from a JVM runner:
- * `:app` has no Robolectric and `docs/spec/build.md` `BUILD-023` scopes Robolectric to
- * `:designsystem` alone, so a test that wanted to observe a `SoundPool.play` call has nowhere to
+ * `docs/spec/build.md` `BUILD-023` allows Robolectric in `:app` only for named tests, which a cue
+ * sink test is not, so a test that wanted to observe a `SoundPool.play` call has nowhere to
  * run. The first two are arithmetic, and they are where every way of getting this wrong that is
  * not a taste call lives: two cues sharing an asset, a tick that vibrates like a boundary, a muted
  * cue that still plays a tone, a mapping that names an asset nobody committed.

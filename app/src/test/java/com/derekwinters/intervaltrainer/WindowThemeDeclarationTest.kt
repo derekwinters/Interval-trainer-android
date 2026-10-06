@@ -14,11 +14,12 @@ import org.w3c.dom.NodeList
  * platform action bar, so `ScreenHeader` (`DS-021`, `DS-062`) is the only header on any screen.
  *
  * This reads the manifest and the theme resource the manifest names, as files, rather than
- * resolving the theme a running activity is given: resolving one needs a simulated Android
- * runtime, and `docs/spec/build.md` `BUILD-023` scopes Robolectric to `:designsystem` alone. It is
- * the theme's *declaration* that `DS-022` and this page's fifth invariant are about — a theme that
- * inherits the absence of an action bar from a parent's name satisfies neither — so the
- * declaration is what this asserts, and the assertion is not weakened by reading it from disk.
+ * resolving the theme a running activity is given: resolving one needs a simulated Android runtime,
+ * and `docs/spec/build.md` `BUILD-023` allows Robolectric in `:app` only for named tests, which
+ * this is not. It is the theme's *declaration* that `DS-022` and this page's fifth invariant are
+ * about — a theme that inherits the absence of an action bar from a parent's name satisfies neither
+ * — so the declaration is what this asserts, and the assertion is not weakened by reading it from
+ * disk.
  *
  * `#132`: before that issue, neither `<application>` nor `<activity>` declared `android:theme` at
  * all and no theme resource existed, so the platform's own default theme applied and drew an

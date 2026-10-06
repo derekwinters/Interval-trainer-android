@@ -203,17 +203,25 @@ to, and it is deliberately the smallest scaffolding that compiles, tests and ass
 - **BUILD-022** At least one unit test exercises production Kotlin code, so that a wrong or missing
   implementation makes it red. A test that only asserts a constant satisfies nothing. *(manual:
   satisfied by the tests for BUILD-030–033 below, which call production code now in `:core`.)*
-- **BUILD-023** Robolectric is a `:designsystem`-only test dependency, scoped to its Compose
-  semantics-tree tests alone ([`docs/spec/design-system.md`](design-system.md) `DS-091`, `DS-093`) —
-  it is not adopted for `:core` or for `:database`, both of which are tested with no simulated
-  Android runtime at all ([ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md),
-  [ADR 0003](../adr/0003-room-with-the-schema-treated-as-an-api.md)). Its `android-all` jar is
-  pre-fetched into, and cached from, Robolectric's own default local Maven repository in continuous
-  integration, never vendored and never fetched live inside the `./gradlew test` invocation that
-  gates a pull request (`DS-092`), which is what keeps `BUILD-021`'s clean-checkout invariant
-  satisfied for that invocation while
-  `:designsystem`'s tests use a simulated runtime deliberately. *(manual: a dependency-scope and
-  continuous-integration fact.)*
+- **BUILD-023** Robolectric is a test dependency of `:designsystem` and of `:app` only, and in each
+  it is scoped to named tests: in `:designsystem`, its Compose semantics-tree tests
+  ([`docs/spec/design-system.md`](design-system.md) `DS-091`, `DS-093`); in `:app`, the
+  launcher-icon test ([`docs/spec/brand.md`](brand.md) `BRAND-052`) and the running screen's
+  accessibility tests ([#162](https://github.com/derekwinters/Interval-trainer-android/issues/162)),
+  together with the Compose UI test dependencies those need. It is not adopted for `:core` or for
+  `:database`, both of which are tested with no simulated Android runtime at all
+  ([ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md),
+  [ADR 0003](../adr/0003-room-with-the-schema-treated-as-an-api.md)), and anything else in `:app`
+  that is reachable from a plain JVM test stays one. Its `android-all` jars — one per API level a
+  test pins — are pre-fetched into, and cached from, Robolectric's own default local Maven
+  repository in continuous integration, for both modules, never vendored and never fetched live
+  inside the `./gradlew test` invocation that gates a pull request (`DS-092`), which is what keeps
+  `BUILD-021`'s clean-checkout invariant satisfied for that invocation while those tests use a
+  simulated runtime deliberately. *(manual: a dependency-scope and continuous-integration fact.)*
+  Amended for [#156](https://github.com/derekwinters/Interval-trainer-android/issues/156): until
+  then Robolectric was a `:designsystem`-only dependency, and the launcher icon's acceptance check
+  — that the application's icon resolves to an adaptive icon with a themed layer — needs a
+  simulated runtime in `:app` to observe.
 
 ## 4. Duration formatting
 

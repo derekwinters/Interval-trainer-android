@@ -22,11 +22,11 @@ import com.derekwinters.intervaltrainer.R
  *
  * **This class decides nothing.** [emissionFor] — a pure function, in `CueEmission.kt`, covered by
  * `CueEmissionTest` — says which asset and which waveform a [Cue] gets; everything here is the
- * carrying of that answer to the platform. That split is deliberate and load-bearing: `:app` has
- * no Robolectric (`docs/spec/build.md` `BUILD-023` scopes it to `:designsystem`), so anything
- * decided inside this class is decided where no JVM test can see it. If a cue is emitting the
- * wrong sound, the bug is in `CueEmission.kt` and there is a test to write for it; if a cue is
- * emitting nothing at all, the bug is here and only a device will show it.
+ * carrying of that answer to the platform. That split is deliberate and load-bearing:
+ * `docs/spec/build.md` `BUILD-023` allows Robolectric in `:app` only for named tests, and this is
+ * not one of them, so anything decided inside this class is decided where no JVM test can see it.
+ * If a cue is emitting the wrong sound, the bug is in `CueEmission.kt` and there is a test to write
+ * for it; if a cue is emitting nothing at all, the bug is here and only a device will show it.
  *
  * **What this class deliberately does not do** (`CUE-070`, `CUE-071`, `CUE-073`, each verified by
  * a call being absent from the diff): it does not read or raise the media volume, does not set

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The adaptive launcher icon's foreground (docs/spec/brand.md BRAND-010–017, BRAND-051), drawn from
+     docs/brand/icon-foreground.svg. Its colours are DesignSystemColors.Default's work, recovery and
+     fg tokens, copied as values and never redefined (brand.md's first invariant); a token change
+     this file does not follow fails LauncherIconColourTokenTest. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- BRAND-010: work arc, 22° to 250° clockwise. -->
+    <path
+        android:pathData="M62.62,36.67 A23,23 0 1,1 32.39,65.87"
+        android:strokeColor="#FF2ECC71"
+        android:strokeWidth="7"
+        android:strokeLineCap="round" />
+    <!-- BRAND-011: recovery arc, 270° to 338° clockwise. -->
+    <path
+        android:pathData="M31.00,58.00 A23,23 0 0,1 45.38,36.67"
+        android:strokeColor="#FFF5C518"
+        android:strokeWidth="7"
+        android:strokeLineCap="round" />
+    <!-- BRAND-012: crown cap, x 49, y 22, 10 × 6, corner radius 2. -->
+    <path
+        android:pathData="M51,22 H57 A2,2 0 0,1 59,24 V26 A2,2 0 0,1 57,28 H51 A2,2 0 0,1 49,26 V24 A2,2 0 0,1 51,22 Z"
+        android:fillColor="#FFF5F5F5" />
+    <!-- BRAND-013: crown stem, x 52, y 27, 4 × 6. -->
+    <path
+        android:pathData="M52,27 H56 V33 H52 Z"
+        android:fillColor="#FFF5F5F5" />
+    <!-- BRAND-014: hand, (54, 58) to (66.12, 65.00). -->
+    <path
+        android:pathData="M54,58 L66.12,65"
+        android:strokeColor="#FFF5F5F5"
+        android:strokeWidth="4"
+        android:strokeLineCap="round" />
+    <!-- BRAND-015: centre dot, (54, 58), radius 3.5. -->
+    <path
+        android:pathData="M50.5,58 A3.5,3.5 0 1,1 57.5,58 A3.5,3.5 0 1,1 50.5,58 Z"
+        android:fillColor="#FFF5F5F5" />
+</vector>

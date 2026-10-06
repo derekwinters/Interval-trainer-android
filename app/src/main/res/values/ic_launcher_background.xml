@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- docs/spec/brand.md BRAND-002, BRAND-051: DesignSystemColors.Default's bg token, copied as a
+         value because a resource cannot reference a Compose Color, and checked against the token
+         by LauncherIconColourTokenTest (brand.md's first invariant). -->
+    <color name="ic_launcher_background">#121212</color>
+</resources>
