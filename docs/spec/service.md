@@ -116,8 +116,9 @@ the ADR, is this specification's call — see the pull request's Deviations sect
   stop (`SVC-051`) or the service process is killed from outside the app's control (`SVC-042`).
   *(manual: verified on a device with the screen off through Doze.)*
 - **SVC-012** The service's scheduler runs on `SystemClock.elapsedRealtime()`, the same monotonic
-  clock `TIMER-020`–`025` specify the timer's deadlines against. *(manual: a platform-clock choice;
-  the arithmetic it feeds is `TIMER`'s and is `:core`-tested there.)*
+  clock `TIMER-020`–`025` specify the timer's deadlines against. It reaches that clock through
+  `SVC-018`'s holder rather than constructing it itself. *(manual: a platform-clock choice; the
+  arithmetic it feeds is `TIMER`'s and is `:core`-tested there.)*
 - **SVC-013** Commands into the running workout — start, pause, resume, skip, stop, and the mute
   toggle — reach the service from any screen that sends them, and the service's own state is what
   every screen observing the workout reads, per the app-wide observability invariant above.
@@ -156,6 +157,24 @@ the ADR, is this specification's call — see the pull request's Deviations sect
   ([#147](https://github.com/derekwinters/Interval-trainer-android/issues/147)). *(auto: which
   commands count is exercised by `WorkoutSessionTest.kt`; the notification, its removal and the
   service stopping are manual.)*
+- **SVC-018** The service, and the running screen that reads the service's deadlines, take
+  their `Clock` from one process-wide holder, `WorkoutClock`. Its value is `SVC-012`'s
+  `ElapsedRealtimeClock` unless instrumented test code has replaced it, and it goes back to that
+  default when the test resets it. The service reads it once, when it is created, and the running
+  screen reads it once, when it is composed. So a test that replaces the clock before the activity
+  launches drives the whole start, tick, pause and stop path through the real service on a clock
+  it controls. That is what makes the screenshot test's running and summary captures
+  deterministic ([`docs/spec/build.md`](build.md) `BUILD-082`,
+  [#161](https://github.com/derekwinters/Interval-trainer-android/issues/161)). *(auto: the
+  holder's default, replacement and reset are exercised by `WorkoutClockTest.kt` on the JVM; that
+  the service and the running screen read it is exercised by the screenshot test on an emulator,
+  `BUILD-081`.)*
+
+> **Invariant — nothing in the app's own code replaces the workout clock.** The holder exists so
+> instrumented test code can install a clock it controls before a workout starts. No production
+> path calls the replacement function, and the service and the running screen never construct a
+> clock of their own. If they did, a test could no longer reach the clock, and a screen could
+> disagree with the service about how much time is left.
 
 ## 3. The notification
 
@@ -352,6 +371,7 @@ phone alone ([#146](https://github.com/derekwinters/Interval-trainer-android/iss
 | What produces a workout's schedule | SVC-001–002 | Covered by `ScheduleTest.kt` via `TIMER-001`–`003`; the naming itself is *(manual)* |
 | The foreground service | SVC-010–013, SVC-016 | *(manual)* |
 | The foreground service — command handling | SVC-014–015, SVC-017 | `WorkoutSessionTest.kt` (SVC-017's classification of a start that left no workout); *(manual)* SVC-017's notification and stop |
+| The foreground service — the workout clock's holder | SVC-018 | `WorkoutClockTest.kt`; the service and running screen reading it is exercised by the screenshot test (`docs/spec/build.md` `BUILD-081`) |
 | The notification | SVC-020–024 | *(manual)* |
 | The notification — content and the pause/resume toggle, as pure functions | SVC-025–026 | `WorkoutNotificationContentTest.kt` |
 | The notification permission | SVC-030–033 | `NotificationSettingsDeepLinkTest.kt` (SVC-033's deep-link action/extra); *(manual)* SVC-030–033 |
@@ -361,7 +381,7 @@ phone alone ([#146](https://github.com/derekwinters/Interval-trainer-android/iss
 | Preset edited or deleted mid-workout | SVC-060–062 | *(manual)*, consequence of `TIMER-002`–`003` |
 | Crash recording | SVC-070–074 | `CrashReportTest.kt` (SVC-071), `CrashReportStoreTest.kt` (SVC-072's one-file store), `CrashRecordingHandlerTest.kt` (SVC-073); *(manual)* SVC-070, SVC-074, and SVC-072's storage location |
 
-**36 requirements, 8 `auto` and 28 `manual`.**
+**37 requirements, 9 `auto` and 28 `manual`.**
 
 **Why almost every requirement here is `manual`.** This page is almost entirely the far side of
 the boundary [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md) drew: a foreground
@@ -400,3 +420,8 @@ added `SVC-070`–`074`, three of them `auto`. The report's content (`SVC-071`),
 the handler is installed at process start, and that a real crash on a device writes the file and
 still kills the process, is checked on a device — for example with `adb shell am crash` and a
 relaunch.
+
+The screenshot test ([#161](https://github.com/derekwinters/Interval-trainer-android/issues/161))
+added `SVC-018`, the workout clock's holder. Its default, replacement and reset are plain Kotlin
+and tested on the JVM. The test that uses it to drive the real service on a clock it controls runs
+on an emulator in `screenshots.yml` ([`docs/spec/build.md`](build.md) §11), not in `pr`.

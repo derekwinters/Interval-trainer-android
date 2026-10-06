@@ -47,7 +47,7 @@ import com.derekwinters.intervaltrainer.screens.home.HomeScreen
 import com.derekwinters.intervaltrainer.screens.running.RunningScreen
 import com.derekwinters.intervaltrainer.screens.settings.SettingsScreen
 import com.derekwinters.intervaltrainer.screens.summary.SummaryScreen
-import com.derekwinters.intervaltrainer.service.ElapsedRealtimeClock
+import com.derekwinters.intervaltrainer.service.WorkoutClock
 import com.derekwinters.intervaltrainer.service.WorkoutService
 import com.derekwinters.intervaltrainer.service.WorkoutServiceState
 import com.derekwinters.intervaltrainer.settings.DataStoreDefaultMuteStore
@@ -208,7 +208,8 @@ private fun IntervalTrainerNavHost(
     val navController = rememberNavController()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val clock = remember { ElapsedRealtimeClock() }
+    // SVC-018: the same clock the service measures deadlines against, read once from its holder.
+    val clock = remember { WorkoutClock.current }
     // SCREEN-090: the start destination and whether the crash report popup shows over it are
     // decided together by launchPlan() (LaunchPlan.kt), which keeps the two independent: a report
     // never changes the destination, and the first-run flag never changes the popup.
