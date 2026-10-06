@@ -35,7 +35,9 @@ import com.derekwinters.intervaltrainer.Interval
 import com.derekwinters.intervaltrainer.IntervalKind
 import com.derekwinters.intervaltrainer.Preset
 import com.derekwinters.intervaltrainer.appendGeneratedRounds
+import com.derekwinters.intervaltrainer.designsystem.AlertDialog
 import com.derekwinters.intervaltrainer.designsystem.AppTheme
+import com.derekwinters.intervaltrainer.designsystem.DestructiveButton
 import com.derekwinters.intervaltrainer.designsystem.DurationScrollPicker
 import com.derekwinters.intervaltrainer.designsystem.ListLayout
 import com.derekwinters.intervaltrainer.designsystem.ScreenHeaderAction
@@ -105,6 +107,11 @@ private fun Interval.toEditorRow() = EditorRow(
  * preset *as currently edited* — the same `currentPreset` Save would persist — and never saves
  * the original itself (§2's Duplicate invariant); naming, saving and opening the copy are the
  * caller's. Like Save, it is disabled while the schedule on screen is empty.
+ *
+ * **Delete preset** (`SCREEN-019c`, `SCREEN-019d`, #164) is offered only when [onDelete] is
+ * non-null, which the caller likewise passes only for a saved preset. It opens a confirmation
+ * dialog titled with the preset's *saved* name ([preset]'s, not the name field's); Cancel closes
+ * it and changes nothing, and Delete calls [onDelete], which deletes the preset and returns home.
  */
 @Composable
 fun PresetEditorScreen(
@@ -119,6 +126,7 @@ fun PresetEditorScreen(
     var rows by remember(preset.id) { mutableStateOf(preset.intervals.map { it.toEditorRow() }) }
     var openRowId by remember(preset.id) { mutableStateOf<String?>(null) }
     var showGeneratorDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember(preset.id) { mutableStateOf(false) }
 
     var draggingRowId by remember { mutableStateOf<String?>(null) }
     var dragOffsetPx by remember { mutableFloatStateOf(0f) }
@@ -253,9 +261,9 @@ fun PresetEditorScreen(
                     .padding(AppTheme.spacing.lg),
             )
         }
-        if (onDuplicate != null) {
-            // SCREEN-019a: below the list and its footer, in a row the preset editor's Delete
-            // (#164) joins side by side; the header keeps Save as its only trailing action.
+        if (onDuplicate != null || onDelete != null) {
+            // SCREEN-019a, SCREEN-019c: below the list and its footer, Duplicate and Delete preset
+            // side by side; the header keeps Save as its only trailing action.
             item(key = "preset-actions") {
                 Row(
                     modifier = Modifier
@@ -263,15 +271,42 @@ fun PresetEditorScreen(
                         .padding(horizontal = AppTheme.spacing.lg, vertical = AppTheme.spacing.md),
                     horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm),
                 ) {
-                    SecondaryButton(
-                        text = "Duplicate",
-                        modifier = Modifier.weight(1f),
-                        enabled = currentPreset.isSavable(),
-                        onClick = { onDuplicate(currentPreset) },
-                    )
+                    if (onDuplicate != null) {
+                        SecondaryButton(
+                            text = "Duplicate",
+                            modifier = Modifier.weight(1f),
+                            enabled = currentPreset.isSavable(),
+                            onClick = { onDuplicate(currentPreset) },
+                        )
+                    }
+                    if (onDelete != null) {
+                        // SCREEN-019c: never disabled by an empty schedule — deleting saves nothing.
+                        DestructiveButton(
+                            text = "Delete preset",
+                            modifier = Modifier.weight(1f),
+                            onClick = { showDeleteDialog = true },
+                        )
+                    }
                 }
             }
         }
+    }
+
+    if (showDeleteDialog && onDelete != null) {
+        // SCREEN-019d and §2's invariant: the title names preset.name — the preset as saved, which
+        // is what Delete removes — never the name field's current, possibly unsaved, text.
+        AlertDialog(
+            title = "Delete \"${preset.name}\"?",
+            text = "This can't be undone.",
+            confirmText = "Delete",
+            onConfirm = {
+                showDeleteDialog = false
+                onDelete()
+            },
+            onDismissRequest = { showDeleteDialog = false },
+            cancelText = "Cancel",
+            isConfirmDestructive = true,
+        )
     }
 
     if (showGeneratorDialog) {

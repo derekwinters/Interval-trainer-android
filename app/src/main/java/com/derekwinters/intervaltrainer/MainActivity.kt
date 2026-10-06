@@ -322,14 +322,15 @@ private fun IntervalTrainerNavHost(
                     },
                 )
             }
-            // SCREEN-019a: Duplicate is offered only for a preset that is already saved — never
-            // for SCREEN-008's new one, nor for the fresh-empty fallback below.
+            // SCREEN-019a, SCREEN-019c: Duplicate and Delete preset are offered only for a preset
+            // that is already saved — never for SCREEN-008's new one, nor for the fresh-empty
+            // fallback below.
             var presetIsSaved by remember(presetId) { mutableStateOf(false) }
             LaunchedEffect(presetId) {
                 if (presetId != NEW_PRESET_ID) {
                     // SCREEN-007: reads the real preset off the main thread (SCHEMA-004). If it
-                    // has since been deleted from under this navigation (not possible in v1, with
-                    // no delete-preset control anywhere, but not ruled out by the route itself),
+                    // has since been deleted from under this navigation (SCREEN-019d's Delete pops
+                    // this entry, so not through the editor itself, but not ruled out by the route),
                     // the fallback is the same fresh-empty-preset shape rather than a crash.
                     val saved = withContext(Dispatchers.IO) { presetStore.preset(presetId) }
                     presetIsSaved = saved != null
@@ -368,6 +369,20 @@ private fun IntervalTrainerNavHost(
                                 navController.navigate(editorRoute(copy.id)) {
                                     popUpTo(ROUTE_EDITOR) { inclusive = true }
                                 }
+                            }
+                        }
+                    } else {
+                        null
+                    },
+                    onDelete = if (presetIsSaved) {
+                        {
+                            // SCREEN-019d: deletes the preset — its intervals cascade (SCHEMA-014,
+                            // SCHEMA-021) — off the main thread, then returns to home the way Save
+                            // does, where home re-reads the list without it. A workout started
+                            // from it keeps its own schedule (SVC-060, SVC-061): no guard here.
+                            coroutineScope.launch {
+                                withContext(Dispatchers.IO) { presetStore.delete(presetId) }
+                                navController.popBackStack()
                             }
                         }
                     } else {
