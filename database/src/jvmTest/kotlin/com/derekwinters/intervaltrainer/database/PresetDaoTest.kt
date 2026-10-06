@@ -4,6 +4,7 @@ import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import java.io.File
 import java.util.UUID
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -43,7 +44,7 @@ class PresetDaoTest {
      * own row order — never a stored `position` column, which `presets` does not have.
      */
     @Test
-    fun `lists presets in the order they were inserted, not id or name order`() {
+    fun `lists presets in the order they were inserted, not id or name order`() = runBlocking<Unit> {
         dao.upsertPreset(PresetEntity(id = "preset-c", name = "Zebra"))
         dao.upsertPreset(PresetEntity(id = "preset-a", name = "Apple"))
         dao.upsertPreset(PresetEntity(id = "preset-b", name = "Mango"))
@@ -59,7 +60,7 @@ class PresetDaoTest {
      * key's `ON DELETE CASCADE` doing the work, not any explicit cleanup call.
      */
     @Test
-    fun `deleting a preset cascades to every one of its intervals`() {
+    fun `deleting a preset cascades to every one of its intervals`() = runBlocking<Unit> {
         dao.upsertPreset(PresetEntity(id = "preset-1", name = "Short Example"))
         dao.insertIntervals(
             listOf(
@@ -80,7 +81,7 @@ class PresetDaoTest {
      * with only one preset ever inserted.
      */
     @Test
-    fun `deleting a preset leaves another preset's intervals alone`() {
+    fun `deleting a preset leaves another preset's intervals alone`() = runBlocking<Unit> {
         dao.upsertPreset(PresetEntity(id = "preset-1", name = "Short Example"))
         dao.upsertPreset(PresetEntity(id = "preset-2", name = "Long Example"))
         dao.insertIntervals(
@@ -119,7 +120,7 @@ class PresetDaoTest {
      * inserts them in, read back per SCHEMA-012's insertion order.
      */
     @Test
-    fun `onCreate seeds exactly the two endurance presets, Short Example then Long Example`() {
+    fun `onCreate seeds exactly the two endurance presets, Short Example then Long Example`() = runBlocking<Unit> {
         val file = newTempDatabaseFile()
         val seeded = buildSeededDatabase(file)
         try {
@@ -139,7 +140,7 @@ class PresetDaoTest {
      * before cool-down, totalling 900 seconds (15:00).
      */
     @Test
-    fun `onCreate seeds the Short Example preset's eight intervals totalling 900 seconds`() {
+    fun `onCreate seeds the Short Example preset's eight intervals totalling 900 seconds`() = runBlocking<Unit> {
         val file = newTempDatabaseFile()
         val seeded = buildSeededDatabase(file)
         try {
@@ -168,7 +169,7 @@ class PresetDaoTest {
      * recovery before cool-down, totalling 2040 seconds (34:00).
      */
     @Test
-    fun `onCreate seeds the Long Example preset's eighteen intervals totalling 2040 seconds`() {
+    fun `onCreate seeds the Long Example preset's eighteen intervals totalling 2040 seconds`() = runBlocking<Unit> {
         val file = newTempDatabaseFile()
         val seeded = buildSeededDatabase(file)
         try {
@@ -201,7 +202,7 @@ class PresetDaoTest {
      * not double.
      */
     @Test
-    fun `reopening an already-seeded database file does not seed the presets again`() {
+    fun `reopening an already-seeded database file does not seed the presets again`() = runBlocking<Unit> {
         val file = newTempDatabaseFile()
         val first = buildSeededDatabase(file)
         first.close()

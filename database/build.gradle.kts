@@ -72,6 +72,9 @@ kotlin {
             dependencies {
                 implementation(project(":core"))
                 implementation("junit:junit:4.13.2")
+                // The DAO and the preset store are `suspend` (SCHEMA-004); the tests call them
+                // from `runBlocking`. Same version :app pins.
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
             }
         }
     }

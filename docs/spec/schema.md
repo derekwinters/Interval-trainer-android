@@ -59,8 +59,17 @@ One new invariant, specific to what this page adds:
 - **SCHEMA-004** `:core` defines the preset store as an interface and does not implement it;
   `:database` implements it, and `:core` depends on the interface only, never on `:database`
   itself, per [ADR 0005](../adr/0005-a-pure-jvm-core-and-a-thin-android-shell.md). A fake
-  implementation is what `:core`'s own tests substitute.
-  *(manual: a module-dependency fact, made a compile error by the module graph.)*
+  implementation is what `:core`'s own tests substitute. The preset store's four operations —
+  `presets`, `preset`, `save` and `delete` — are `suspend` functions, and so is every function of
+  `:database`'s DAO beneath them: Room's Kotlin Multiplatform compiler accepts only `suspend` DAO
+  functions in a source set targeting a non-Android platform, and `:database`'s `jvm()` target
+  (`SCHEMA-001`) is one. Being `suspend` does not move a call off the caller's thread; a caller
+  on the main thread still chooses the dispatcher it reads on.
+  *(manual: a module-dependency fact, made a compile error by the module graph; the `suspend`
+  signatures are likewise enforced by the compiler.)*
+
+  > **Invariant — the preset store's operations are suspend functions; no main source set bridges
+  > them with `runBlocking`.**
 
 ## 2. The `presets` table
 
