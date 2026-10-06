@@ -103,6 +103,20 @@ dependencies {
     add("kspJvm", "androidx.room:room-compiler:2.7.0")
 }
 
+// BUILD-020 (#144): plain `./gradlew test` must run this module's tests. In a Kotlin
+// Multiplatform module with the Android library plugin, `test` is the Android Gradle Plugin's
+// aggregate over the Android unit-test variants only (`testDebugUnitTest`, `testReleaseUnitTest`),
+// whose source sets here are empty — so it reported NO-SOURCE and passed having run nothing.
+// Every test this module has lives in `jvmTest`, which only the `jvm()` target's task runs; this
+// makes the aggregate reach it, so the documented command (BUILD-041, `commands.test`) is
+// unchanged and a failing DAO test fails it locally and in CI alike. Matched lazily rather than
+// with `tasks.named("test")`: the Android Gradle Plugin registers `test` after this script has
+// been evaluated, so `named` fails with "Task with name 'test' not found" (seen on #144's first
+// CI run).
+tasks.matching { it.name == "test" }.configureEach {
+    dependsOn("jvmTest")
+}
+
 // SCHEMA-003: Room's own convention, exported on every compile and committed to version control,
 // never shipped in the APK. This module applies Room's own Gradle plugin (`androidx.room`, pinned
 // next to the `androidx.room:room-runtime`/`room-compiler` coordinates above in the root
