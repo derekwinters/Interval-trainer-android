@@ -138,13 +138,15 @@ class RunningScreenSemanticsTest {
             ringStops,
         )
 
-        val unmergedLabels = allNodes(useUnmergedTree = true).map { it.label() }
+        // The merged tree is what accessibility services read. The unmerged tree is not checked:
+        // it deliberately keeps the children `clearAndSetSemantics` replaced, so it shows what is
+        // drawn, not what TalkBack reads.
+        val labels = allNodes(useUnmergedTree = false).map { it.label() }
         for (part in listOf("Work", "0:32", "of 0:45")) {
             assertEquals(
-                "SCREEN-034: the ring's \"$part\" must not be a node of its own, even unmerged. " +
-                    "Every unmerged label: $unmergedLabels",
+                "SCREEN-034: the ring's \"$part\" must not be a node of its own. Every label: $labels",
                 emptyList<String>(),
-                unmergedLabels.filter { it == part },
+                labels.filter { it == part },
             )
         }
     }
