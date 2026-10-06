@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,8 +48,15 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.derekwinters.intervaltrainer.Clock
@@ -205,10 +213,24 @@ fun RunningScreen(
                         .width(ListWidth)
                         .heightIn(min = PastListMinHeight),
                 )
-                Box(modifier = Modifier.size(RingSize), contentAlignment = Alignment.Center) {
-                    when (content) {
-                        is RunningScreenContent.Active -> Ring(content = content, colors = colors)
-                        is RunningScreenContent.GetReady -> GetReadyContent(content = content, colors = colors)
+                // SCREEN-035, SCREEN-039: the slot carries the interval-change announcement as a
+                // polite live region holding only the current interval's kind and duration, so
+                // its content changes when the interval does and never on a tick. It is a live
+                // region, not a sound: only a running accessibility service ever reads it out.
+                Box(
+                    modifier = Modifier
+                        .size(RingSize)
+                        .semantics {
+                            liveRegion = LiveRegionMode.Polite
+                            contentDescription = content.currentIntervalAnnouncement()
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    FixedFontScale {
+                        when (content) {
+                            is RunningScreenContent.Active -> Ring(content = content, colors = colors)
+                            is RunningScreenContent.GetReady -> GetReadyContent(content = content, colors = colors)
+                        }
                     }
                 }
                 ScheduleList(
@@ -311,7 +333,11 @@ private fun MuteButton(muted: Boolean, onToggleMute: () -> Unit, modifier: Modif
 /** `SCREEN-021`: total remaining time across the whole workout (`TIMER-025`). */
 @Composable
 private fun TotalLeft(totalRemainingMillis: Long, colors: DesignSystemColors, modifier: Modifier = Modifier) {
-    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+    // SCREEN-036: the label and the value are one focus stop, read together.
+    Row(
+        modifier = modifier.semantics(mergeDescendants = true) {},
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         BasicText(text = "Total left ", style = TextStyle(color = colors.dim, fontSize = 13.sp))
         BasicText(
             text = formatSeconds(totalRemainingMillis.toWholeSeconds()),
@@ -332,7 +358,15 @@ private fun Ring(content: RunningScreenContent.Active, colors: DesignSystemColor
     } else {
         0f
     }
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+    // SCREEN-034: the whole ring is one focus stop with one description; the kind label, the
+    // digits and the "of" line below are drawn but contribute no semantics of their own.
+    val description = "${content.kind.displayName()}, " +
+        "${formatSeconds(content.remainingMillis.toWholeSeconds())} remaining of " +
+        formatSeconds(content.fullDurationMillis.toWholeSeconds())
+    Box(
+        modifier = modifier.clearAndSetSemantics { contentDescription = description },
+        contentAlignment = Alignment.Center,
+    ) {
         Canvas(modifier = Modifier.size(RingSize)) {
             val strokeWidth = RingStroke.toPx()
             drawArc(
@@ -415,7 +449,11 @@ private fun TimelineStrip(
     colors: DesignSystemColors,
     modifier: Modifier = Modifier,
 ) {
-    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(gapDp.dp)) {
+    // SCREEN-036: hidden from TalkBack — the strip is decoration, and its count is not spoken.
+    Row(
+        modifier = modifier.clearAndSetSemantics {},
+        horizontalArrangement = Arrangement.spacedBy(gapDp.dp),
+    ) {
         segments.forEach { segment ->
             Box(
                 modifier = Modifier
@@ -451,8 +489,11 @@ private fun ScheduleList(
 @Composable
 private fun ScheduleListRow(row: ScheduleRow, colors: DesignSystemColors, modifier: Modifier = Modifier) {
     val kindColor = row.interval.kind.dotColor(colors)
+    val label = row.interval.kind.announcement(row.interval.durationSeconds * 1_000L)
     Row(
         modifier = modifier
+            // SCREEN-036: one focus stop per row, "{kind}, {duration}".
+            .clearAndSetSemantics { contentDescription = label }
             .fillMaxWidth()
             .graphicsLayer {
                 this.alpha = row.alpha
@@ -509,6 +550,25 @@ private fun ControlRow(
 }
 
 private fun Long.toWholeSeconds(): Int = (this / 1_000L).toInt().coerceAtLeast(0)
+
+/** `SCREEN-035`, `SCREEN-036`: "{kind}, {duration}" — "Recovery, 1:30". */
+private fun IntervalKind.announcement(durationMillis: Long): String =
+    "${displayName()}, ${formatSeconds(durationMillis.toWholeSeconds())}"
+
+/** `SCREEN-035`: the current interval — during a lead-in, the one it counts into (`SCREEN-024`). */
+private fun RunningScreenContent.currentIntervalAnnouncement(): String = when (this) {
+    is RunningScreenContent.Active -> kind.announcement(fullDurationMillis)
+    is RunningScreenContent.GetReady -> upcomingKind.announcement(upcomingDurationMillis)
+}
+
+/** `SCREEN-037`: [content] draws as it would at a font scale of 1.0, whatever the system's is —
+ * the ring's slot is fixed-size, and its text with it, so a large font scale cannot push the
+ * digits out of the 176dp ring. Only the font scale is pinned; the screen's density is kept. */
+@Composable
+private fun FixedFontScale(content: @Composable () -> Unit) {
+    val density = LocalDensity.current
+    CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = 1f), content = content)
+}
 
 private fun IntervalKind.displayName(): String = when (this) {
     IntervalKind.WARM_UP -> "Warm-up"
