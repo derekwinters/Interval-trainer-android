@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- docs/spec/brand.md BRAND-051: the launcher icon is this adaptive icon alone; minSdk is 26, so no
+     PNG mipmaps exist. ic_launcher.xml and ic_launcher_round.xml are identical. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <monochrome android:drawable="@drawable/ic_launcher_monochrome" />
+</adaptive-icon>
