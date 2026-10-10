@@ -47,9 +47,20 @@ commands:
 # install none — whatever is here is what a later adoption will honour.
 skills:
   - github-api
+  - routines
   - release-flow
   - triage-issue
   - pipeline-dev
   - issue-blockers
   - ci-watch
   - milestone-ops
+
+# The Claude Code routines this repository wants, by definition id. Yours, like
+# `skills:` above — `adopt` never writes it. The `routines` skill renders them
+# for this repository, and an agent in a cloud session creates or updates the
+# live routines to match; each still needs manual steps in the web UI (see
+# docs/spec/routines.md in ai-sdlc). `triage` is fired through an API trigger
+# whose URL and token go in the secrets `fire:` names above.
+routines:
+  - triage
+  - dependabot
