@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/derekwinters/Interval-trainer-android/compare/v0.5.0...v0.6.0) (2026-10-11)
+
+
+### Features
+
+* recolor launcher icon to match the Chores app ([#183](https://github.com/derekwinters/Interval-trainer-android/issues/183)) ([9e627ab](https://github.com/derekwinters/Interval-trainer-android/commit/9e627ab883740d01edd013cc4f3371030d7f6fa5)), closes [#182](https://github.com/derekwinters/Interval-trainer-android/issues/182)
+
 ## [0.5.0](https://github.com/derekwinters/Interval-trainer-android/compare/v0.4.0...v0.5.0) (2026-10-06)
 
 
