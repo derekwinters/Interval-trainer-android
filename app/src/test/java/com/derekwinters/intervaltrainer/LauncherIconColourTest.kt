@@ -1,8 +1,5 @@
 package com.derekwinters.intervaltrainer
 
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
-import com.derekwinters.intervaltrainer.designsystem.DesignSystemColors
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 import org.junit.Assert.assertEquals
@@ -13,66 +10,71 @@ import org.w3c.dom.Element
 
 /**
  * `docs/spec/brand.md` `BRAND-002`, `BRAND-003` and that page's first invariant: the launcher
- * icon's colours are `DesignSystemColors.Default`'s tokens, never a second palette.
+ * icon's colours are a fixed brand palette shared with the Chores app, written once in
+ * `BRAND-002`, and are not the design-system tokens.
  *
- * Android resources cannot reference a Compose `Color`, so the icon's XML carries the hex values
- * itself. This is what makes that copy safe: every colour in the background resource and the
- * foreground VectorDrawable is compared, as a value, with the token its role names, so a token
- * change the icon does not follow fails here rather than shipping a launcher icon in the old
- * palette. A pure-JVM file read — nothing here needs a simulated runtime.
+ * The expected values below are copied from the `BRAND-002` table and deliberately not read from
+ * `DesignSystemColors`: the in-app theme and the icon are independent. Every colour in the
+ * background resource and the foreground VectorDrawable is compared, as a value, with the palette
+ * role its element names, so a resource that drifts from the specification fails here. A pure-JVM
+ * file read — nothing here needs a simulated runtime.
  */
-class LauncherIconColourTokenTest {
+class LauncherIconColourTest {
 
-    private val tokens = DesignSystemColors.Default
+    /** `BRAND-002`'s palette, as `#AARRGGBB`. */
+    private val background = "background" to 0xFFFFFFFF.toInt()
+    private val blue = "blue" to 0xFF1361A7.toInt()
+    private val grey = "grey" to 0xFF818589.toInt()
 
     @Test
-    fun `the launcher background colour is the bg token`() {
+    fun `the launcher background colour is the palette's background`() {
         val resource = File(appModuleDirectory(), "src/main/res/values/ic_launcher_background.xml")
         assertTrue("No ${resource.path} (BRAND-051).", resource.isFile)
         val colours = parse(resource).getElementsByTagName("color")
-        val background = (0 until colours.length)
+        val declared = (0 until colours.length)
             .map { colours.item(it) as Element }
             .singleOrNull { it.getAttribute("name") == "ic_launcher_background" }
         assertTrue(
             "${resource.path} declares no <color name=\"ic_launcher_background\"> (BRAND-051).",
-            background != null,
+            declared != null,
         )
-        assertColour("the launcher background", "bg", tokens.bg, background!!.textContent.trim())
+        assertColour("the launcher background", background, declared!!.textContent.trim())
     }
 
     @Test
-    fun `the foreground's six elements are painted in their tokens, in order`() {
+    fun `the foreground's six elements are painted in their palette roles, in order`() {
         val drawable = File(appModuleDirectory(), "src/main/res/drawable/ic_launcher_foreground.xml")
         assertTrue("No ${drawable.path} (BRAND-051).", drawable.isFile)
         val paths = parse(drawable).getElementsByTagName("path")
         val expected = listOf(
-            Triple("the work arc (BRAND-010)", "work", tokens.work),
-            Triple("the recovery arc (BRAND-011)", "recovery", tokens.recovery),
-            Triple("the crown cap (BRAND-012)", "fg", tokens.fg),
-            Triple("the crown stem (BRAND-013)", "fg", tokens.fg),
-            Triple("the hand (BRAND-014)", "fg", tokens.fg),
-            Triple("the centre dot (BRAND-015)", "fg", tokens.fg),
+            "the work arc (BRAND-010)" to blue,
+            "the recovery arc (BRAND-011)" to grey,
+            "the crown cap (BRAND-012)" to blue,
+            "the crown stem (BRAND-013)" to blue,
+            "the hand (BRAND-014)" to blue,
+            "the centre dot (BRAND-015)" to blue,
         )
         assertEquals(
             "${drawable.path} must draw exactly the six elements of BRAND-010–015, one <path> each.",
             expected.size,
             paths.length,
         )
-        expected.forEachIndexed { index, (role, tokenName, token) ->
+        expected.forEachIndexed { index, (role, colour) ->
             val path = paths.item(index) as Element
             val paint = path.getAttribute("android:strokeColor").ifEmpty {
                 path.getAttribute("android:fillColor")
             }
-            assertColour(role, tokenName, token, paint)
+            assertColour(role, colour, paint)
         }
     }
 
-    private fun assertColour(role: String, tokenName: String, token: Color, written: String) {
+    private fun assertColour(role: String, colour: Pair<String, Int>, written: String) {
+        val (name, argb) = colour
         assertEquals(
-            "$role is painted \"$written\", which is not the `$tokenName` token " +
-                "(${hex(token.toArgb())}). The icon's colours are the design-system tokens and are " +
-                "never redefined separately (docs/spec/brand.md, first invariant, BRAND-003).",
-            hex(token.toArgb()),
+            "$role is painted \"$written\", which is not the palette's `$name` " +
+                "(${hex(argb)}). The icon's colours are the fixed palette written in " +
+                "docs/spec/brand.md BRAND-002 (first invariant, BRAND-003).",
+            hex(argb),
             hex(parseAndroidColour(written)),
         )
     }

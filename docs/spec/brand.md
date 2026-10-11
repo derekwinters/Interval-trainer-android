@@ -12,13 +12,15 @@ about the drawing is left to whoever implements it.
 
 ## Invariants
 
-> **Invariant — the launcher icon's colours are the design-system tokens, and are never redefined
-> separately.** Every colour the icon paints is one of `DesignSystemColors.Default`'s tokens
-> ([`docs/spec/design-system.md`](design-system.md) `DS-050`), named in `BRAND-002`. Android
-> resources cannot reference a Compose `Color`, so the hex values are written into the icon's XML
-> — but they are a copy of the tokens, never a second palette: a change to a token that the icon
-> does not follow fails `./gradlew test` (`BRAND-003`), so a palette change cannot silently leave
-> the icon behind.
+> **Invariant — the launcher icon's colours are a fixed brand palette, written once in
+> `BRAND-002`, and are not the design-system tokens.** The palette is shared with the owner's other
+> app, Chores (chores-web-android), so the two icons read as a family; it is taken from that app's
+> launcher icon, not from `DesignSystemColors.Default`
+> ([`docs/spec/design-system.md`](design-system.md) `DS-050`). The in-app theme and the icon are
+> independent: a token change does not recolour the icon, and a change to the icon's palette does
+> not touch the tokens. Android resources carry the hex values themselves, and every one must
+> equal its `BRAND-002` value — a resource that drifts from the table fails `./gradlew test`
+> (`BRAND-003`), so the icon cannot silently diverge from this page.
 
 > **Invariant — the master SVG is the source of truth.** `docs/brand/icon.svg` (`BRAND-017`) is
 > the drawing; the foreground, the monochrome layer, both VectorDrawables and the logo's tile are
@@ -33,56 +35,57 @@ about the drawing is left to whoever implements it.
   = 1dp**. Angles are measured **clockwise from 12 o'clock**. The stopwatch is centred at
   **(54, 58)**, 4 units below the canvas centre, so that the crown sits inside the safe zone
   (`BRAND-020`). *(manual: read against the master SVG.)*
-- **BRAND-002** The icon and logo use exactly these colours, each one an existing
-  `DesignSystemColors.Default` token; no new colour is introduced:
+- **BRAND-002** The icon uses exactly these colours, the Chores app's launcher-icon palette
+  (first invariant); the role names below are this page's, not design-system tokens:
 
-  | Role | Token | Hex |
-  |---|---|---|
-  | Background | `bg` | `#121212` |
-  | Work arc | `work` | `#2ECC71` |
-  | Recovery arc | `recovery` | `#F5C518` |
-  | Crown, hand, centre dot, logo wordmark on dark | `fg` | `#F5F5F5` |
-  | Logo wordmark on light | `bg` | `#121212` |
+  | Role | Hex |
+  |---|---|
+  | `background` — the background | `#FFFFFF` |
+  | `blue` — the work arc, crown cap, crown stem, hand and centre dot | `#1361A7` |
+  | `grey` — the recovery arc | `#818589` |
 
-  *(auto: `LauncherIconColourTokenTest.kt`, for the Android resources; the logo SVGs are manual.)*
+  The logo's wordmark is not part of this palette: it is `#F5F5F5` on dark backgrounds and
+  `#121212` on light ones (`BRAND-045`). *(auto: `LauncherIconColourTest.kt`, for the Android
+  resources; the SVGs are manual.)*
 - **BRAND-003** Every colour in `app/src/main/res/values/ic_launcher_background.xml` and
-  `app/src/main/res/drawable/ic_launcher_foreground.xml` equals the `DesignSystemColors.Default`
-  token `BRAND-002` assigns to its role, compared as values, so that a token change the icon does
-  not follow turns `./gradlew test` red. This is the first invariant's check. *(auto:
-  `LauncherIconColourTokenTest.kt`.)*
+  `app/src/main/res/drawable/ic_launcher_foreground.xml` equals the `BRAND-002` hex value for its
+  role, compared as values, so that a resource that drifts from the table turns `./gradlew test`
+  red. The expected values are written in the test as constants copied from `BRAND-002`, never
+  read from `DesignSystemColors`. This is the first invariant's check. *(auto:
+  `LauncherIconColourTest.kt`.)*
 
 ## 2. The drawing
 
 The foreground layer is exactly these six elements, in this order:
 
 - **BRAND-010** **Work arc:** a circle centred (54, 58), radius 23, from 22° to 250° clockwise (a
-  228° sweep). Stroke `work`, width 7, round caps, no fill. Endpoints: start (62.62, 36.67), end
+  228° sweep). Stroke `blue`, width 7, round caps, no fill. Endpoints: start (62.62, 36.67), end
   (32.39, 65.87); large-arc flag 1, sweep flag 1. *(manual.)*
 - **BRAND-011** **Recovery arc:** the same circle, from 270° to 338° clockwise (a 68° sweep).
-  Stroke `recovery`, width 7, round caps, no fill. Endpoints: start (31.00, 58.00), end
+  Stroke `grey`, width 7, round caps, no fill. Endpoints: start (31.00, 58.00), end
   (45.38, 36.67); large-arc flag 0, sweep flag 1. *(manual.)*
 - **BRAND-012** **Crown cap:** a rectangle at x 49, y 22, width 10, height 6, corner radius 2.
-  Fill `fg`. *(manual.)*
+  Fill `blue`. *(manual.)*
 - **BRAND-013** **Crown stem:** a rectangle at x 52, y 27, width 4, height 6, square corners. Fill
-  `fg`. *(manual.)*
+  `blue`. *(manual.)*
 - **BRAND-014** **Hand:** a line from (54, 58) to (66.12, 65.00) — length 14 at 120°, 4 o'clock.
-  Stroke `fg`, width 4, round caps. *(manual.)*
-- **BRAND-015** **Centre dot:** a circle centred (54, 58), radius 3.5. Fill `fg`. *(manual.)*
+  Stroke `blue`, width 4, round caps. *(manual.)*
+- **BRAND-015** **Centre dot:** a circle centred (54, 58), radius 3.5. Fill `blue`. *(manual.)*
 - **BRAND-016** The two gaps between the arcs stay open and are never closed: 32° at the top (338°
   to 22°), which makes room for the crown, and 20° from 250° to 270°, which separates work from
   recovery. Both are measured between arc endpoints, before the round caps are added. *(manual.)*
 - **BRAND-017** `docs/brand/icon.svg` is the master, exactly as written here, element for element
-  and value for value — the background is `bg` filling the whole canvas:
+  and value for value — the background is `background` filling the whole canvas:
 
   ```svg
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">
-    <rect width="108" height="108" fill="#121212"/>
-    <path d="M62.62 36.67 A23 23 0 1 1 32.39 65.87" fill="none" stroke="#2ECC71" stroke-width="7" stroke-linecap="round"/>
-    <path d="M31.00 58.00 A23 23 0 0 1 45.38 36.67" fill="none" stroke="#F5C518" stroke-width="7" stroke-linecap="round"/>
-    <rect x="49" y="22" width="10" height="6" rx="2" fill="#F5F5F5"/>
-    <rect x="52" y="27" width="4" height="6" fill="#F5F5F5"/>
-    <path d="M54 58 L66.12 65" fill="none" stroke="#F5F5F5" stroke-width="4" stroke-linecap="round"/>
-    <circle cx="54" cy="58" r="3.5" fill="#F5F5F5"/>
+    <rect width="108" height="108" fill="#FFFFFF"/>
+    <path d="M62.62 36.67 A23 23 0 1 1 32.39 65.87" fill="none" stroke="#1361A7" stroke-width="7" stroke-linecap="round"/>
+    <path d="M31.00 58.00 A23 23 0 0 1 45.38 36.67" fill="none" stroke="#818589" stroke-width="7" stroke-linecap="round"/>
+    <rect x="49" y="22" width="10" height="6" rx="2" fill="#1361A7"/>
+    <rect x="52" y="27" width="4" height="6" fill="#1361A7"/>
+    <path d="M54 58 L66.12 65" fill="none" stroke="#1361A7" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="54" cy="58" r="3.5" fill="#1361A7"/>
   </svg>
   ```
 
@@ -125,8 +128,8 @@ The logo is a horizontal lockup: the icon tile, then the wordmark "Interval Trai
 - **BRAND-044** The artboard is 72 units tall, with no padding, and exactly as wide as the
   wordmark's ink extends. *(manual.)*
 - **BRAND-045** There are two variants with identical geometry: `logo-dark.svg`, for dark
-  backgrounds, with the wordmark in `fg` (`#F5F5F5`); and `logo-light.svg`, for light backgrounds,
-  with the wordmark in `bg` (`#121212`). The tile is the same in both. *(manual.)*
+  backgrounds, with the wordmark in `#F5F5F5`; and `logo-light.svg`, for light backgrounds, with
+  the wordmark in `#121212`. The tile is the same in both, in the `BRAND-002` palette. *(manual.)*
 
 ## 6. Files
 
@@ -137,8 +140,8 @@ The logo is a horizontal lockup: the icon tile, then the wordmark "Interval Trai
   | `docs/brand/icon.svg` | The master (`BRAND-017`) |
   | `docs/brand/icon-foreground.svg` | Elements `BRAND-010`–`015` only, transparent background, 108 × 108 |
   | `docs/brand/icon-monochrome.svg` | Elements `BRAND-010`–`015` in `#FFFFFF`, transparent, 108 × 108 (`BRAND-030`) |
-  | `docs/brand/logo-dark.svg` | The lockup, `fg` wordmark (`BRAND-045`) |
-  | `docs/brand/logo-light.svg` | The lockup, `bg` wordmark (`BRAND-045`) |
+  | `docs/brand/logo-dark.svg` | The lockup, `#F5F5F5` wordmark (`BRAND-045`) |
+  | `docs/brand/logo-light.svg` | The lockup, `#121212` wordmark (`BRAND-045`) |
 
   *(manual.)*
 - **BRAND-051** The Android resources are an adaptive icon alone — `minSdk` is 26, so it covers
@@ -148,7 +151,7 @@ The logo is a horizontal lockup: the icon tile, then the wordmark "Interval Trai
   |---|---|
   | `app/src/main/res/drawable/ic_launcher_foreground.xml` | VectorDrawable, 108dp × 108dp, viewport 108 × 108, the paths and paints of `icon-foreground.svg`, `strokeLineCap="round"` |
   | `app/src/main/res/drawable/ic_launcher_monochrome.xml` | The same VectorDrawable with every paint `#FFFFFFFF` |
-  | `app/src/main/res/values/ic_launcher_background.xml` | `<color name="ic_launcher_background">#121212</color>` |
+  | `app/src/main/res/values/ic_launcher_background.xml` | `<color name="ic_launcher_background">#FFFFFF</color>` |
   | `app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml` | `<adaptive-icon>` with background `@color/ic_launcher_background`, foreground `@drawable/ic_launcher_foreground` and monochrome `@drawable/ic_launcher_monochrome` |
   | `app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml` | Identical to `ic_launcher.xml` |
 
@@ -171,7 +174,8 @@ The logo is a horizontal lockup: the icon tile, then the wordmark "Interval Trai
   [`docs/spec/service.md`](service.md) `SVC-020`) stays the existing diamond.
 - Play Store listing graphics (the 512 × 512 PNG and the feature graphic) — the app is sideloaded.
 - An in-app splash screen, or any other in-app use of the logo.
-- Any change to the colour tokens themselves (`DS-050`).
+- Any change to the colour tokens themselves (`DS-050`). The in-app theme does not follow the
+  icon's palette (first invariant).
 
 ---
 
@@ -179,7 +183,7 @@ The logo is a horizontal lockup: the icon tile, then the wordmark "Interval Trai
 
 | Section | IDs | Tests |
 |---|---|---|
-| Canvas and colours | BRAND-001–003 | `BRAND-002` (Android resources), `BRAND-003`: `app/src/test/java/com/derekwinters/intervaltrainer/LauncherIconColourTokenTest.kt`; `BRAND-001` *(manual)* |
+| Canvas and colours | BRAND-001–003 | `BRAND-002` (Android resources), `BRAND-003`: `app/src/test/java/com/derekwinters/intervaltrainer/LauncherIconColourTest.kt`; `BRAND-001` *(manual)* |
 | The drawing | BRAND-010–017 | *(manual)* |
 | Safe zone | BRAND-020 | *(manual)* |
 | Monochrome | BRAND-030 | *(manual)* |
@@ -191,5 +195,5 @@ The logo is a horizontal lockup: the icon tile, then the wordmark "Interval Trai
 
 The drawing is a fixed set of numbers, so most of this page is checked by reading the committed
 files against it rather than by a test. What a test can usefully hold is the two places drift
-would be silent: a token change the icon's resources do not follow (`BRAND-003`), and an icon the
+would be silent: an icon resource that drifts from the palette written here (`BRAND-003`), and an icon the
 manifest does not actually resolve to an adaptive icon with a themed layer (`BRAND-052`).
