@@ -9,15 +9,16 @@ import org.w3c.dom.Document
 import org.w3c.dom.Element
 
 /**
- * `docs/spec/brand.md` `BRAND-002`, `BRAND-003` and that page's first invariant: the launcher
- * icon's colours are a fixed brand palette shared with the Chores app, written once in
- * `BRAND-002`, and are not the design-system tokens.
+ * `docs/spec/brand.md` `BRAND-002`–`BRAND-005` and that page's first invariant: the launcher
+ * icon's colours are fixed brand palettes — the light one shared with the Chores app, written once
+ * in `BRAND-002`, and its dark variant in `BRAND-004` — and are not the design-system tokens.
  *
- * The expected values below are copied from the `BRAND-002` table and deliberately not read from
- * `DesignSystemColors`: the in-app theme and the icon are independent. Every colour in the
- * background resource and the foreground VectorDrawable is compared, as a value, with the palette
- * role its element names, so a resource that drifts from the specification fails here. A pure-JVM
- * file read — nothing here needs a simulated runtime.
+ * The expected values below are copied from the `BRAND-002` and `BRAND-004` tables and
+ * deliberately not read from `DesignSystemColors`: the in-app theme and the icon are independent.
+ * Every colour in the background resource and the foreground VectorDrawable, and in their
+ * night-qualified counterparts, is compared, as a value, with the palette role its element names,
+ * so a resource that drifts from the specification fails here. A pure-JVM file read — nothing here
+ * needs a simulated runtime.
  */
 class LauncherIconColourTest {
 
@@ -26,10 +27,31 @@ class LauncherIconColourTest {
     private val blue = "blue" to 0xFF1361A7.toInt()
     private val grey = "grey" to 0xFF818589.toInt()
 
+    /** `BRAND-004`'s dark palette, as `#AARRGGBB`. */
+    private val darkBackground = "dark background" to 0xFF121212.toInt()
+    private val darkBlue = "dark blue" to 0xFF5B9FE0.toInt()
+    private val darkGrey = "dark grey" to 0xFF818589.toInt()
+
     @Test
-    fun `the launcher background colour is the palette's background`() {
-        val resource = File(appModuleDirectory(), "src/main/res/values/ic_launcher_background.xml")
-        assertTrue("No ${resource.path} (BRAND-051).", resource.isFile)
+    fun `the launcher background colour is the palette's background`() =
+        assertBackground("values", background, "BRAND-003")
+
+    @Test
+    fun `the foreground's six elements are painted in their palette roles, in order`() =
+        assertForeground("drawable", blue, grey, "BRAND-003")
+
+    @Test
+    fun `the night launcher background colour is the dark palette's background`() =
+        assertBackground("values-night", darkBackground, "BRAND-005")
+
+    @Test
+    fun `the night foreground's six elements are painted in their dark palette roles, in order`() =
+        assertForeground("drawable-night", darkBlue, darkGrey, "BRAND-005")
+
+    private fun assertBackground(directory: String, colour: Pair<String, Int>, check: String) {
+        val resource =
+            File(appModuleDirectory(), "src/main/res/$directory/ic_launcher_background.xml")
+        assertTrue("No ${resource.path} (BRAND-051, $check).", resource.isFile)
         val colours = parse(resource).getElementsByTagName("color")
         val declared = (0 until colours.length)
             .map { colours.item(it) as Element }
@@ -38,13 +60,18 @@ class LauncherIconColourTest {
             "${resource.path} declares no <color name=\"ic_launcher_background\"> (BRAND-051).",
             declared != null,
         )
-        assertColour("the launcher background", background, declared!!.textContent.trim())
+        assertColour("the launcher background", colour, declared!!.textContent.trim(), check)
     }
 
-    @Test
-    fun `the foreground's six elements are painted in their palette roles, in order`() {
-        val drawable = File(appModuleDirectory(), "src/main/res/drawable/ic_launcher_foreground.xml")
-        assertTrue("No ${drawable.path} (BRAND-051).", drawable.isFile)
+    private fun assertForeground(
+        directory: String,
+        blue: Pair<String, Int>,
+        grey: Pair<String, Int>,
+        check: String,
+    ) {
+        val drawable =
+            File(appModuleDirectory(), "src/main/res/$directory/ic_launcher_foreground.xml")
+        assertTrue("No ${drawable.path} (BRAND-051, $check).", drawable.isFile)
         val paths = parse(drawable).getElementsByTagName("path")
         val expected = listOf(
             "the work arc (BRAND-010)" to blue,
@@ -64,16 +91,21 @@ class LauncherIconColourTest {
             val paint = path.getAttribute("android:strokeColor").ifEmpty {
                 path.getAttribute("android:fillColor")
             }
-            assertColour(role, colour, paint)
+            assertColour("${drawable.path}: $role", colour, paint, check)
         }
     }
 
-    private fun assertColour(role: String, colour: Pair<String, Int>, written: String) {
+    private fun assertColour(
+        role: String,
+        colour: Pair<String, Int>,
+        written: String,
+        check: String,
+    ) {
         val (name, argb) = colour
         assertEquals(
             "$role is painted \"$written\", which is not the palette's `$name` " +
-                "(${hex(argb)}). The icon's colours are the fixed palette written in " +
-                "docs/spec/brand.md BRAND-002 (first invariant, BRAND-003).",
+                "(${hex(argb)}). The icon's colours are the fixed palettes written in " +
+                "docs/spec/brand.md BRAND-002 and BRAND-004 (first invariant, $check).",
             hex(argb),
             hex(parseAndroidColour(written)),
         )
