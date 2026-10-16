@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/derekwinters/Interval-trainer-android/compare/v0.6.0...v0.7.0) (2026-10-16)
+
+
+### Features
+
+* add a dark mode variant of the launcher icon ([#187](https://github.com/derekwinters/Interval-trainer-android/issues/187)) ([ff51cd3](https://github.com/derekwinters/Interval-trainer-android/commit/ff51cd3a63876e31a3ae24c51a435ed26535fd0e))
+
 ## [0.6.0](https://github.com/derekwinters/Interval-trainer-android/compare/v0.5.0...v0.6.0) (2026-10-11)
 
 
