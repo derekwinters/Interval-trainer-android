@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- docs/spec/brand.md BRAND-004, BRAND-051: the dark palette's background, used in dark theme
+         in place of values/ic_launcher_background.xml. Independent of DesignSystemColors and
+         checked against BRAND-004 by LauncherIconColourTest (brand.md's first invariant). -->
+    <color name="ic_launcher_background">#121212</color>
+</resources>
