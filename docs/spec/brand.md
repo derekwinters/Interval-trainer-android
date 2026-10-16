@@ -1,7 +1,8 @@
 # Specification — Brand (`BRAND`)
 
 The app's launcher icon and its horizontal logo: what they draw, in which colours, how the icon
-survives a launcher's mask and Android's themed-icon mode, and which files carry them.
+survives a launcher's mask and Android's themed-icon mode, how it changes in dark theme, and which
+files carry them.
 
 The design is the one chosen from the concept rounds on
 [#156](https://github.com/derekwinters/Interval-trainer-android/issues/156): **a stopwatch whose
@@ -13,19 +14,27 @@ about the drawing is left to whoever implements it.
 ## Invariants
 
 > **Invariant — the launcher icon's colours are a fixed brand palette, written once in
-> `BRAND-002`, and are not the design-system tokens.** The palette is shared with the owner's other
-> app, Chores (chores-web-android), so the two icons read as a family; it is taken from that app's
-> launcher icon, not from `DesignSystemColors.Default`
-> ([`docs/spec/design-system.md`](design-system.md) `DS-050`). The in-app theme and the icon are
+> `BRAND-002`, with its dark variant written once in `BRAND-004`, and are not the design-system
+> tokens.** The light palette is shared with the owner's other app, Chores (chores-web-android), so
+> the two icons read as a family; it is taken from that app's launcher icon, not from
+> `DesignSystemColors.Default` ([`docs/spec/design-system.md`](design-system.md) `DS-050`). The in-app theme and the icon are
 > independent: a token change does not recolour the icon, and a change to the icon's palette does
 > not touch the tokens. Android resources carry the hex values themselves, and every one must
-> equal its `BRAND-002` value — a resource that drifts from the table fails `./gradlew test`
-> (`BRAND-003`), so the icon cannot silently diverge from this page.
+> equal its `BRAND-002` value — or, in a night-qualified resource, its `BRAND-004` value — and a
+> resource that drifts from its table fails `./gradlew test` (`BRAND-003`, `BRAND-005`), so the
+> icon cannot silently diverge from this page.
 
 > **Invariant — the master SVG is the source of truth.** `docs/brand/icon.svg` (`BRAND-017`) is
 > the drawing; the foreground, the monochrome layer, both VectorDrawables and the logo's tile are
 > derived from it and never drawn independently. A change to the icon is a change to the master
 > first.
+
+> **Invariant — the dark variant differs from the light icon in colour only.** The dark master
+> `docs/brand/icon-dark.svg` (`BRAND-018`) is `icon.svg` with each paint swapped for its
+> `BRAND-004` counterpart, and the night foreground drawable is the light one with the same swap:
+> the same elements, in the same order, with the same geometry, stroke widths and caps. A change to
+> the drawing is made in `icon.svg` and carried to both variants; the dark one is never redrawn on
+> its own.
 
 ---
 
@@ -52,6 +61,26 @@ about the drawing is left to whoever implements it.
   role, compared as values, so that a resource that drifts from the table turns `./gradlew test`
   red. The expected values are written in the test as constants copied from `BRAND-002`, never
   read from `DesignSystemColors`. This is the first invariant's check. *(auto:
+  `LauncherIconColourTest.kt`.)*
+- **BRAND-004** In dark theme the icon uses exactly these colours instead, one for each
+  `BRAND-002` role; the role names are this page's, not design-system tokens:
+
+  | Role | Light (`BRAND-002`) | Dark |
+  |---|---|---|
+  | `background` — the background | `#FFFFFF` | `#121212` |
+  | `blue` — the work arc, crown cap, crown stem, hand and centre dot | `#1361A7` | `#5B9FE0` |
+  | `grey` — the recovery arc | `#818589` | `#818589` |
+
+  The brand blue `#1361A7` is only 2.9:1 against `#121212`, so the dark variant uses the lighter
+  `#5B9FE0` (6.7:1); the grey is unchanged (5.0:1). The palette was chosen by the owner from the
+  mockups on [#185](https://github.com/derekwinters/Interval-trainer-android/issues/185) (variant
+  B, "Charcoal"). *(auto: `LauncherIconColourTest.kt`, for the Android resources; the SVG is
+  manual.)*
+- **BRAND-005** Every colour in `app/src/main/res/values-night/ic_launcher_background.xml` and
+  `app/src/main/res/drawable-night/ic_launcher_foreground.xml` equals the `BRAND-004` dark hex
+  value for its role, compared as values, so that a night resource that drifts from the table
+  turns `./gradlew test` red. As in `BRAND-003`, the expected values are constants in the test
+  copied from `BRAND-004`, never read from `DesignSystemColors`. *(auto:
   `LauncherIconColourTest.kt`.)*
 
 ## 2. The drawing
@@ -90,6 +119,23 @@ The foreground layer is exactly these six elements, in this order:
   ```
 
   *(manual.)*
+- **BRAND-018** `docs/brand/icon-dark.svg` is the dark variant's master: `BRAND-017` with every
+  paint replaced by its `BRAND-004` dark value (the second and third invariants), exactly as
+  written here:
+
+  ```svg
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">
+    <rect width="108" height="108" fill="#121212"/>
+    <path d="M62.62 36.67 A23 23 0 1 1 32.39 65.87" fill="none" stroke="#5B9FE0" stroke-width="7" stroke-linecap="round"/>
+    <path d="M31.00 58.00 A23 23 0 0 1 45.38 36.67" fill="none" stroke="#818589" stroke-width="7" stroke-linecap="round"/>
+    <rect x="49" y="22" width="10" height="6" rx="2" fill="#5B9FE0"/>
+    <rect x="52" y="27" width="4" height="6" fill="#5B9FE0"/>
+    <path d="M54 58 L66.12 65" fill="none" stroke="#5B9FE0" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="54" cy="58" r="3.5" fill="#5B9FE0"/>
+  </svg>
+  ```
+
+  *(manual.)*
 
 ## 3. Safe zone
 
@@ -105,7 +151,8 @@ The foreground layer is exactly these six elements, in this order:
 - **BRAND-030** The monochrome layer, which Android 13 and later use for themed icons, is the same
   six elements in the same geometry, every one painted `#FFFFFF`, on a transparent background.
   Android reads only its alpha. Both gaps of `BRAND-016` stay open in it, so the work/recovery
-  split still reads in one colour. *(manual.)*
+  split still reads in one colour. The monochrome layer has no dark variant: Android 13 and later
+  colour themed icons from the system theme themselves. *(manual.)*
 
 ## 5. The logo
 
@@ -138,6 +185,7 @@ The logo is a horizontal lockup: the icon tile, then the wordmark "Interval Trai
   | File | Content |
   |---|---|
   | `docs/brand/icon.svg` | The master (`BRAND-017`) |
+  | `docs/brand/icon-dark.svg` | The dark variant's master (`BRAND-018`) |
   | `docs/brand/icon-foreground.svg` | Elements `BRAND-010`–`015` only, transparent background, 108 × 108 |
   | `docs/brand/icon-monochrome.svg` | Elements `BRAND-010`–`015` in `#FFFFFF`, transparent, 108 × 108 (`BRAND-030`) |
   | `docs/brand/logo-dark.svg` | The lockup, `#F5F5F5` wordmark (`BRAND-045`) |
@@ -152,10 +200,15 @@ The logo is a horizontal lockup: the icon tile, then the wordmark "Interval Trai
   | `app/src/main/res/drawable/ic_launcher_foreground.xml` | VectorDrawable, 108dp × 108dp, viewport 108 × 108, the paths and paints of `icon-foreground.svg`, `strokeLineCap="round"` |
   | `app/src/main/res/drawable/ic_launcher_monochrome.xml` | The same VectorDrawable with every paint `#FFFFFFFF` |
   | `app/src/main/res/values/ic_launcher_background.xml` | `<color name="ic_launcher_background">#FFFFFF</color>` |
+  | `app/src/main/res/drawable-night/ic_launcher_foreground.xml` | `drawable/ic_launcher_foreground.xml` with the paints of `icon-dark.svg` (`BRAND-018`): `#FF5B9FE0` for `blue`, `#FF818589` for `grey` |
+  | `app/src/main/res/values-night/ic_launcher_background.xml` | `<color name="ic_launcher_background">#121212</color>` |
   | `app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml` | `<adaptive-icon>` with background `@color/ic_launcher_background`, foreground `@drawable/ic_launcher_foreground` and monochrome `@drawable/ic_launcher_monochrome` |
   | `app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml` | Identical to `ic_launcher.xml` |
 
-  *(manual.)*
+  The `-night` resources take the same names as their light counterparts, so the one
+  `@mipmap/ic_launcher` resolves to the dark variant when the device is in dark theme and to the
+  light one otherwise; there is no second `<adaptive-icon>`, and the monochrome layer has no
+  `-night` counterpart. *(manual.)*
 - **BRAND-052** `AndroidManifest.xml`'s `<application>` declares
   `android:icon="@mipmap/ic_launcher"` and `android:roundIcon="@mipmap/ic_launcher_round"`, so the
   application's icon resolves to an `AdaptiveIconDrawable` on API 26 and later, and on API 33 and
@@ -167,6 +220,10 @@ The logo is a horizontal lockup: the icon tile, then the wordmark "Interval Trai
 - **BRAND-060** On a real launcher the icon shows with the crown fully visible inside a circular
   mask, and with themed icons turned on it shows the monochrome form. *(manual: on a device, by the
   repository owner.)*
+- **BRAND-061** With the device in dark theme the launcher shows the dark variant (`BRAND-004`),
+  and in light theme the light icon. Launchers resolve and cache icons themselves, so whether the
+  icon changes as soon as the theme switches, or only after the launcher reloads it, varies by
+  launcher and is not a failure. *(manual: on a device, by the repository owner.)*
 
 ## Out of scope
 
@@ -183,17 +240,18 @@ The logo is a horizontal lockup: the icon tile, then the wordmark "Interval Trai
 
 | Section | IDs | Tests |
 |---|---|---|
-| Canvas and colours | BRAND-001–003 | `BRAND-002` (Android resources), `BRAND-003`: `app/src/test/java/com/derekwinters/intervaltrainer/LauncherIconColourTest.kt`; `BRAND-001` *(manual)* |
-| The drawing | BRAND-010–017 | *(manual)* |
+| Canvas and colours | BRAND-001–005 | `BRAND-002`, `BRAND-004` (Android resources), `BRAND-003`, `BRAND-005`: `app/src/test/java/com/derekwinters/intervaltrainer/LauncherIconColourTest.kt`; `BRAND-001` *(manual)* |
+| The drawing | BRAND-010–018 | *(manual)* |
 | Safe zone | BRAND-020 | *(manual)* |
 | Monochrome | BRAND-030 | *(manual)* |
 | The logo | BRAND-040–045 | *(manual)* |
 | Files | BRAND-050–052 | `BRAND-052`: `app/src/test/java/com/derekwinters/intervaltrainer/LauncherIconTest.kt`; the rest *(manual)* |
-| On a device | BRAND-060 | *(manual)* |
+| On a device | BRAND-060–061 | *(manual)* |
 
-**23 requirements, 3 `auto` and 20 `manual`.**
+**27 requirements, 5 `auto` and 22 `manual`.**
 
 The drawing is a fixed set of numbers, so most of this page is checked by reading the committed
 files against it rather than by a test. What a test can usefully hold is the two places drift
-would be silent: an icon resource that drifts from the palette written here (`BRAND-003`), and an icon the
-manifest does not actually resolve to an adaptive icon with a themed layer (`BRAND-052`).
+would be silent: an icon resource, light or night, that drifts from the palette written here
+(`BRAND-003`, `BRAND-005`), and an icon the manifest does not actually resolve to an adaptive icon
+with a themed layer (`BRAND-052`).
